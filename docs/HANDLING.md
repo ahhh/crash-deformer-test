@@ -12,13 +12,13 @@ Reverse steers like a real car: holding A while backing swings the tail left.
 Every class runs the same stat budget: whatever it gains on the straights it pays back in the corners
 (`vehicle-classes.test.ts` laps each class on a 313 m mixed loop with two 8 m hairpins and two 24 m sweepers).
 
-| Class | Body | Mass | Top | Gears | Turn (rad/s) | Grip (m/s²) | Drift | Durability |
-|---|---|---|---|---|---|---|---|---|
-| Sedan | sedan, hatchback, wagon | 1400 kg | 200 km/h | 5 | 1.55 | 39 | 0.35 | 1.0 |
-| Muscle | coupe | 1650 kg | 210 km/h | 5 | 1.36 | 35.5 | 0.85 | 1.15 |
-| Truck | pickup | 2100 kg | 195 km/h | 4 | 1.50 | 38.5 | 0.25 | 1.25 |
-| Monster | pickup on big wheels, lifted body | 2900 kg | 190 km/h | 4 | 1.30 | 37 | 0.20 | 1.7 |
-| Police | the sedan's drive on the police body | 1400 kg | 200 km/h | 5 | 1.55 | 39 | 0.35 | 1.3 (AI units only) |
+| Class | Body | Mass | Top | Gears | Turn (rad/s) | Grip (m/s²) | Brake (m/s²) | Drift | Durability |
+|---|---|---|---|---|---|---|---|---|---|
+| Sedan | sedan, hatchback, wagon | 1400 kg | 200 km/h | 5 | 1.55 | 39 | 28 | 0.35 | 1.0 |
+| Muscle | coupe | 1650 kg | 210 km/h | 5 | 1.36 | 35.5 | 26 | 0.85 | 1.15 |
+| Truck | pickup | 2100 kg | 195 km/h | 4 | 1.50 | 41 | 27 | 0.25 | 1.25 |
+| Monster | pickup on big wheels, lifted body | 2900 kg | 190 km/h | 4 | 1.30 | 37 | 26 | 0.20 | 1.7 |
+| Police | the sedan's drive on the police body | 1400 kg | 200 km/h | 5 | 1.55 | 39 | 28 | 0.35 | 1.3 (AI units only) |
 
 - **Drift** is how readily boost at full lock kicks the tail out and how long the slide runs before the assist catches it.
 - **Mass** sets the launch and brake feel through `gears` / `brake`; collision masses are the shared rig's.
