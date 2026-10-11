@@ -9,6 +9,7 @@ import { NO_CAR_PICK, NO_PERSON_PICK, CAR_SPRAY, PERSON_SPRAY } from "../match/l
 import type { Ejection } from "../vehicle/ejection.ts";
 import { NetPlay } from "./net-play.ts";
 import { PHASES, type NetGame } from "./net-ports.ts";
+import { RESULTS_HOLD } from "./net-constants.ts";
 import { FRAME_MS, Hub } from "./net-hub.test-util.ts";
 
 /**
@@ -229,5 +230,22 @@ describe("given a host and a guest waiting in the Havana lobby", () => {
       assert.notEqual(w.race.phase, null, "a race session");
     }
     assert.ok(s.hw.race.hud().standings.some((r) => r.name === "Zed"), "the guest is seated as a racer, under its name");
+  });
+
+  it("when a private game ends and its results have been shown, then the room is back in the Havana lobby on both worlds: free drive, no session, the Go gate up", () => {
+    const s = lobby();
+    s.host.go();
+    s.step(40);
+    s.hw.race.command({ type: "end" });
+    s.step(30 * (RESULTS_HOLD - 1));
+    assert.equal(s.hw.race.phase, "finished", "the results are still showing before the hold is over");
+    assert.equal(s.host.status().gate, null, "and the lobby is not up yet");
+    s.step(60);
+    for (const [who, w] of [["host", s.hw], ["guest", s.gw]] as const) {
+      assert.equal(w.race.free, true, `${who}: free drive`);
+      assert.equal(w.race.phase, null, `${who}: no session`);
+      assert.equal(w.race.courseId, "havana", `${who}: the course`);
+    }
+    assert.equal(s.host.status().gate?.kind, "race", "the Go switch is up again");
   });
 });

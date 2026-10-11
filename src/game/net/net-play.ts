@@ -613,7 +613,7 @@ export class NetPlay {
 
   private hostFrame(wallDt: number, t: NetTransport): void {
     const race = this.game.race();
-    if (this.publicKind) this.runPublic(this.publicKind, wallDt);
+    this.runRoom(wallDt);
     this.expireInputs(race);
     this.sendAcc += wallDt;
     if (this.sendAcc < 1 / SEND_HZ) return;
@@ -692,18 +692,20 @@ export class NetPlay {
   }
 
   /**
-   * A public match on the host: the lobby waits for `minPlayers` players, then counts down (`LOBBY_S`, sooner once the room is full)
-   * and starts the match with every peer seated and the AI in the empty slots; the Go switch starts it early. A finished match shows its
-   * result for `RESULTS_HOLD` s, then everyone is back in the lobby.
+   * The host's room cycle. A public match: the lobby waits for `minPlayers` players, then counts down (`LOBBY_S`, sooner once the room is
+   * full) and starts the match with every peer seated and the AI in the empty slots; the Go switch starts it early. A private room's lobby
+   * waits for Go. A finished game of either shows its result for `RESULTS_HOLD` s, then everyone is back in the lobby.
    */
-  private runPublic(kind: PublicKind, wallDt: number): void {
+  private runRoom(wallDt: number): void {
+    const kind = this.publicKind;
     if (this.lobbyOn) {
+      if (!kind) return;
       // A room short of players holds its countdown at the full `LOBBY_S`.
       this.lobbyLeft = this.slots.size + 1 < this.minPlayers ? LOBBY_S : (this.lobbyLeft ?? LOBBY_S) - wallDt;
       if (this.lobbyLeft <= 0 || this.slots.size >= ROOM_MAX - 1) this.startGame();
       return;
     }
-    if (matchStage(this.game, kind) !== "over") {
+    if (matchStage(this.game, kind ?? (this.lobbyKind === "derby" ? "derby" : "race")) !== "over") {
       this.lobbyLeft = null;
       this.finishedFor = 0;
       return;
@@ -711,7 +713,7 @@ export class NetPlay {
     this.finishedFor += wallDt;
     if (this.finishedFor < RESULTS_HOLD) return;
     this.finishedFor = 0;
-    this.lobbyLeft = LOBBY_S;
+    this.lobbyLeft = kind ? LOBBY_S : null;
     this.openLobby();
   }
 
