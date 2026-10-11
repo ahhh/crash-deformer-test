@@ -42,6 +42,13 @@ const TOP_BIAS = 0.015;
 const RIM = 0.1;
 /** How far (m) under its leaf's inside a rim node may lie and still be the leaf's (a crushed hood's crater wall is 0.08 m under the hood; an edge rolling away 0.1-0.3 m). */
 const RIM_DROP = 0.1;
+/**
+ * How far (m) a rim node may lie under a neighbour node of its leaf and still be the edge rolling away: a step of more than this
+ * in one node (5 cm) is a wall (a head-on's crushed nose face, 0.13-0.23 m in 5 cm; an edge rolling away 0.1-0.3 m in 0.15 m steps
+ * less), whose foot is the surface there and keeps a leaf of its
+ * own, not the leaf over the wall's top.
+ */
+const CLIFF = 0.1;
 /** Floats of a node set's moments: count, Σy, Σy² (`misses`), and how many of its nodes are inside the rim. */
 const MOMENTS = 4;
 /** `ProxyFitter.open` with no gone pane. */
@@ -121,6 +128,8 @@ export class ProxyFitter {
   private readonly right = new Float64Array(MOMENTS);
   private cutAlongI = true;
   private plan: Float32Array = new Float32Array(0);
+  /** The lattice's nodes along u (`CageStyle.nu`) of the fit in hand: a node's neighbours in v are `nu` away. */
+  private nu = 0;
   /** Per node, 1 where it lies under a pane that is not upright (`markGlass`), standing or gone: the glass, or its opening, is the surface there, not a leaf. */
   private readonly glassNode = new Uint8Array(LINES * LINES);
   /** The node lines (x min, x max, z min, z max) under the gone panes: the opening a dummy falls through, over which the lower box runs on. */
@@ -133,12 +142,20 @@ export class ProxyFitter {
 
   /**
    * Whether node `n` counts in leaf `k`'s spread: one the leaf holds that is inside the rim, or in it and no more than `RIM_DROP`
-   * under the inside's highest nor `LEAF_RANGE` over it (a crater's wall, not the edge rolling away or a stray vertex), or any it
-   * holds when it has none inside the rim (a stray row along an outline, which a cut never splits off a leaf with an inside).
+   * under the inside's highest nor `LEAF_RANGE` over it (a crater's wall, not the edge rolling away or a stray vertex), or the foot
+   * of a wall (an outline node more than `CLIFF` under a neighbour: a crushed nose's face, not the slope of a bed's tailgate), or
+   * any it holds when it has none inside the rim (a stray row along an outline, which a cut never splits off a leaf with an inside).
    */
   private counts(k: number, f: CageFields, n: number): boolean {
     if (!this.holds(k, f, n)) return false;
-    return this.rim[k] === 1 || this.plan[n]! <= -RIM || (f.top[n]! >= this.floor[k]! && f.top[n]! <= this.ceil[k]!);
+    if (this.rim[k] === 1 || this.plan[n]! <= -RIM || (f.top[n]! >= this.floor[k]! && f.top[n]! <= this.ceil[k]!)) return true;
+    if (f.covered[n - 1] !== 0 && f.covered[n + 1] !== 0 && f.covered[n - this.nu] !== 0 && f.covered[n + this.nu] !== 0) return false;
+    return this.under(k, f, n, n - 1) || this.under(k, f, n, n + 1) || this.under(k, f, n, n - this.nu) || this.under(k, f, n, n + this.nu);
+  }
+
+  /** Whether node `n` lies more than `CLIFF` under node `m`, which leaf `k` holds. */
+  private under(k: number, f: CageFields, n: number, m: number): boolean {
+    return m >= 0 && m < f.top.length && this.holds(k, f, m) && f.top[m]! - f.top[n]! > CLIFF;
   }
 
   /**
@@ -231,7 +248,8 @@ export class ProxyFitter {
       for (let i = this.i0[k]!; i <= this.i1[k]!; i++) {
         const y = this.sample(k, f, j * nu + i);
         if (Number.isNaN(y)) continue;
-        const inside = this.plan[j * nu + i]! <= -RIM ? 1 : 0;
+        // A node counted under the floor is a wall's foot (`counts`): a surface of its own, which a cut may split off.
+        const inside = this.plan[j * nu + i]! <= -RIM || (this.glassNode[j * nu + i] === 0 && y < this.floor[k]!) ? 1 : 0;
         for (let axis = 0; axis < 2; axis++) {
           const o = (axis * LINES + (axis === 0 ? i - this.i0[k]! : j - this.j0[k]!)) * MOMENTS;
           this.line[o]!++;
@@ -377,6 +395,7 @@ export class ProxyFitter {
   fit(f: CageFields, style: CageStyle, plan: Float32Array, glass: Float32Array, paneBits: number): void {
     const { nu, nv, step, u0, v0 } = style;
     this.plan = plan;
+    this.nu = nu;
     this.markGlass(f, style, glass, paneBits);
     let leaves = 0;
     for (let side = 0; side < 2; side++) {
