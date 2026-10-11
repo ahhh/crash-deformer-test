@@ -7,6 +7,8 @@
  "src/game/world/race-eject-false.test.ts": 83,
  "src/game/world/race-eject-false-part3.test.ts": 59,
  "src/game/world/race-eject-false-part2.test.ts": 40,
+ "src/game/world/survival-coop-dropin-2.test.ts": 83,
+ "src/game/world/survival-coop-dropin-1.test.ts": 55,
  "src/game/world/survival.test.ts": 45,
  "src/game/world/race-contact.test.ts": 44,
  "src/game/present/spectate-cam.test.ts": 29,
