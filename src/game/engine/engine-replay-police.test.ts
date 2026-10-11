@@ -21,7 +21,7 @@ const SEEDS = [1, 2, 3, 4, 5];
 
 describe("given the oval race with 11 AI and police on, where two racers are put head-on beside a cop that has just been placed on a stakeout spot", () => {
   for (const seed of SEEDS) {
-    it(`when seed ${seed}'s kept clip holding that cop is replayed, then every car is where the live sim had it at every step`, (t) => {
+    it(`when seed ${seed}'s kept clips holding that cop are replayed, then every car is where the live sim had it at every step`, (t) => {
       const w = makeWorld();
       w.race.enter();
       const track = new Track(oval);
@@ -62,16 +62,18 @@ describe("given the oval race with 11 AI and police on, where two racers are put
           maxFrames: (WAIT_S + 30) * 60,
         });
         assert.ok(cop >= 0, `seed ${seed}: no cop was put on a spot in ${WAIT_S} s of the police race`);
-        const rec = recs.find((r) => r.clip.cars.some((c) => c.slot === cop));
-        assert.ok(rec, `seed ${seed}: no kept clip holds cop ${cop} (clips: ${recs.map((r) => r.clip.cars.map((c) => c.slot).join(",")).join(" | ")})`);
-        const { clip } = rec;
-        const a = agreement(rec, () => w.race.resetProps());
-        t.diagnostic(
-          `cop ${cop} of ${clip.cars.length} clip cars, ${(clipBytes(clip) / 1024).toFixed(0)} KB, ${clip.keyStep.length} keyframes, impact at ${clip.firstImpact.toFixed(2)} s: ` +
-            `${a.steps} steps, worst pose ${a.pose.max} m, velocity ${a.vel.max} m/s, crush ${a.crush.max} m, wreck flags differ ${a.wreckMismatch}`,
-        );
-        assert.ok(a.steps >= 500, `${a.steps} steps compared`);
-        assert.deepEqual({ pose: a.pose.max, vel: a.vel.max, crush: a.crush.max, wreck: a.wreckMismatch }, { pose: 0, vel: 0, crush: 0, wreck: 0 }, `seed ${seed}: a car strays from the live sim (m, m/s, m)`);
+        const withCop = recs.filter((r) => r.clip.cars.some((c) => c.slot === cop));
+        assert.ok(withCop.length > 0, `seed ${seed}: no kept clip holds cop ${cop} (clips: ${recs.map((r) => r.clip.cars.map((c) => c.slot).join(",")).join(" | ")})`);
+        for (const rec of withCop) {
+          const { clip } = rec;
+          const a = agreement(rec, () => w.race.resetProps());
+          t.diagnostic(
+            `cop ${cop} of ${clip.cars.length} clip cars, ${(clipBytes(clip) / 1024).toFixed(0)} KB, ${clip.keyStep.length} keyframes, impact at ${clip.firstImpact.toFixed(2)} s: ` +
+              `${a.steps} steps, worst pose ${a.pose.max} m, velocity ${a.vel.max} m/s, crush ${a.crush.max} m, wreck flags differ ${a.wreckMismatch}`,
+          );
+          assert.ok(a.steps >= 500, `${a.steps} steps compared`);
+          assert.deepEqual({ pose: a.pose.max, vel: a.vel.max, crush: a.crush.max, wreck: a.wreckMismatch }, { pose: 0, vel: 0, crush: 0, wreck: 0 }, `seed ${seed}: a car strays from the live sim (m, m/s, m)`);
+        }
       } finally {
         w.race.exit();
         setGround(null);
