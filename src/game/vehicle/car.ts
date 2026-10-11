@@ -812,11 +812,13 @@ function fitMasses(car: DeformableCar, at: THREE.Vector3, spin: THREE.Vector3): 
  * the mass ground drag. The drag ramps from the hit, not from the last car contact: a pair grinding
  * together kept resetting the contact timer and slid ~3× as far as one wreck alone, and a frictionless
  * pair pushed long enough lets the bullet drive through the struck car (T-bone). A driven
- * car (under power, drivetrain alive) does not slide: its tyres are applyDrive's (`groundMasses` skips it too).
+ * car does not slide: its tyres are applyDrive's (`groundMasses` skips it too). A car on its masses is driven while its throttle is
+ * recent (`powered`); one whose masses are at rest has no clock that runs (`elapsed` stands still), so its pedal says: held, it is driven.
  * A car whose drivetrain died under power keeps the contact ramp; `dragGround` skips an airborne wreck.
  */
 export function bleedAfterSlide(car: DeformableCar, dt: number): void {
-  if (!car.crashed || (car.deform.powered && car.deform.drivetrainAlive)) return;
+  const driven = car.deform.massActive ? car.deform.powered : car.drive.throttle !== 0 || car.drive.neutral;
+  if (!car.crashed || (driven && car.deform.drivetrainAlive)) return;
   const q = car.deform.quietTime();
   const p = car.group.position;
   // × the course surface's friction where the wreck slides (1 on the flat sandbox ground).
