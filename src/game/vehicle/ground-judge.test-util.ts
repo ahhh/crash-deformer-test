@@ -12,7 +12,7 @@ import type { VehicleClassId } from "./vehicle-classes.ts";
  * one-line summary of the failing cells.
  */
 
-/** A site's bounds. `edge` sites (a car across a ramp's side, over its back wall) have no smooth ground to follow. */
+/** A site's bounds. `edge` sites (a car across a ramp's side or lip, over its back wall) have no pose to judge: the hubs straddle a step, so no pitch, roll or tilt is the right one (the clearance, hull, wall and slide bounds hold). */
 type Bounds = {
   /** Tyre clearance within ±this (m) of the ground: further below is sunk; within it the tyre rests on the ground. */
   gap: number;
@@ -23,19 +23,16 @@ type Bounds = {
   pen: number;
   /** Deepest underside point in a wall (m): a car pushed clear of a ramp's side is 0. */
   overlap: number;
-  /** Body tilt from the ground normal, and pitch / roll error against the ground under the hubs (deg). */
+  /** Body tilt from the ground normal, and pitch / roll error against the ground under the hubs (deg). The ground under the hubs
+   *  need not be one plane: tilt, pitch and roll each also get `spread` (deg: the most a hub's ground normal differs from the mean
+   *  one, a curved crest or a bend under the car) added, and pitch / roll the twist `atan(warp / (2 · lever))` (a body rests on any
+   *  three hubs, so with one hub `warp` m off the plane of the other three it may sit that far off the mean pitch / roll). */
   pose: number;
-  /** Ground under the four hubs is one plane when its hub heights are within `warp` (m) of it and its hub normals within
-   *  `spread` (deg) of their mean; on a crease or a bend between the axles no pose is the right one, so pitch / roll error
-   *  is waived there, and the tilt from the mean normal gets that spread added (the clearance, hull and wall bounds hold). */
-  warp: number;
-  spread: number;
-  /** Most the car may move (m) on ground at most `slideSlope` (deg) steep. */
+  /** Most the car may move (m). */
   slide: number;
-  slideSlope: number;
 };
-const PLAIN: Bounds = { gap: 0.02, hull: 0.02, pen: 0.01, overlap: 0.02, pose: 1.5, warp: 0.02, spread: 3, slide: 0.5, slideSlope: 20 };
-export const BOUNDS = { plain: PLAIN, edge: { ...PLAIN, pose: Infinity, slide: Infinity } } as const;
+const PLAIN: Bounds = { gap: 0.02, hull: 0.02, pen: 0.01, overlap: 0.02, pose: 1.5, slide: 0.5 };
+export const BOUNDS = { plain: PLAIN, edge: { ...PLAIN, pose: Infinity } } as const;
 export type Kind = keyof typeof BOUNDS;
 
 export type Heading = readonly [label: string, yaw: number];
@@ -54,8 +51,6 @@ export const ALONG: readonly Heading[] = [
   ["t+180°", Math.PI],
 ];
 
-const planar = (b: Bounds, r: Cell) => r.warp <= b.warp && r.spread <= b.spread;
-
 /**
  * Body tilt (deg) past which a car has rolled onto its side or roof. It rests there, so no tyre, pose or slide bound applies (its
  * tyres are metres up), but its hull must still not be in the ground or a wall: a car lying inside a ramp is a failure.
@@ -69,35 +64,31 @@ export function judge(kind: Kind, r: Cell): string[] {
   if (r.pen > b.pen + r.crush) flags.push("pen");
   if (r.overlap > b.overlap + r.crush) flags.push("overlap");
   if (r.tilt > ROLLED) return flags;
-  // A tyre turned `tilt` off the ground it stands on (a car across an edge) digs its outer tread shoulder `shoulder · sin(tilt)` in.
-  const gap = b.gap + r.shoulder * Math.sin(r.tilt / DEG);
-  if (r.gaps.some((g) => g < -gap)) flags.push("sunk");
+  if (r.gaps.some((g) => g < -b.gap)) flags.push("sunk");
   // At rest, the body is held by whatever rests on the ground: a tyre, or the hull (a belly across an edge with the tyres hanging, a
   // keel on the floor). Nothing resting is a float.
-  if (!r.gaps.some((g) => Math.abs(g) <= gap) && !(r.hull <= b.hull)) flags.push("float");
-  if (r.warp <= b.warp) {
-    if (r.tilt > b.pose + r.spread) flags.push("tilt");
-    if (planar(b, r) && Math.abs(r.pitch - r.groundPitch) > b.pose) flags.push("pitch");
-    if (planar(b, r) && Math.abs(r.roll - r.groundRoll) > b.pose) flags.push("roll");
-  }
-  if (r.slope <= b.slideSlope && r.slide > b.slide) flags.push("slide");
+  if (!r.gaps.some((g) => Math.abs(g) <= b.gap) && !(r.hull <= b.hull)) flags.push("float");
+  if (r.tilt > b.pose + r.spread) flags.push("tilt");
+  if (Math.abs(r.pitch - r.groundPitch) > b.pose + r.spread + Math.atan(r.warp / (2 * r.wheelbase)) * DEG) flags.push("pitch");
+  if (Math.abs(r.roll - r.groundRoll) > b.pose + r.spread + Math.atan(r.warp / (2 * r.track)) * DEG) flags.push("roll");
+  if (r.slide > b.slide) flags.push("slide");
   return flags;
 }
 
-/** Run every cell of `sites`, print the matrix, and fail when more than `known` cells break their bounds. */
-export function report(t: TestContext, sites: readonly Site[], known = 0): void {
+/** Run every cell of `sites`, print the matrix, and fail when any cell breaks its bounds. */
+export function report(t: TestContext, sites: readonly Site[]): void {
   const rows = [MATRIX_HEAD];
   const counts = new Map<string, number>();
   const failing: string[] = [];
   let cells = 0;
-  let waived = 0;
+  let edge = 0;
   let rolled = 0;
   for (const site of sites) {
     for (const cls of site.classes) {
       const label = cls === "sedan" ? site.name : `${site.name} (${cls})`;
       for (const [heading, r] of site.runs(cls)) {
         cells++;
-        if (!planar(BOUNDS[site.kind], r) && BOUNDS[site.kind].pose < Infinity) waived++;
+        if (site.kind === "edge" && r.tilt <= ROLLED) edge++;
         if (r.tilt > ROLLED) rolled++;
         const flags = judge(site.kind, r);
         rows.push(matrixRow(label, heading, r, flags.join(" ")));
@@ -107,8 +98,8 @@ export function report(t: TestContext, sites: readonly Site[], known = 0): void 
       }
     }
   }
-  const summary = `${failing.length} of ${cells} cells fail${failing.length ? ` (${[...counts].map(([f, n]) => `${f} ${n}`).join(", ")})` : ""}; pitch/roll waived on ${waived} cells (ground under the hubs not one plane); ${rolled} cells rolled past ${ROLLED}° (judged on the hull only)`;
+  const summary = `${failing.length} of ${cells} cells fail${failing.length ? ` (${[...counts].map(([f, n]) => `${f} ${n}`).join(", ")})` : ""}; pose unjudged on ${edge} edge cells (hubs straddle a step); ${rolled} cells rolled past ${ROLLED}° (judged on the hull only)`;
   t.diagnostic(`\n${rows.join("\n")}`);
   t.diagnostic(summary);
-  assert.ok(failing.length <= known, `${summary} (budget ${known}): ${failing.slice(0, 12).join("; ")}${failing.length > 12 ? "; …" : ""}`);
+  assert.ok(failing.length === 0, `${summary}: ${failing.slice(0, 12).join("; ")}${failing.length > 12 ? "; …" : ""}`);
 }

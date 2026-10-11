@@ -96,8 +96,9 @@ export type Fit = {
   /** The most (deg) a hub's ground normal differs from the mean one: a crease or a curved crest under the car, where
    *  "tilt from the mean normal" is not a pose the four tyres can all take. */
   spread: number;
-  /** Half the tread's width (m): a tyre turned `t` deg off the ground it stands on digs its outer shoulder `shoulder · sin t` in. */
-  shoulder: number;
+  /** The hubs' spacing (m) front to rear and left to right: the levers the ground's pitch and roll are read across. */
+  wheelbase: number;
+  track: number;
   /** The deepest face crush (m, `load-crush.ts`): a car lying on a face yields it by its weight, and the hull points follow
    *  the crushed face inward, so a probe at the stock face reads that much penetration for a body that is where it should be. */
   crush: number;
@@ -296,7 +297,8 @@ export function fit(car: DeformableCar, ground: Ground): Fit {
     slope,
     warp,
     spread,
-    shoulder: 0.104 * car.wheels[0]!.scale.x,
+    wheelbase: planFB,
+    track: planLR,
     crush: Math.max(...car.deform.crush),
   };
 }

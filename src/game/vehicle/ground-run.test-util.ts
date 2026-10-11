@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { DEG, frame, fit, FRAME, makeCar, worldOf } from "./ground-probe.test-util.ts";
+import { frame, fit, FRAME, makeCar, worldOf } from "./ground-probe.test-util.ts";
 import { EjectionWatch } from "./ejection.ts";
 import { armKill, HANDLING, killClass, type VehicleClassId } from "./vehicle-classes.ts";
 import type { DriveInput } from "./car-drive.ts";
@@ -29,7 +29,7 @@ export type LineRun = {
   landing: { x: number; z: number; surface: string; speed: number; vy: number } | null;
   /**
    * Deepest underside point in the ground (m) over every frame, and deepest tread in `grass` (m) over the frames the car was not airborne:
-   * each as the drop matrix's judge counts it, less what the model allows (a face's `crush` for the hull, a tilted tyre's tread shoulder for the tread).
+   * each as the drop matrix's judge counts it, less what the model allows (a face's `crush` for the hull).
    */
   pen: number;
   grass: number;
@@ -107,7 +107,7 @@ export function runLine(
     if (n >= SETTLE && !car.airborne) {
       for (const [i, wh] of car.wheels.entries()) {
         wh.getWorldPosition(_hub);
-        if (ground.surfaceAt(_hub.x, _hub.z) === "grass") out.grass = Math.max(out.grass, -f.gaps[i]! - f.shoulder * Math.sin(f.tilt / DEG));
+        if (ground.surfaceAt(_hub.x, _hub.z) === "grass") out.grass = Math.max(out.grass, -f.gaps[i]!);
       }
     }
     const below = p.y - ground.heightAt(p.x, p.z);

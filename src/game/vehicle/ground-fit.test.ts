@@ -23,16 +23,14 @@ const SEDAN_MONSTER = ["sedan", "monster"] as const;
 
 /**
  * No cell may break a bound (docs/UNIFIED_CONTACT.md Stage 1 closes the ramp cells: a car perched across a wedge's edge or corner,
- * one ground point per tyre). The judge departs from its first form in three ways, measured on 7ec7db6 (336 ramp cells of the 2166):
+ * one ground point per tyre). The judge departs from its first form in two ways, measured on 7ec7db6 (336 ramp cells of the 2166):
  * - Ramp drops run 6 s, not 3: a car dropped across an edge is still sliding or rolling at 3 s, so a pose read at 3 s is a frame of
  *   a motion. 6 s changed the verdict of 4 cells.
  * - A car rolled past 60° rests on its side or roof, where no tyre, pose or slide bound applies (its tyres are metres up). Its whole
  *   hull (underside, bumpers, beltline and roof corners, as the drawn body carries them) must still be out of the ground and of the
  *   walls.
- * - A tyre tilted θ off the ground it stands on rests on its lower tread shoulder: the drawn shoulder digs in by `shoulder · sin θ`
- *   (≤ 5 cm sedan, 8.9 cm monster at 30°), bounded by the tyre's own width; a tyre that sinks further than it plus 2 cm still fails.
  * A face the car lies on yields by its crush (`Fit.crush`); its stock-face hull probes read that much too deep, so pen and overlap
- * allow it.
+ * allow it. Ground under the hubs that is not one plane is not excused: the pose bounds carry its spread and twist (the judge).
  */
 
 // (a) The fleet's jump ramps, exactly as fleet-ramps.test.ts `scene()` builds them (no slab).
