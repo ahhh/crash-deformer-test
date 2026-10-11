@@ -2,6 +2,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import * as THREE from "three";
 import { applyDrive, type DriveInput } from "./car-drive.ts";
+import { layOnGround } from "./car-air.ts";
 import { DeformableCar } from "./car.ts";
 import { assignClass, VEHICLE_CLASS_IDS, type VehicleClassId } from "./vehicle-classes.ts";
 import { paint } from "./test-support.ts";
@@ -32,7 +33,7 @@ class Slope extends Ground {
 
 /**
  * One car from `v0` under `input` for `seconds`, as the engine steps it, on the flat or on a `grade`° descent
- * (negative: a climb); the drawn body's pitch (+ nose up) and roll (+ the +x side up) each frame.
+ * (negative: a climb), starting seated on the road (pitched to it, its velocity along it); the drawn body's pitch (+ nose up) and roll (+ the +x side up) each frame.
  */
 function drive(cls: VehicleClassId, v0: number, input: (speed: number) => Partial<DriveInput>, seconds: number, grade = 0): Sample[] {
   setGround(grade ? new Slope(grade) : null);
@@ -40,6 +41,10 @@ function drive(cls: VehicleClassId, v0: number, input: (speed: number) => Partia
   assignClass(car, cls);
   const w = newWorld([car], null);
   car.spawnFacing(0, 0, 0, v0);
+  if (grade) {
+    layOnGround(car);
+    car.velocity.copy(car.forward).multiplyScalar(v0);
+  }
   const body = car.group.getObjectByName("classLift")!;
   const out: Sample[] = [];
   let acc = 0;
