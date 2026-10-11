@@ -93,14 +93,14 @@ import { makeSnapshot, MAX_NET_CARS, MSG, NET_VERSION, readEjection, readSnapsho
  * budget reads its own speed, so a replayed pile's wrecks move differently; 56: Stage 5 class balance (truck grip 41, truck brake 27,
  * monster brake 26), so a replayed truck or monster brakes and corners differently; 57: Stage 5 rear stroke gain 1.08, so a replayed
  * car hit in the tail crushes deeper; 58: a crashed car on its tyres with its pedal held drives instead of sliding, and a police car
- * that stands still 8 s is put away, so a replayed wreck or stalled cop moves differently; 59: a Survival hunter creeping on a stopped
- * quarry is read at its own speed and a drop-in may reuse an in-view wreck, so a replayed Survival pack moves differently; 60: a car
+ * that stands still 8 s is put away, so a replayed wreck or stalled cop moves differently; 59: a Survival hunter creeping beside a
+ * stopped player car is read at its own speed and a drop-in may reuse an in-view wreck, so a replayed Survival pack moves differently; 60: a car
  * standing on another's top within the surface store's reach is not a plan hit, so a replayed stack moves differently; 61: a wedged
  * traffic car backs off, so a replayed city race's traffic moves differently; 62: 60's standing rule is withdrawn, so a replayed
- * stack moves as it did at 59.
+ * stack moves as it did at 59; 63: a wrecked Survival cop stops driving and a cop brakes in time to stop beside a stopped player car.
  * A saved clip also records `NET_VERSION` (its snapshots' layout).
  */
-const REPLAY_VERSION = 62;
+const REPLAY_VERSION = 63;
 /** Bounds a decoder enforces (a clip is ≤ 13 s at ≤ 300 steps/s, ≤ 15 keyframes). */
 const MAX_STEPS = 8192;
 const MAX_KEYS = 64;

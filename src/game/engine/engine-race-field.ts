@@ -14,7 +14,7 @@ import { wallColliders } from "../world/track-sections.ts";
 import { RaceBrain } from "../ai/race-ai.ts";
 import { POLICE_CAP, PoliceBrain } from "../ai/police.ts";
 import type { CopBrain, HunterWorld } from "../ai/cop-brain.ts";
-import { HUNT, HunterBrain, huntUnits } from "../ai/hunter.ts";
+import { HunterBrain, huntUnits } from "../ai/hunter.ts";
 import { fieldAggression } from "../ai/ai-aggression.ts";
 import { BUST, RaceSession } from "../match/session.ts";
 import { SURVIVAL, humanSlot, settleRun } from "../match/survival.ts";
@@ -192,7 +192,7 @@ export abstract class RaceField {
   protected run: SurvivalHud["result"] = null;
   /** A netplay client's Survival pack read, as the host's snapshot gave it (cops chasing, cops wrecked); null on the host and outside Survival. */
   protected pack: RaceSnapshot["pack"] = null;
-  /** Per racer id: still racing (the police's quarry), refreshed each patrol. */
+  /** Per racer id: still racing, so the police chase it; refreshed each patrol. */
   private readonly hunt = new Uint8Array(MAX_CARS);
   private readonly patrolWorld: HunterWorld = {
     park: (id, x, y, z, yaw) => {

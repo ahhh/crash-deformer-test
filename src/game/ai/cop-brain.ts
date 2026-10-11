@@ -125,8 +125,7 @@ export class Backoff {
  * Within `ATTACK` m of its target: ram head-on or block from ahead, PIT or slam from alongside, line up by `role` (its
  * place in the pack) from behind; queue behind a target too fast for any of that (`PIT_MAX`) in the `lane` and `row` the caller
  * gives (by `role` by default); go straight on when it closes faster than it can brake (`OVERRUN`). The one attack geometry of every
- * police drive; `turn` is the class's full-lock yaw rate. `block` false drops the getting-ahead-and-braking part: a quarry that has
- * stopped is not worth blocking.
+ * police drive; `turn` is the class's full-lock yaw rate. `block` false drops the getting-ahead-and-braking part, for a stopped target.
  */
 export function attackTarget(self: AiCar, tg: AiCar, role: number, turn: number, speed: number, dist: number, headOn: boolean, out: DriveInput, block = true, lane = (role % 3) - 1, row = role % 5): void {
   const tfx = detSin(tg.yaw);

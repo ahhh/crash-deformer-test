@@ -341,6 +341,7 @@ type SnapCar = {
   readonly group: { readonly position: { readonly x: number; readonly z: number } };
   readonly yaw: number;
   readonly velocity: { readonly x: number; readonly z: number };
+  readonly crashed: boolean;
   readonly deform: { readonly masses: readonly CrushMass[] };
 };
 
@@ -365,6 +366,7 @@ export function snapshotAiCar(out: AiCar, id: number, car: SnapCar, drivetrainAl
   out.vx = car.velocity.x;
   out.vz = car.velocity.z;
   out.alive = drivetrainAlive;
+  out.crashed = car.crashed;
   let cellNow = 0;
   let cellRest = 0;
   let noseNow = 0;

@@ -15,7 +15,7 @@ const BEAT = 0.25;
 const GREEN = -4.5;
 
 /**
- * The pack on a stub world for `humans` humans: cars 0 … humans − 1 are the quarry, on the start slots (`humanSlot`) or where `at` puts them; the units
+ * The pack on a stub world for `humans` humans: cars 0 … humans − 1 are the player cars, on the start slots (`humanSlot`) or where `at` puts them; the units
  * follow, `huntUnits` of them. Every spot is hidden from the camera, so a drop-in is only ever refused by the pack's own rules.
  */
 function rig(humans: number, at: (k: number) => { x: number; z: number } = (k) => humanSlot(spec.start, k)) {
@@ -44,7 +44,7 @@ function rig(humans: number, at: (k: number) => { x: number; z: number } = (k) =
   const run = (until: number): void => {
     for (; now < until - 1e-9; now += BEAT) {
       brain.update(now, BEAT, cars, hunt, 0, world);
-      // Each cop drives a beat, as in the game: its quarry (`aim`) is the nearest free human at that moment.
+      // Each cop drives a beat, as in the game.
       for (let i = humans; i < cars.length; i++) if (cars[i]!.x !== FAR) brain.think(cars[i]!, cars, BEAT);
     }
   };
@@ -93,7 +93,7 @@ describe("given two humans far apart and a pack hunting them", () => {
   /** Human 0 on the start line, human 1 on the far side of the course. */
   const apart = (k: number) => (k === 0 ? spec.start : { x: spec.start.x + 140, z: spec.start.z - 160 });
 
-  it("when each cop picks its quarry, then it is the nearer human: the counts after each human are the cops nearer it", () => {
+  it("when each cop picks a player car to chase, then it is the nearer human: the counts after each human are the cops nearer it", () => {
     const r = rig(2, apart);
     r.run(40);
     const hunting = r.cars.slice(2).filter((c) => c.x !== FAR);

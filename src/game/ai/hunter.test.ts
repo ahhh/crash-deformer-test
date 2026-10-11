@@ -1,10 +1,16 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { physicsSlice } from "../contact/sat.ts";
-import { idleDrive } from "../vehicle/car-drive.ts";
+import * as THREE from "three";
+import { applyDrive, DRIVE, idleDrive } from "../vehicle/car-drive.ts";
+import { DeformableCar } from "../vehicle/car.ts";
 import { blankAiCar, type AiCar } from "./derby-ai.ts";
-import { copsWanted, HUNT, HunterBrain } from "./hunter.ts";
+import { snapshotAiCar } from "../match/derby.ts";
+import { BLOCKABLE, copsWanted, HUNT, HunterBrain, SETTLE } from "./hunter.ts";
 import { ATTACK, attackTarget, type HunterWorld } from "./cop-brain.ts";
+import { onSurface } from "./race-ai.ts";
+import { SURFACES } from "../world/catalog.ts";
+import { setGround } from "../world/ground.ts";
 import type { PropCollider } from "../world/placements.ts";
 import { blankProjection, projectPath, Track } from "../world/track.ts";
 import { HAVANA } from "../world/tracks/havana.ts";
@@ -260,6 +266,15 @@ describe("given one cop at the origin facing +z, driven by the hunter brain, wit
     assert.ok(Math.abs(o.steer) < 0.05, `steer ${o.steer}`);
   });
 
+  it("when its car is crashed with a live drivetrain, then the cop gives no throttle and holds the brake, and it chases again once the car is not crashed", () => {
+    const d = drive(100);
+    Object.assign(d.cop, { crashed: true, alive: true });
+    const o = d.out();
+    assert.deepEqual([o.throttle, o.brake, o.boost], [0, 1, false]);
+    d.cop.crashed = false;
+    assert.equal(d.out().throttle, 1);
+  });
+
   it("when a solid wall stands between it and the target, then the cop bends round the wall and keeps to the side it chose on the next call, and without the wall it steers straight", () => {
     const wall = { hx: 15, hz: 7, z: 20 };
     const free = drive(100).out().steer;
@@ -318,19 +333,58 @@ describe("given one cop at the origin facing +z, driven by the hunter brain, wit
     assert.equal(pit.throttle, 1, "did not press its PIT on a slow target");
   });
 
-  it("when it closes at 20 m/s on a stopped target 13 m ahead, then it brakes fully without steering if the target is in its lane, and drives past without steering or braking one lane over", () => {
+  it("when it closes at 20 m/s on a stopped target 13 m ahead, then it brakes fully without steering, in the target's lane and one lane over", () => {
     // A stopped target 13 m ahead, the cop at 20 m/s: 20² > 16 × 13.
     const inLine = drive(13);
     Object.assign(inLine.cop, { x: 0, z: 0, vx: 0, vz: 20 });
     const hit = { ...inLine.out() };
     assert.equal(hit.brake, 1, "did not brake for a stopped car in its lane");
     assert.equal(hit.steer, 0, "turned into it");
-    // The same closing speed, a lane over: it goes past at speed and does not turn in.
     const beside = drive(13);
     Object.assign(beside.cop, { x: 3, z: 0, vx: 0, vz: 20 });
     const past = { ...beside.out() };
     assert.equal(past.steer, 0, "turned into a target it was passing");
-    assert.equal(past.brake, 0, "braked beside a lane that was clear");
+    assert.equal(past.brake, 1, "did not brake for a stopped car one lane over");
+  });
+});
+
+describe("given a hunter at 35 m/s heading at a stopped player car 40 m away, driven by the hunter brain on the course's ground", () => {
+  const START = 35;
+  const GAP = 40;
+
+  /** The speed (m/s) the real car has when it first comes within `SETTLE` m of the player car (its final speed if it stopped short of that). */
+  function arrival(side: number): number {
+    const r = rig();
+    r.run(0.25);
+    const ground = track.ground();
+    setGround(ground);
+    const car = new DeformableCar({ body: 0x808080, accent: 0x404040, name: "cop" }, new THREE.Scene());
+    const { x, z, yaw } = spec.start;
+    const fx = Math.sin(yaw);
+    const fz = Math.cos(yaw);
+    car.spawnFacing(x + fz * side, z - fx * side, yaw, START);
+    Object.assign(r.cars[0]!, { x: x + fx * GAP, z: z + fz * GAP, yaw, vx: 0, vz: 0 });
+    const scratch = idleDrive();
+    const cop = r.cars[1]!;
+    let at: number | null = null;
+    for (let step = 0; step < 6 * 60; step++) {
+      snapshotAiCar(cop, 1, car, true);
+      const dist = Math.hypot(r.cars[0]!.x - cop.x, r.cars[0]!.z - cop.z);
+      if (at === null && dist < SETTLE) at = Math.hypot(cop.vx, cop.vz);
+      const p = car.group.position;
+      applyDrive(car, onSurface(r.brain.think(cop, r.cars, 1 / 60), SURFACES[ground.surfaceAt(p.x, p.z, p.y)], scratch), 1 / 60);
+      car.integrate(1 / 60);
+    }
+    setGround(null);
+    return at ?? Math.hypot(cop.vx, cop.vz);
+  }
+
+  it("when it drives at the player car, then it is slower than a blockable player car by the time it is within the settle distance, in its lane and a lane over", () => {
+    assert.ok(START ** 2 / (2 * DRIVE.brake) + SETTLE < GAP, "the scenario leaves the room a braking hunter needs");
+    for (const side of [0, 3]) {
+      const v = arrival(side);
+      assert.ok(v < BLOCKABLE, `${v.toFixed(1)} m/s within ${SETTLE} m of the player car, ${side} m off its line`);
+    }
   });
 });
 

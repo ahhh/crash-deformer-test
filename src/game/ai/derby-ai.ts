@@ -25,10 +25,12 @@ export type AiCar = {
   rear: number;
   /** Seconds since this car's last aggressive hit on a live car (the hit clock, `DERBY_RULES.hitClock`). */
   idle: number;
+  /** The car's own `crashed` flag: a wreck, whose drivetrain may still run. */
+  crashed: boolean;
 };
 
 export function blankAiCar(id: number): AiCar {
-  return { id, x: 0, z: 0, yaw: 0, vx: 0, vz: 0, alive: true, damage: 0, front: 0, rear: 0, idle: 0 };
+  return { id, x: 0, z: 0, yaw: 0, vx: 0, vz: 0, alive: true, damage: 0, front: 0, rear: 0, idle: 0, crashed: false };
 }
 
 /**

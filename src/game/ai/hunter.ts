@@ -1,5 +1,5 @@
 import { hypot2, detSin, detCos } from "../kernel/physics-core.js";
-import type { DriveInput } from "../vehicle/car-drive.ts";
+import { DRIVE, type DriveInput } from "../vehicle/car-drive.ts";
 import type { AiCar } from "./derby-ai.ts";
 import { clamp, wrapPi } from "../kernel/scalar.ts";
 import type { PropCollider } from "../world/placements.ts";
@@ -76,10 +76,10 @@ const SWATH = 1.6;
 /** Metres between the probes along a heading (a palm is 3.8 m across with the swath), and the headings tried off the straight one, in turn, to either side. */
 const PROBE_STEP = 2;
 const TURNS = [0.3, 0.6, 0.9, 1.25, 1.6, 2.2, Math.PI] as const;
-/** A quarry slower than this (m/s) is not blocked from ahead (a unit braking in front of a stopped player waits for ever); it is rammed. */
-const BLOCKABLE = 6;
-/** A unit this close (m) to a quarry that has stopped eases to a creep (m/s): the bust needs the quarry slow, and a ram makes it fast. */
-const SETTLE = 12;
+/** A player car slower than this (m/s) is not blocked from ahead (a unit braking in front of a stopped player waits for ever); it is rammed. */
+export const BLOCKABLE = 6;
+/** A unit this close (m) to a player car that has stopped eases to a creep (m/s): the bust needs the player car slow, and a ram makes it fast. */
+export const SETTLE = 12;
 const CREEP = 3;
 /** Above this speed (m/s) a unit lifts when a solid is close ahead; below it, easing off only wedges it. */
 const DODGE_SPEED = 8;
@@ -179,7 +179,7 @@ export class HunterBrain extends CopBrain {
   private readonly obstacles: Obstacles;
   /** Driving, so a slow one may be pulling out (not waiting in storage), unless it is creeping on purpose (`settled`): that one is read at its real speed. */
   protected readonly pullsOut = (u: number): boolean => this.state[u] !== STORED && this.settled[u] === 0;
-  /** Per unit: it is within `SETTLE` m of a quarry that has stopped, so its creep is its own pace and not a start-up. */
+  /** Per unit: creeping beside a stopped player car on purpose, so its slow pace is not read as pulling out. */
   private readonly settled: Uint8Array;
   private readonly state: Uint8Array;
   private readonly lost: Float64Array;
@@ -269,7 +269,6 @@ export class HunterBrain extends CopBrain {
     return this.state[u] === STORED;
   }
 
-  /** Its hunt. */
   protected drive(self: AiCar, cars: readonly AiCar[], dt: number): DriveInput {
     const out = this.out;
     out.throttle = 0;
@@ -283,7 +282,7 @@ export class HunterBrain extends CopBrain {
     // Each cop hunts the nearest human still free; the one it is after now is its `aim`.
     const target = this.nearestHunted(self.x, self.z, cars);
     this.aim[u] = target;
-    if (!self.alive || this.state[u] !== HUNTING || !this.go || target < 0) return out;
+    if (!self.alive || self.crashed || this.state[u] !== HUNTING || !this.go || target < 0) return out;
     out.brake = 0;
     if (this.wedge.backing(u, dt, out)) return out;
     const speed = hypot2(self.vx, self.vz);
@@ -301,13 +300,14 @@ export class HunterBrain extends CopBrain {
       this.slot(u, self, tg, dist, cars);
       attackTarget(self, tg, this.role[u]!, this.turn[self.id]!, speed, dist, headOn, out, tv > BLOCKABLE, this.lane, this.row);
       this.dodge(u, self, tg, speed, dist, out);
-      // A stopped player is boxed in, not rammed: a hit at 8 m/s throws the car over the bust's 20 km/h and restarts its hold.
-      if (tv <= BLOCKABLE && dist < SETTLE && speed > CREEP) {
-        out.throttle = 0;
-        out.brake = 0.5;
-        out.boost = false;
-      }
     } else this.chase(u, self, tg, speed, dist, out);
+    // A ram throws a stopped player car over the bust's 20 km/h and restarts its hold, so the unit brakes in time to arrive slowly.
+    const closing = Math.max(0, (self.vx * dx + self.vz * dz) / Math.max(dist, 1));
+    if (tv <= BLOCKABLE && speed > CREEP && dist < SETTLE + (closing * closing) / (2 * DRIVE.brake)) {
+      out.throttle = 0;
+      out.brake = 1;
+      out.boost = false;
+    }
     this.wedge.watch(u, self.x, self.z, dt, out);
     return out;
   }

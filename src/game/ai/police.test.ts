@@ -60,7 +60,6 @@ function rig() {
 describe("given a racer with a stakeout of two cops parked ahead of it, the first just woken by the racer passing and the second still parked", () => {
   it("when the racer stops racing and no chaser is near another racer so the pack stands down, then the parked cop nobody sees is put away at once and never pulls out onto the road", () => {
     const r = rig();
-    // Its quarry stops racing and no chaser is near another racer: the pack stands down.
     r.hunt[0] = 0;
     r.beat();
     assert.deepEqual(r.stored, [2]);
