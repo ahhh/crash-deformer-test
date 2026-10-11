@@ -27,6 +27,7 @@ const TRANSFER = {
   packed: 1,
 };
 
+/** Closing speed (m/s) at which the crush gate reaches 1 (about 50 km/h); the gate grows with its square. */
 const FRONTAL_REF = 14;
 
 function regionSoftness(name) {

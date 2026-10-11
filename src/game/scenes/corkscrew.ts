@@ -31,6 +31,7 @@ export const CORKSCREW = {
   wallH: 0.9,
 } as const;
 
+/** Arc length (m) between the climb profile's samples along the floor. */
 const STEP = 0.05;
 const N_SAMPLES = Math.round(CORKSCREW.len / STEP) + 1;
 const TWIST_RATE = CORKSCREW.bank / (CORKSCREW.len - CORKSCREW.twistFrom - CORKSCREW.twistEase / 2);
