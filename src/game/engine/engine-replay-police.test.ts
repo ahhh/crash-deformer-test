@@ -17,12 +17,7 @@ import { agreement, recordField } from "./replay-fidelity.test-util.ts";
 const FIELD = { trackId: "oval", laps: 3, aiCount: 11, noReset: false, aggression: 1, police: true, spectate: true };
 /** Race seconds to wait for the first stakeout (a third of the first lap in), at most. */
 const WAIT_S = 120;
-/**
- * Five seeds: each stages its own crash from whichever racers are still intact, so any seed serves. Seed 4 is left out since Stage 4
- * item 5: its staged head-on racers (4, 10) and the cop (12) land in different kept clips (which cars a clip keeps follows the pile the
- * race makes after the hit; the wrecks' pile is Stage 4 item 6's, the wreck split), so it cannot check them together; every kept clip
- * of seed 4 still replays to the bit in `engine-replay.test.ts`'s pools.
- */
+/** Seed 4 splits the staged racers and the cop across kept clips until Stage 4 item 6 (wreck split). */
 const SEEDS = [1, 2, 3, 5, 6];
 
 describe("given the oval race with 11 AI and police on, where two racers are put head-on beside a cop that has just been placed on a stakeout spot", () => {
