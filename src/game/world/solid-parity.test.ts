@@ -143,16 +143,15 @@ describe("given a sedan hitting a flat solid at the clip's 113 km/h and the jers
     const { rest } = strikeSink("stucco", "sedan", CLIP_SPEED);
     assert.ok(rest.mesh <= LEFT_IN, `${rest.mesh.toFixed(3)} m`);
   });
-  // Measured on this lane (sedan, stucco, second hit): the drawn body 0.58 m past the face at its deepest and 0.44 m past it 0.3 s later; the barrier's
-  // 0.07 m short of it (satCarBarrier holds the masses on its face). A wreck's pose is its masses' (`syncPose`) and a hit makes every car a wreck,
-  // so the wreck's own response (`wallBounce` -> `bodyContact`, masses held on the face, the skin 0.3-0.6 m ahead of them) decides it, not the query.
-  it.todo("when a wreck is sent back at 113 km/h into the stucco, then its drawn body never goes more than 5 cm past the face (0.58 m deep today, the clip's 0.95 m; closes in Stage 3 (the drawn body is the contact shape) and Stage 4 (the wreck is a rigid body on the one kernel))", () => {
+  // Measured on this lane (sedan, stucco, second hit): the drawn body's deepest reach past the face is 0.279 m today (0.58 m when first measured, the clip's 0.95 m). A
+  // wreck's pose is its masses' (`syncPose`) and a hit makes every car a wreck, so the wreck's own response (`wallBounce` -> `bodyContact`, masses held on
+  // the face, the skin ahead of them) decides it, not the query.
+  it.todo("when a wreck is sent back at 113 km/h into the stucco, then its drawn body never goes more than 5 cm past the face (0.279 m deep today, the clip's 0.95 m: the wreck's pose is derived from its masses; closes in Stage 4 item 6 (wreck split))", () => {
     const { peak } = strikeSink("stucco", "sedan", CLIP_SPEED, 1);
     assert.ok(peak.mesh <= LEFT_IN, `${peak.mesh.toFixed(3)} m`);
   });
-  // Measured: after a tap at 8 m/s (the drawn nose 0.111 m short of the face) the stock hull points stand 0.144 m past it: `HULL`'s bumper points are
-  // the nominal box (CAR_HALF.z 2.22), 0.255 m ahead of the drawn nose. A crushed car's rigid step moves them in by its crush; its footprint is 2.3 m.
-  it.todo("when a sedan taps the stucco at 8 m/s, then its rigid hull points stand no further than 1 cm past the face (0.144 m today: the nominal hull is 0.255 m ahead of the drawn nose; closes in Stage 3, where the hull points are the drawn body's cage)", () => {
+  // After a tap at 8 m/s (the drawn nose 0.111 m short of the face) the rigid hull points stand within 1 cm of the face: the hull points are the drawn body's cage.
+  it("when a sedan taps the stucco at 8 m/s, then its rigid hull points stand no further than 1 cm past the face", () => {
     const { rest } = strikeSink("stucco", "sedan", SURVIVABLE);
     assert.ok(rest.hull <= 0.01, `${rest.hull.toFixed(3)} m`);
   });
@@ -174,9 +173,8 @@ describe("given a palm's trunk that gives (its hardness share of the energy) and
       });
     }
   }
-  // Measured (sedan, 30 m/s, the trunk 0.6 m off the car's middle): the heading turns 3.2 degrees away from the trunk, the wall's 5.5 degrees the other way. A
-  // rigid solid at a lever arm turns the car about it (the owner's "a car wrapping around a phone pole"); the response gives no yaw from the contact point.
-  it.todo("when a sedan hits a palm's trunk 0.6 m off its middle at 30 m/s, then its heading turns toward the trunk, further than the wall at the same offset turns it (3.2 degrees away today; closes in Stage 4, where the kernel's impulse at the contact point has its lever)", () => {
+  // A rigid solid at a lever arm turns the car about it (the owner's "a car wrapping around a phone pole"): the trunk is 0.6 m off the car's middle.
+  it("when a sedan hits a palm's trunk 0.6 m off its middle at 30 m/s, then its heading turns toward the trunk, further than the wall at the same offset turns it", () => {
     const [palm] = strike("palm", "sedan", 30, 1, 0.6);
     const [wall] = strike("wall", "sedan", 30, 1, 0.6);
     assert.ok(palm!.turn > wall!.turn, `palm ${palm!.turn.toFixed(3)} rad, wall ${wall!.turn.toFixed(3)} rad`);
