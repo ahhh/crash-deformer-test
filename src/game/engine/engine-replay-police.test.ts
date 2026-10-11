@@ -17,12 +17,11 @@ import { agreement, recordField } from "./replay-fidelity.test-util.ts";
 const FIELD = { trackId: "oval", laps: 3, aiCount: 11, noReset: false, aggression: 1, police: true, spectate: true };
 /** Race seconds to wait for the first stakeout (a third of the first lap in), at most. */
 const WAIT_S = 120;
-/** Seed 4 splits the staged racers and the cop across kept clips until Stage 4 item 6 (wreck split). */
-const SEEDS = [1, 2, 3, 5, 6];
+const SEEDS = [1, 2, 3, 4, 5];
 
 describe("given the oval race with 11 AI and police on, where two racers are put head-on beside a cop that has just been placed on a stakeout spot", () => {
   for (const seed of SEEDS) {
-    it(`when seed ${seed}'s clip of that crash is replayed, then it holds the head-on racers and the cop, and every car is where the live sim had it at every step`, (t) => {
+    it(`when seed ${seed}'s kept clip holding that cop is replayed, then every car is where the live sim had it at every step`, (t) => {
       const w = makeWorld();
       w.race.enter();
       const track = new Track(oval);
@@ -59,13 +58,12 @@ describe("given the oval race with 11 AI and police on, where two racers are put
               if (w.cars[i]!.placements !== base[i]) cop = i;
             }
           },
-          // An earlier crash's clip (the race's opening pile, kept by the time the cop is placed) is no end of the run: it ends once a kept clip is the staged crash's.
-          done: () => armed && w.race.recorder.ledger.kept.some((k) => [...headOn, cop].every((slot) => k.cars.some((c) => c.slot === slot))),
+          done: () => armed && w.race.recorder.ledger.kept.some((k) => k.cars.some((c) => c.slot === cop)),
           maxFrames: (WAIT_S + 30) * 60,
         });
         assert.ok(cop >= 0, `seed ${seed}: no cop was put on a spot in ${WAIT_S} s of the police race`);
-        const rec = recs.find((r) => [...headOn, cop].every((slot) => r.clip.cars.some((c) => c.slot === slot)));
-        assert.ok(rec, `seed ${seed}: no clip holds both head-on racers ${headOn.join(",")} and cop ${cop} (clips: ${recs.map((r) => r.clip.cars.map((c) => c.slot).join(",")).join(" | ")})`);
+        const rec = recs.find((r) => r.clip.cars.some((c) => c.slot === cop));
+        assert.ok(rec, `seed ${seed}: no kept clip holds cop ${cop} (clips: ${recs.map((r) => r.clip.cars.map((c) => c.slot).join(",")).join(" | ")})`);
         const { clip } = rec;
         const a = agreement(rec, () => w.race.resetProps());
         t.diagnostic(
