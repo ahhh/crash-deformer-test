@@ -10,3 +10,6 @@ export const GROUND_LEVEL = {
   decal: "decal",
   glow: "glow",
 } as const;
+
+/** The Lab's preset ids (`LabPresetId`): `LAB_PRESETS` in lab.ts lists them in picker order, and the engine, the bench plan and the HUD name the one that is up. */
+export const LAB_PRESET = { pad: "pad", wall: "wall", cards: "cards", glass: "glass" } as const;

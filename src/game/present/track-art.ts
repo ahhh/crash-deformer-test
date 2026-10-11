@@ -3,6 +3,7 @@ import { applyMarkMap } from "./engine-marks.ts";
 import type { WorldStage } from "./engine-world.ts";
 import { SURFACE_IDS, type PrefabId, type SurfaceId } from "../world/catalog.ts";
 import type { Placed } from "../world/placements.ts";
+import { PREFAB } from "../world/constants.ts";
 import { box, makePrefabMaterials, makeRaceTextures, painted, prefabParts, type Piece, type RaceTextures } from "./prefabs.ts";
 import { blankPoint, type Track } from "../world/track.ts";
 import { sections } from "../world/track-sections.ts";
@@ -133,7 +134,7 @@ export class TrackArt {
     pieces.push([box(latL - latR + 1, 0.12, 0.92, (latL + latR) / 2, GANTRY_BEAM + 0.46, 0), RED]);
     const panelX = [pt.half * 0.45, -pt.half * 0.45];
     for (const x of panelX) pieces.push([box(3.3, 1.3, 0.3, x, GANTRY_BEAM - 1.05, 0), BLACK]);
-    this.add(new THREE.Mesh(painted(pieces).applyMatrix4(frame), mats.plain), { kind: "prop", prefab: "gantry" }, true);
+    this.add(new THREE.Mesh(painted(pieces).applyMatrix4(frame), mats.plain), { kind: "prop", prefab: PREFAB.gantry }, true);
 
     const disc = new THREE.CircleGeometry(0.42, 20).rotateY(Math.PI);
     this.lamps = new THREE.InstancedMesh(disc, new THREE.MeshBasicMaterial({ toneMapped: false }), panelX.length * 3);
@@ -147,7 +148,7 @@ export class TrackArt {
         i++;
       }
     }
-    this.add(this.lamps, { kind: "prop", prefab: "gantry" }, false);
+    this.add(this.lamps, { kind: "prop", prefab: PREFAB.gantry }, false);
     this.setLights(0);
 
     // Props: one InstancedMesh per prefab part (the course's lamp heads and pools are the scene's materials).
@@ -224,21 +225,21 @@ export class TrackArt {
   private tint(id: PrefabId, i: number, out: THREE.Color): boolean {
     const h = hash01(i, 11);
     const h2 = hash01(i, 12);
-    if (id === "tree" || id === "palm") {
+    if (id === PREFAB.tree || id === PREFAB.palm) {
       const k = 0.8 + 0.35 * h;
       out.setRGB(k * (1 + 0.24 * (h2 - 0.5)), k, k * (1 - 0.2 * (h2 - 0.5)), THREE.LinearSRGBColorSpace);
       return true;
     }
-    if (id === "rock") {
+    if (id === PREFAB.rock) {
       const k = 0.8 + 0.3 * h;
       out.setRGB(k, k, k, THREE.LinearSRGBColorSpace);
       return true;
     }
-    if (id === "building") {
+    if (id === PREFAB.building) {
       out.setHex([0xffffff, 0xf2e3c6, 0xd5dde8, 0xeccbb6, 0xdcd8c4][Math.floor(h * 5)]!);
       return true;
     }
-    if (id === "stucco" || id === "wall") {
+    if (id === PREFAB.stucco || id === PREFAB.wall) {
       out.setHex(PASTELS[Math.floor(h * PASTELS.length)]!);
       return true;
     }

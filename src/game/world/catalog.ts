@@ -3,7 +3,7 @@
  * `prefabs.ts` builds the meshes and must cover every `PrefabId`.
  */
 import { hypot2, detSin, detCos } from "../kernel/physics-core.js";
-import { SURFACE } from "./constants.ts";
+import { PREFAB, SURFACE } from "./constants.ts";
 
 export const SURFACE_IDS = [SURFACE.asphalt, SURFACE.concrete, SURFACE.cobble, SURFACE.dirt, SURFACE.gravel, SURFACE.grass, SURFACE.sand] as const;
 export type SurfaceId = (typeof SURFACE_IDS)[number];
@@ -28,23 +28,23 @@ export const SURFACES: Record<SurfaceId, Surface> = {
 };
 
 export const PREFAB_IDS = [
-  "cone",
-  "tyre-stack",
-  "hay-bale",
-  "crate",
-  "barrier-block",
-  "rock",
-  "tree",
-  "building",
-  "grandstand",
-  "billboard",
-  "lamp",
-  "gantry",
-  "monument",
-  "stucco",
-  "palm",
-  "wall",
-  "dumpster",
+  PREFAB.cone,
+  PREFAB.tyreStack,
+  PREFAB.hayBale,
+  PREFAB.crate,
+  PREFAB.barrierBlock,
+  PREFAB.rock,
+  PREFAB.tree,
+  PREFAB.building,
+  PREFAB.grandstand,
+  PREFAB.billboard,
+  PREFAB.lamp,
+  PREFAB.gantry,
+  PREFAB.monument,
+  PREFAB.stucco,
+  PREFAB.palm,
+  PREFAB.wall,
+  PREFAB.dumpster,
 ] as const;
 export type PrefabId = (typeof PREFAB_IDS)[number];
 
@@ -129,10 +129,10 @@ export const PREFABS: Record<PrefabId, PrefabSpec> = {
     size: [0.4, 0.7, 0.4],
     mass: 4,
   },
-  "tyre-stack": { body: "knock", collider: [{ kind: "circle", r: 0.375 }], foot: 0.4, size: [0.75, 1, 0.75], mass: 60 },
-  "hay-bale": { body: "knock", collider: [{ kind: "box", hx: 0.6, hz: 0.45 }], foot: 0.75, size: [1.2, 0.9, 0.9], mass: 180 },
+  [PREFAB.tyreStack]: { body: "knock", collider: [{ kind: "circle", r: 0.375 }], foot: 0.4, size: [0.75, 1, 0.75], mass: 60 },
+  [PREFAB.hayBale]: { body: "knock", collider: [{ kind: "box", hx: 0.6, hz: 0.45 }], foot: 0.75, size: [1.2, 0.9, 0.9], mass: 180 },
   crate: { body: "knock", collider: [{ kind: "box", hx: 0.5, hz: 0.5 }], foot: Math.SQRT1_2, size: [1, 1, 1], mass: 30 },
-  "barrier-block": {
+  [PREFAB.barrierBlock]: {
     body: "solid",
     collider: [
       { kind: "box", hx: 0.32, hz: 1, y1: 0.33 },

@@ -3,6 +3,8 @@ import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { makeAsphalt, makeJerseyBarrier, makeLamp } from "./engine-world.ts";
 import { tagSurface } from "./ultra/surface-tag.ts";
 import { STAR_INNER, type PrefabId } from "../world/catalog.ts";
+import { PREFAB } from "../world/constants.ts";
+import { LAMP_POOL } from "./constants.ts";
 
 /**
  * Prefab meshes and the race's shared procedural textures. A prefab is one or a few parts (geometry
@@ -485,7 +487,7 @@ function lamp(plain: THREE.Material): PrefabPart[] {
     if (!(o instanceof THREE.Mesh)) return;
     const m = o.material as THREE.MeshStandardMaterial;
     const geo = (o.geometry as THREE.BufferGeometry).clone().applyMatrix4(o.matrixWorld).applyMatrix4(fit);
-    if (o.name === "pool" || m.emissive?.getHex()) shared.push({ geometry: geo, material: m, shared: true });
+    if (o.name === LAMP_POOL || m.emissive?.getHex()) shared.push({ geometry: geo, material: m, shared: true });
     else pole.push([geo, m.color.getHex()]);
   });
   disposeGroup(
@@ -511,39 +513,39 @@ type PrefabPart = { geometry: THREE.BufferGeometry; material: THREE.Material; sh
 export function prefabParts(id: PrefabId, mats: PrefabMaterials): PrefabPart[] {
   const one = (pieces: Piece[], material: THREE.Material): PrefabPart[] => [{ geometry: painted(pieces), material, shared: false }];
   switch (id) {
-    case "cone":
+    case PREFAB.cone:
       return one(cone(), mats.plain);
-    case "tyre-stack":
+    case PREFAB.tyreStack:
       return one(tyreStack(), mats.plain);
-    case "hay-bale":
+    case PREFAB.hayBale:
       return one(hayBale(), mats.plain);
-    case "crate":
+    case PREFAB.crate:
       return one(crate(), mats.plain);
-    case "barrier-block":
+    case PREFAB.barrierBlock:
       return one(barrierBlock(), mats.concrete);
-    case "rock":
+    case PREFAB.rock:
       return one(rock(), mats.plain);
-    case "tree":
+    case PREFAB.tree:
       return one(tree(), mats.plain);
-    case "building":
+    case PREFAB.building:
       return one(building(), mats.building);
-    case "stucco":
+    case PREFAB.stucco:
       return one(building(), mats.building);
-    case "monument":
+    case PREFAB.monument:
       return one(monument(), mats.plain);
-    case "palm":
+    case PREFAB.palm:
       return one(palm(), mats.plain);
-    case "wall":
+    case PREFAB.wall:
       return one(wall(), mats.plain);
-    case "dumpster":
+    case PREFAB.dumpster:
       return one(dumpster(), mats.plain);
-    case "grandstand":
+    case PREFAB.grandstand:
       return one(grandstand(), mats.plain);
-    case "billboard":
+    case PREFAB.billboard:
       return one(billboard(), mats.billboard);
-    case "lamp":
+    case PREFAB.lamp:
       return lamp(mats.plain);
-    case "gantry":
+    case PREFAB.gantry:
       return one(pylon(), mats.plain);
   }
 }

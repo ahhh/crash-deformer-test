@@ -4,6 +4,8 @@ export const LID = { hood: "hood", trunk: "trunk" } as const;
 export const LIGHT_BAR = "lightBar";
 export const CLASS_LIFT = "classLift";
 export const BUMPER_F = "bumperF";
+/** The name of a car's head or tail lamp seat (`Object3D.name`): `addLamps` names it, the distance cut finds it. */
+export const LAMP_SEAT = "lampSeat";
 /** The paint of a throwaway car (warm-up, a layout read): mid grey body, dark grey accent. */
 export const STOCK_PAINT = { body: 0x808080, accent: 0x404040 };
 

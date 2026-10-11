@@ -3,7 +3,7 @@ import "../kernel/three-trig.ts";
 import * as THREE from "three";
 import { StreamedDeformation } from "../deform/streamed-deform.ts";
 import { TYRE_R } from "../deform/deform-state.ts";
-import { BUMPER_F, LID, LIGHT_BAR } from "./constants.ts";
+import { BUMPER_F, LAMP_SEAT, LID, LIGHT_BAR } from "./constants.ts";
 import { computeNormalsFast } from "../deform/fast-normals.ts";
 import { hypot2, round4 } from "../deform/physics-util.ts";
 import {
@@ -504,7 +504,7 @@ export abstract class CarCore {
       _lampQ.setFromEuler(_lampE.set(0, head ? 0 : Math.PI, !head && boot.kind === "tailgate" ? Math.PI / 2 : 0));
       for (const side of [-1, 1]) {
         const seat = new THREE.Object3D();
-        seat.name = "lamp";
+        seat.name = LAMP_SEAT;
         this.group.add(seat);
         _p.set(side * x, y, z);
         this.lamps.push({

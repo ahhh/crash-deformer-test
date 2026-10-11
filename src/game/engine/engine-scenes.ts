@@ -6,6 +6,7 @@ import { KPH_PER_MS } from "../kernel/constants.ts";
 import { PISTON_ORBIT_RATE, pistonBearing } from "../present/engine-pistons.ts";
 import { VAPOR_DEPTH, edgeAction, fleetEmptied, layoutFleet, layoutDerby, respawnSlot } from "../scenes/fleet.ts";
 import { RANGE } from "../scenes/range.ts";
+import { LAB_PRESET } from "../scenes/constants.ts";
 import { makeRangeArt } from "../present/range-art.ts";
 import { LAB_LIGHT, LabArt } from "../present/lab-art.ts";
 import { LabFlick } from "./lab-flick.ts";
@@ -463,7 +464,7 @@ export abstract class EngineScenes extends EngineDerby {
 
   /** The Lab's preset: its cars at their poses on the bench and its brackets, shelves and props shown (`LabArt`), knocked by its cars. */
   private spawnLab(): void {
-    if (this.labArt) this.lab.tumble = this.labArt.show(this.lab.preset ?? "cards");
+    if (this.labArt) this.lab.tumble = this.labArt.show(this.lab.preset ?? LAB_PRESET.cards);
     const cars = this.live();
     this.lab.placeCars(cars);
     for (const car of cars) {

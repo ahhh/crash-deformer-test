@@ -7,8 +7,10 @@ import { UNDERSIDE, underY } from "../vehicle/car-suspension.ts";
 import { sampleField } from "../contact/cage-outline.ts";
 import { hypot2, detSin, detCos } from "../kernel/physics-core.js";
 import { PREFABS, type PrefabId } from "../world/catalog.ts";
+import { PREFAB } from "../world/constants.ts";
 import { Ground, STEP_UP } from "../world/ground.ts";
 import { propColliders, type Placed, type PropCollider } from "../world/placements.ts";
+import { LAB_PRESET } from "./constants.ts";
 import type { CarType } from "./fleet.ts";
 
 /**
@@ -47,7 +49,7 @@ export type LabPose = { x: number; y: number; z: number; yaw: number; pitch: num
 /** `pin`: hung on the pegboard (snapped to the peg grid, a bracket under it); `free`: where it is put, under gravity. */
 type LabHold = "pin" | "free";
 /** The knockable and solid props the game already has (`PREFABS`): what the race's prop rule can hit. */
-const LAB_PROPS = ["cone", "tyre-stack", "crate", "hay-bale", "barrier-block", "dumpster"] as const satisfies readonly PrefabId[];
+const LAB_PROPS = [PREFAB.cone, PREFAB.tyreStack, PREFAB.crate, PREFAB.hayBale, PREFAB.barrierBlock, PREFAB.dumpster] as const satisfies readonly PrefabId[];
 type LabProp = (typeof LAB_PROPS)[number];
 export type LabItem =
   | { kind: "car"; type: CarType; pose: LabPose; hold: LabHold }
@@ -57,7 +59,7 @@ export type LabItem =
   | { kind: "shelf"; w: number; d: number; pose: LabPose };
 export type LabLayout = readonly LabItem[];
 
-export const LAB_PRESETS = ["pad", "wall", "cards", "glass"] as const;
+export const LAB_PRESETS = [LAB_PRESET.pad, LAB_PRESET.wall, LAB_PRESET.cards, LAB_PRESET.glass] as const;
 export type LabPresetId = (typeof LAB_PRESETS)[number];
 
 /** A surface a car or dummy can stand on besides the bench: x0..x1, z0..z1 at height `top`. */
@@ -262,10 +264,10 @@ export const LAB_LAYOUTS: Readonly<Record<LabPresetId, LabLayout>> = {
   pad: [{ kind: "car", type: SEDAN, pose: THROWER, hold: "free" }],
   wall: [
     { kind: "car", type: SEDAN, pose: THROWER, hold: "free" },
-    ...(["crate", "tyre-stack", "hay-bale", "crate", "tyre-stack", "crate", "hay-bale"] as const).map((prefab, i): LabItem => ({ kind: "prop", prefab, pose: pose(10, 0, -3 + i * 1.3), hold: "free" })),
-    { kind: "prop", prefab: "barrier-block", pose: pose(10, 0, -5.2), hold: "free" },
-    { kind: "prop", prefab: "barrier-block", pose: pose(10, 0, 6.8), hold: "free" },
-    ...[-2, 0, 2, 4].map((x, i): LabItem => ({ kind: "prop", prefab: i % 2 ? "cone" : "crate", pose: pose(8 + x * PEG * 2, 6 * PEG, 0), hold: "pin" })),
+    ...([PREFAB.crate, PREFAB.tyreStack, PREFAB.hayBale, PREFAB.crate, PREFAB.tyreStack, PREFAB.crate, PREFAB.hayBale] as const).map((prefab, i): LabItem => ({ kind: "prop", prefab, pose: pose(10, 0, -3 + i * 1.3), hold: "free" })),
+    { kind: "prop", prefab: PREFAB.barrierBlock, pose: pose(10, 0, -5.2), hold: "free" },
+    { kind: "prop", prefab: PREFAB.barrierBlock, pose: pose(10, 0, 6.8), hold: "free" },
+    ...[-2, 0, 2, 4].map((x, i): LabItem => ({ kind: "prop", prefab: i % 2 ? PREFAB.cone : PREFAB.crate, pose: pose(8 + x * PEG * 2, 6 * PEG, 0), hold: "pin" })),
   ],
   get cards() {
     return (made.cards ??= cardsLayout());

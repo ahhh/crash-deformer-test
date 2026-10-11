@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { applyMarkMap } from "./engine-marks.ts";
 import { groundMaterial, groundMesh } from "../scenes/ground-stack.ts";
 import { tagSurface } from "./ultra/surface-tag.ts";
+import { LAMP_POOL } from "./constants.ts";
 
 /** The sandbox's asphalt disc: its UVs span this many metres (its texture repeats 18 times across). */
 const STAGE_DIAMETER = 96;
@@ -142,7 +143,7 @@ export function makeLamp(): THREE.Group {
   head.position.set(0, 5.15, 0.15);
   lampPool.map ??= makePoolTexture();
   const pool = groundMesh(new THREE.PlaneGeometry(9, 9), lampPool, "decal");
-  pool.name = "pool";
+  pool.name = LAMP_POOL;
   pool.rotation.x = -Math.PI / 2;
   pool.position.set(0, 0.025, 0.15);
   g.add(pole, head, pool);
@@ -307,7 +308,7 @@ export class WorldStage {
     if (!this.night) return;
     for (let k = 0; k < poles.length; k++) {
       const p = poles[k]!;
-      const pool = p.group.getObjectByName("pool");
+      const pool = p.group.getObjectByName(LAMP_POOL);
       if (pool) pool.visible = p.intact;
     }
   }

@@ -1,5 +1,6 @@
 import type { RaceCommand } from "../match/types.ts";
 import type { LabPresetId } from "../scenes/lab.ts";
+import { LAB_PRESET } from "../scenes/constants.ts";
 import type { DeformableCar } from "../vehicle/car.ts";
 import type { CarStyleId } from "../vehicle/car-variants.ts";
 import { PREFABS, type PrefabId } from "../world/catalog.ts";
@@ -24,8 +25,8 @@ type LabThrow = { preset: LabPresetId; along: number; up: number };
  */
 const LAB_BENCH: { throws: readonly LabThrow[]; segmentS: number; settleS: number } = {
   throws: [
-    { preset: "cards", along: 30, up: 5.4 },
-    { preset: "wall", along: 30, up: 3.6 },
+    { preset: LAB_PRESET.cards, along: 30, up: 5.4 },
+    { preset: LAB_PRESET.wall, along: 30, up: 3.6 },
   ],
   segmentS: 4,
   settleS: 0.5,

@@ -3,6 +3,7 @@ import * as THREE from "three";
 import type { Collider, ColliderDesc, RigidBody, World } from "@dimforge/rapier3d-simd";
 import type { Rapier } from "../kernel/rapier.ts";
 import { PREFABS } from "../world/catalog.ts";
+import { PREFAB } from "../world/constants.ts";
 import { propColliders, type Placed, type PropCollider } from "../world/placements.ts";
 import { AIR_ANGULAR, AIR_LINEAR, blendPose, readPose } from "./ragdoll-body.ts";
 import type { PropTumble } from "./prop-tumble.ts";
@@ -82,7 +83,7 @@ const Y = new THREE.Vector3(0, 1, 0);
 function shapes(R: Rapier, p: Placed): { descs: ColliderDesc[]; volume: number } {
   const [w, h, d] = PREFABS[p.prefab].size;
   const hy = (h * p.sy) / 2;
-  if (p.prefab === "cone") {
+  if (p.prefab === PREFAB.cone) {
     // A 0.4 m square base plate 4 cm thick, then the cone (r 0.165) up to 0.7 m.
     const plate = [0.2 * p.sx, 0.02 * p.sy, 0.2 * p.sz] as const;
     const cone = [0.33 * p.sy, 0.165 * Math.max(p.sx, p.sz)] as const;
@@ -91,7 +92,7 @@ function shapes(R: Rapier, p: Placed): { descs: ColliderDesc[]; volume: number }
       volume: 8 * plate[0] * plate[1] * plate[2] + (2 * Math.PI * cone[1] * cone[1] * cone[0]) / 3,
     };
   }
-  if (p.prefab === "tyre-stack") {
+  if (p.prefab === PREFAB.tyreStack) {
     const r = (w / 2) * Math.max(p.sx, p.sz);
     return { descs: [R.ColliderDesc.cylinder(hy, r)], volume: 2 * Math.PI * r * r * hy };
   }

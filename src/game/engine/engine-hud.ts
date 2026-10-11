@@ -1,5 +1,6 @@
 import { stackLoads } from "../scenes/stack-rig.ts";
 import { compactorStage } from "../scenes/compactor.ts";
+import { LAB_PRESET } from "../scenes/constants.ts";
 import type { HudStore, LabHud } from "../hud/hud-store.ts";
 import { carGauge } from "../match/car-view.ts";
 import { HANDLING } from "../vehicle/vehicle-classes.ts";
@@ -76,7 +77,7 @@ export abstract class EngineHud extends EngineWarm {
       showDoors: this.showDoors,
       showCorkscrew: this.showCorkscrew,
       stack: this.showStack ? { ...this.stack.config, dropped: this.stack.dropped, ...stackLoads(cars, this.stack.dropped) } : null,
-      lab: this.showLab ? { preset: this.lab.preset ?? "cards", shot: this.labShotHud() } : null,
+      lab: this.showLab ? { preset: this.lab.preset ?? LAB_PRESET.cards, shot: this.labShotHud() } : null,
       garage:
         this.showGarage && this.garage
           ? { car: lookColours(this.carA, this.looks.mine.car), person: pickedLook(GARAGE.driver, this.looks.mine.person), picked: { ...this.looks.mine.person }, spray: { ...this.garage.tool } }

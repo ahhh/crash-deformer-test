@@ -12,6 +12,7 @@ import { INITIAL_HUD, type HudStore } from "../hud/hud-store.ts";
 import { easeTimeScale, PRE_IMPACT_LEAD, preImpact, stepPhase } from "../match/phase.ts";
 import { settleStep, stepWorld } from "./world-step.ts";
 import { MAX_CARS } from "../scenes/fleet.ts";
+import { LAB_PRESET } from "../scenes/constants.ts";
 import { damageStage } from "../vehicle/vehicle-classes.ts";
 import { makeJerseyBarrier, makePoolTexture } from "../present/engine-world.ts";
 import { Cinematics } from "../present/engine-cine.ts";
@@ -178,7 +179,7 @@ export class CrashEngine extends EngineGarage {
     this.veil = veil;
     this.hudStore = hudStore;
     this.clock.reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    this.lab.load("cards");
+    this.lab.load(LAB_PRESET.cards);
     this.lab.fx = this.hitFx;
 
     this.renderer = makeRenderer(canvas);

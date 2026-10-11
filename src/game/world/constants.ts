@@ -11,6 +11,27 @@ export const SURFACE = {
   sand: "sand",
 } as const;
 
+/** The prop and scenery ids a course places (`PrefabId`): `PREFAB_IDS` in catalog.ts lists them in table order, `present/prefabs.ts` draws each. */
+export const PREFAB = {
+  cone: "cone",
+  tyreStack: "tyre-stack",
+  hayBale: "hay-bale",
+  crate: "crate",
+  barrierBlock: "barrier-block",
+  rock: "rock",
+  tree: "tree",
+  building: "building",
+  grandstand: "grandstand",
+  billboard: "billboard",
+  lamp: "lamp",
+  gantry: "gantry",
+  monument: "monument",
+  stucco: "stucco",
+  palm: "palm",
+  wall: "wall",
+  dumpster: "dumpster",
+} as const;
+
 /** The campaign's course ids, the `id` of each `tracks/*.json` (`CAMPAIGN` in tracks/index.ts races them in order). */
 export const TRACK_ID = {
   oval: "oval",
