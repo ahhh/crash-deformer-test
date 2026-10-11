@@ -227,6 +227,8 @@ export class Probe {
   private v0 = 0;
   private vMin = Infinity;
   private readonly trace: { t: number; v: number }[] = [];
+  /** The approach speed after each physics slice of the frame in flight: the pulse is read to the step, not to the rendered frame. */
+  private readonly slices: { h: number; v: number }[] = [];
   private t = 0;
   contact = false;
   r: CrashResult = {
@@ -294,6 +296,7 @@ export class Probe {
 
   /** Called after each car's afterContacts in every slice: the zip check, mass by mass, against the slice. */
   slice(h: number): void {
+    if (h > 0) this.slices.push({ h, v: this.car.velocity.dot(this.dir) });
     const d = this.car.deform;
     if (!d.massActive || h <= 0) return;
     let v = this.car.velocity.length();
@@ -320,6 +323,7 @@ export class Probe {
     const car = this.car;
     if (!this.contact && !car.crashed) {
       this.v0 = car.velocity.dot(this.dir);
+      this.slices.length = 0;
       return;
     }
     if (!this.contact) {
@@ -363,9 +367,16 @@ export class Probe {
     // no slab counts from the slice before the first contact.
     const from = w.touch.get(car) ?? this.start;
     if (w.touch.has(car) || !barrier) r.comTravel = Math.max(r.comTravel, (car.group.position.x - from.x) * this.dir.x + (car.group.position.z - from.z) * this.dir.z);
-    const v = car.velocity.dot(this.dir);
-    this.vMin = Math.min(this.vMin, v);
-    this.trace.push({ t: this.t, v });
+    this.vMin = Math.min(this.vMin, car.velocity.dot(this.dir));
+    // Every slice of the frame is a trace point, so the 95 % crossing is read between two steps (`finish`) instead of at a frame edge.
+    let st = this.t;
+    for (const s of this.slices) st -= s.h;
+    for (const s of this.slices) {
+      st += s.h;
+      this.vMin = Math.min(this.vMin, s.v);
+      this.trace.push({ t: st, v: s.v });
+    }
+    this.slices.length = 0;
     if (barrier && d.massActive) {
       const ox = barrier.group.position.x;
       const side = car.group.position.x - ox >= 0 ? 1 : -1;
@@ -396,10 +407,15 @@ export class Probe {
     const car = this.car;
     const dv = this.v0 - this.vMin;
     if (dv > 0.5) {
-      const hit = this.trace.find((s) => s.v <= this.v0 - 0.95 * dv);
-      if (hit) {
-        r.pulseMs = hit.t * 1000;
-        r.avgG = (0.95 * dv) / Math.max(1e-3, hit.t) / 9.81;
+      const thr = this.v0 - 0.95 * dv;
+      const i = this.trace.findIndex((s) => s.v <= thr);
+      if (i > 0) {
+        // Linear between the step before the crossing and the step at it.
+        const a = this.trace[i - 1]!;
+        const b = this.trace[i]!;
+        const t = a.t + ((thr - a.v) / (b.v - a.v)) * (b.t - a.t);
+        r.pulseMs = t * 1000;
+        r.avgG = (0.95 * dv) / Math.max(1e-3, t) / 9.81;
       }
     }
     r.drivetrainAlive = car.deform.drivetrainAlive;
