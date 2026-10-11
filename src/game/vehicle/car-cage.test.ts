@@ -12,14 +12,14 @@ import { BODIES, carInState, drawnField, STATES, TOP_P95_M, TOP_PARTS, TOP_WORST
 
 /**
  * The parts the cage is off the drawn top by more than the bars, read against the drawn relief (the 3 x 3 neighbourhood clamp of
- * `reliefGap`, p95 and worst alike): measured p95 / worst (m) against the 0.05 / 0.10 bars. Each is a todo for the Stage 3 lane.
+ * `reliefGap`, p95 and worst alike): measured p95 / worst (m) against the 0.05 / 0.10 bars. Each is a todo with its closing follow-up named.
  */
 const interiorThroughRoof =
-  "the drawn interior (its headliner stands 1.09 m over the origin and does not follow the roof mass) pokes up through the roof the drop crushed, so the drawn top is the interior and the cage's is the roof (the cage carries the interior over a gone pane's opening only: over the whole roof it takes stack-crush.test.ts to 6 of 8); closes when the drawn interior follows the roof's crush";
+  "the drawn interior (its headliner stands 1.09 m over the origin and does not follow the roof mass) pokes up through the roof the drop crushed, so the drawn top is the interior and the cage's is the roof (the cage carries the interior over a gone pane's opening only: over the whole roof it takes stack-crush.test.ts to 6 of 8); after the plan: make the drawn interior follow the roof's crush";
 const edgeCliffs: readonly { key: string; part: string; measured: string; cause: string }[] = [
-  { key: "sedan/rolled", part: "cabin", measured: "p95 0.061 (bar 0.05), worst 0.078 under (bar 0.10)", cause: interiorThroughRoof },
-  { key: "pickup truck/rolled", part: "cabin", measured: "p95 0.062 (bar 0.05), worst 0.077 under (bar 0.10)", cause: interiorThroughRoof },
-  { key: "monster pickup/rolled", part: "cabin", measured: "p95 0.062 (bar 0.05), worst 0.078 under (bar 0.10)", cause: interiorThroughRoof },
+  { key: "sedan/rolled", part: "cabin", measured: "p95 0.060 (bar 0.05), worst 0.063 under (bar 0.10)", cause: interiorThroughRoof },
+  { key: "pickup truck/rolled", part: "cabin", measured: "p95 0.060 (bar 0.05), worst 0.065 under (bar 0.10)", cause: interiorThroughRoof },
+  { key: "monster pickup/rolled", part: "cabin", measured: "p95 0.060 (bar 0.05), worst 0.065 under (bar 0.10)", cause: interiorThroughRoof },
 ];
 
 for (const body of BODIES) {
@@ -40,7 +40,7 @@ for (const body of BODIES) {
         }
         assert.deepEqual(wrong, []);
       });
-      for (const cliff of cliffs) it.todo(`the cage's ${cliff.part} within the bars (measured ${cliff.measured}: ${cliff.cause}; Stage 3 lane)`);
+      for (const cliff of cliffs) it.todo(`the cage's ${cliff.part} within the bars (measured ${cliff.measured}: ${cliff.cause})`);
     });
   }
 }
