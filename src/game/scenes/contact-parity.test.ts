@@ -36,9 +36,7 @@ describe("given the Doors ram lane's three scenes (mirror: the striker grazes a 
 });
 
 describe("given two cars driving into the nose and tail of a middle car, and a press closed to the same shortening", () => {
-  // todo -> Stage 4 item 5 (car-car through the kernel): the sandwich's car-car crush at 20 km/h against the press closed to the same shortening (bumperFL 82 mm car /
-  // 67 mm press, engineL 14 / 27 mm, bumperRL 26 / 50 mm).
-  it.todo("when each car hits at 20 km/h, then the middle car's parts and crush match the press's", () => {
+  it("when each car hits at 20 km/h, then the middle car's parts and crush match the press's", { todo: "after the plan: close the sandwich's car-car crush to the press's at the same shortening; at 20 km/h the car crushes less than the press (car / press mm: engineL 18 / 37, engineR 18 / 37, railL 13 / 25, railR 13 / 25, tank 17 / 36, axleR 20 / 40, bumperRL 22 / 65, bumperRR 22 / 65, wingFL 17 / 28, wingFR 17 / 28)" }, () => {
     const s = carSandwich(20);
     const press = pressUntil((p) => shortening(p.car!) * 1000 >= s.a.shortenMm).state;
     sameParts(s.a, press, "sandwich");
@@ -48,11 +46,7 @@ describe("given two cars driving into the nose and tail of a middle car, and a p
 
 describe("given two cars driving into the nose and tail of a middle car, and a press whose plates are pushed by the same force over time as the two cars pushed (not closed to a shortening)", () => {
   for (const kph of [10, 20, 30, 40, 60]) {
-    // todo -> Stage 4 item 5 (car-car through the kernel) (5 of 5 red, as on the Stage 2 base): the sandwich side is car-car (`resolveCarPair`); the force-driven press
-    // is armed at the first slice's tiny speed, so its crush force is small and it tears off the quarter panels (quarterL, quarterR)
-    // where the cars' sandwich tears none, at every speed 10-60 km/h. Needs the pair on the kernel and a force law independent of the
-    // arming speed.
-    it.todo(`when each car hits at ${kph} km/h, then the middle car's parts and crush match the force-driven press's`, () => {
+    it(`when each car hits at ${kph} km/h, then the middle car's parts and crush match the force-driven press's`, { todo: "after the plan: give the force-driven press a crush force independent of the first slice's arming speed, or the sandwich the same law; at every speed 10-60 km/h the press tears quarterR off the middle car where the cars' sandwich tears none (parts off car [] vs rig [quarterR], 5 of 5 speeds red)" }, () => {
       const s = carSandwich(kph);
       const press = pressByForce(s.force).state;
       sameParts(s.a, press, `sandwich ${kph} km/h`);
@@ -80,17 +74,15 @@ describe("given a piston and a car of the same mass and speed striking a crushab
 
 describe("given a piston and a car of the same mass and speed striking the parked car's nose at the speeds the cases above leave out, and its tail and right side", () => {
   const hits: [Strike, number][] = [["front", 10], ["front", 30], ["front", 60], ["rear", 30], ["right", 30]];
+  const PISTON_TODO: Record<string, string> = {
+    "front 10": "after the plan: put the car side's push on the same impulse the piston side takes; front 10 km/h at softness 0.4 crushes the engine block 33 mm car / 45 mm piston, tank 32 / 44, bumperRL 32 / 44, rails 6 / 18, wings 4 / 16 (the 15 % bound)",
+    "front 30": "after the plan: put the car side's push on the same impulse the piston side takes; front 30 km/h at softness 0.32 crushes bumperFL and bumperFR 76 mm car / 63 mm piston (the 15 % bound)",
+    "front 60": "after the plan: put the car side's push on the same impulse the piston side takes; front 60 km/h at softness 0.4 crushes the engine block 63 mm car / 50 mm piston, wings 40 / 21 (the 15 % bound)",
+    "right 30": "after the plan: put the car side's push on the same impulse the piston side takes; right 30 km/h at softness 0.4 swings the door 0.0 deg car / 23.1 deg piston (3 deg bound)",
+  };
   for (const [at, kph] of hits) {
-    // todo -> Stage 4 item 5 (car-car through the kernel) for front 10 (engine block 33 mm car / 45 mm piston), front 60 (tank 43 / 58 mm, wing 38 / 21 mm) and right 30
-    // (door 43.7 deg car / 22.9 deg piston): the car side is `resolveCarPair`'s push, the piston side the kernel's impulse.
-    // todo -> Stage 4 item 5 (car-car through the kernel) for front 30 (bumperFL 75 mm car / 63 mm piston at softness 0.32, 1 mm over the 15 % bound) and rear 30 (bumperRL
-    // 27 / 15 mm at 0.4, 2 mm over the 10 mm bound): not the slice cut (the car side steps at 1/120 s like the piston's frame, h = 1/120 s on both
-    // sides: 76 / 63; at 1/240 s 81 / 73) and not the first slices (a car's peak is the piston's: rear bumperRL 114 / 109 mm at 0.13 s). After the
-    // common speed the pair's crush drifts up (rear 21 -> 27 mm over the next second) while the piston's relaxes (25 -> 15 mm): the pair stays in
-    // `resolveCarPair`'s contact (the cage's reach, `OUTLINE_REACH`, keeps feeding it) where the striker row ends with the stroke. Front 30 read 69 /
-    // 63 before ba54357d (that commit moves the pair's push, `separateAlong`'s share and the cancel gate together: each of the three alone moves it
-    // 2-12 mm either way; rear 30 was 30 / 15 then, red for tank 41 / 3 mm).
-    it.todo(`when a ${CAR_KG} kg car and a ${CAR_KG} kg piston each hit the ${at} at ${kph} km/h at crush softness 0.4 and 0.32, then the car's parts and crush match the piston's`, () => {
+    const todo = PISTON_TODO[`${at} ${kph}`] ?? false;
+    it(`when a ${CAR_KG} kg car and a ${CAR_KG} kg piston each hit the ${at} at ${kph} km/h at crush softness 0.4 and 0.32, then the car's parts and crush match the piston's`, { todo }, () => {
       for (const squash of [0.4, 0.32]) {
         const car = carStrike(at, kph, squash).a;
         const piston = pistonStrike(at, kph, CAR_KG, 0.5, squash);
@@ -140,9 +132,8 @@ describe("given every door scene (mirror, overOpen, shut, panelPush, panelPull) 
         for (const kg of [5, 300, CAR_KG, 5000]) {
           // A car stands in for the ram only at a car's own mass.
           const forms = kg === CAR_KG ? DOOR_FORMS : DOOR_FORMS.slice(0, 2);
-          // todo -> Stage 4 item 5 (car-car through the kernel) for the 12 km/h shut hit with the car as the ram, left and right (mirror fold 0.6 deg over the 0.5 deg bound
-          // with no tyre grip): the other 58 cells stay plain tests.
-          (scenario === "shut" && kph === 12 && kg === CAR_KG ? it.todo : it)(`when the ${scenario} hit runs on the ${side < 0 ? "left" : "right"} side at ${kph} km/h with a ${kg} kg striker (${forms.length} forms), then every form breaks off the same parts and leaves the door, latch, mirror, drivetrain and crush as the ram-moves form does, to ${TIGHT.crushMm} mm and ${TIGHT.doorDeg}° with no tyre grip and to that plus the tyres' own effect with grip`, (t) => {
+          const todo = scenario === "shut" && kph === 12 && kg === CAR_KG ? "after the plan: find why the car as the ram folds the shut door's mirror 0.6 deg with no tyre grip (bound 0.5 deg) and 0.8 deg with grip (bound tyre term 0.0 + 0.5 deg) at 12 km/h, left and right; the carStrikes and reversingCar forms only" : false;
+          it(`when the ${scenario} hit runs on the ${side < 0 ? "left" : "right"} side at ${kph} km/h with a ${kg} kg striker (${forms.length} forms), then every form breaks off the same parts and leaves the door, latch, mirror, drivetrain and crush as the ram-moves form does, to ${TIGHT.crushMm} mm and ${TIGHT.doorDeg}° with no tyre grip and to that plus the tyres' own effect with grip`, { todo }, (t) => {
             const reference = doorHit("ramMoves", scenario, kph, kg, true, side);
             const referenceFree = doorHit("ramMoves", scenario, kph, kg, false, side);
             const tyre = doorGap(doorHit("carMoves", scenario, kph, kg, false, side), doorHit("carMoves", scenario, kph, kg, true, side));
@@ -168,13 +159,20 @@ describe("given every door scene (mirror, overOpen, shut, panelPush, panelPull) 
   }
 });
 
+const SWAPPED_FRAME = "after the plan: put the swapped-frame forms' first slices on the kernel's push and the tyre stop the moving piston gets, so car into piston, striker car moves and struck car moves match it; ";
+const SWAPPED_TODO: Record<string, string> = {
+  "front 10": `${SWAPPED_FRAME}front 10 km/h: crush 8 mm (car into piston), 25 mm (striker moves, struck moves) over the 1 mm bound`,
+  "front 30": `${SWAPPED_FRAME}front 30 km/h: crush 52 mm and cabin 2 mm (car into piston), 37 mm (striker moves, struck moves) over the 1 mm bound`,
+  "rear 10": `${SWAPPED_FRAME}rear 10 km/h: crush 9 mm and cabin 3 mm (car into piston), 30 mm (striker moves, struck moves), struck car with grip 33 mm over the tyre term 30 + 1 mm`,
+  "rear 30": `${SWAPPED_FRAME}rear 30 km/h: crush 8 mm and cabin 2 mm (car into piston), crush 61 mm and cabin 8 mm (striker moves), crush 62 mm and cabin 9 mm (struck moves) over the 1 mm bound`,
+  "right 10": `${SWAPPED_FRAME}right 10 km/h: parts or latch differ with grip in all three forms; crush 17 mm over the 1 mm bound, cabin 13 mm (car into piston)`,
+  "right 30": `${SWAPPED_FRAME}right 30 km/h: parts, latch or drivetrain differ in all three forms with and without grip; crush 16 / 85 / 13 mm (car into piston / striker moves / struck moves) over the 1 mm bound, with grip 138 and 144 mm over the tyre term 135 + 1 mm`,
+};
+
 describe("given the same hit on the nose, tail and right side of a parked car delivered by a moving piston, by a moving car, and in the swapped frame (the head, or the striker car, standing still while the struck car drives into it)", () => {
   for (const at of ["front", "rear", "right"] as const) {
     for (const kph of [10, 30]) {
-      // todo -> Stage 4 item 5 (car-car through the kernel) (6 of 6 cells red, as on the Stage 2 base): the swapped-frame forms differ in the first slices by the pair
-      // path's own push and tyre stop (carMovesIntoPiston crush 7 / 52 / 9 / 8 mm over the 1 mm bound at front 10 / front 30 / rear 10 /
-      // rear 30; right 10 and 30: parts or latch differ).
-      it.todo(`when a ${CAR_KG} kg striker hits the ${at} at ${kph} km/h, then the struck car's parts and crush are the same whichever of the four runs it is, to ${TIGHT.crushMm} mm with no tyre grip and to that plus the tyres' own effect with grip`, (t) => {
+      it(`when a ${CAR_KG} kg striker hits the ${at} at ${kph} km/h, then the struck car's parts and crush are the same whichever of the four runs it is, to ${TIGHT.crushMm} mm with no tyre grip and to that plus the tyres' own effect with grip`, { todo: SWAPPED_TODO[`${at} ${kph}`] }, (t) => {
         const runs = {
           pistonMoves: (grip: boolean) => onGround(grip, () => pistonStrike(at, kph, CAR_KG, 0.5)),
           carMovesIntoPiston: (grip: boolean) => onGround(grip, () => pistonStrike(at, kph, CAR_KG, 0.5, undefined, true)),
