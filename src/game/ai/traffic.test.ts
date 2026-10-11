@@ -113,6 +113,18 @@ describe("given the city track's ambient traffic (cars that drive the lanes arou
     assert.ok(p.s > 240, `got past the blocker (s ${p.s.toFixed(1)})`);
   });
 
+  it("when a car on the throttle stays pinned where it is, then after about a second it backs off in reverse", () => {
+    brain.reset();
+    const slot = brain.slotOf(0);
+    const pt = track.pointAt(200, { x: 0, y: 0, z: 0, tx: 0, tz: 1, half: 0 });
+    const wedged: AiCar = { ...blankAiCar(0), alive: true, x: pt.x + pt.tz * slot.offset, z: pt.z - pt.tx * slot.offset, yaw: Math.atan2(pt.tx, pt.tz) };
+    let reversedAt = -1;
+    for (let step = 0; step < 4 / DT && reversedAt < 0; step++) {
+      if (brain.think(wedged, [wedged], DT).throttle < 0) reversedAt = step * DT;
+    }
+    assert.ok(reversedAt > 1 && reversedAt < 2, `backed off at ${reversedAt.toFixed(2)} s`);
+  });
+
   it("when a put-away traffic car is asked for a spot, then it wakes on its lane inside the observer's spawn ring, at least 14 m from other cars, and gets no spot where the player is looking", () => {
     brain.reset();
     const id = 6;

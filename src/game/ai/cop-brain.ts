@@ -66,8 +66,8 @@ export function pursuitSteer(alpha: number, reach: number, speed: number, turn: 
   return clamp((2 * Math.max(speed, 4) * detSin(alpha)) / Math.max(4, reach) / Math.max(0.2, turnMax), -1, 1);
 }
 
-/** Wedge recovery of every police drive: throttle held without progress for `STUCK_FOR` s backs a unit off for `BACK_FOR` s, steering the other way. */
-class Backoff {
+/** Wedge recovery of every police drive and of world traffic: throttle held without progress for `STUCK_FOR` s backs a car off for `BACK_FOR` s, steering the other way. */
+export class Backoff {
   private readonly stuck: Float64Array;
   private readonly back: Float64Array;
   private readonly backSteer: Float64Array;

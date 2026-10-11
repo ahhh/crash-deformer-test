@@ -3,6 +3,7 @@ import { clearDrive, DRIVE, idleDrive, type DriveInput } from "../vehicle/car-dr
 import type { AiCar } from "./derby-ai.ts";
 import { MAX_CARS } from "../scenes/fleet.ts";
 import { steerGrip } from "./race-ai.ts";
+import { Backoff } from "./cop-brain.ts";
 import { SURFACE_IDS, SURFACES } from "../world/catalog.ts";
 import { blankPoint, blankProjection, pointOn, projectPath, type Track, type TrackPath } from "../world/track.ts";
 import { clamp, wrapPi } from "../kernel/scalar.ts";
@@ -53,6 +54,7 @@ export class TrafficBrain {
   readonly speed: number;
   readonly slots: TrafficSlot[];
   private readonly out: DriveInput = idleDrive();
+  private readonly wedge = new Backoff(MAX_CARS);
   private readonly seg = new Int32Array(MAX_CARS);
   private readonly waited = new Float64Array(MAX_CARS);
   private readonly edge = new Float64Array(MAX_CARS);
@@ -92,7 +94,10 @@ export class TrafficBrain {
     this.waited.fill(0);
     this.edge.fill(0);
     this.kerb.fill(0);
-    for (let i = 0; i < MAX_CARS; i++) this.scan[i] = ((i * 97.31) % 1) * 1e3;
+    for (let i = 0; i < MAX_CARS; i++) {
+      this.scan[i] = ((i * 97.31) % 1) * 1e3;
+      this.wedge.reset(i);
+    }
   }
 
   slotOf(id: number): TrafficSlot {
@@ -156,6 +161,7 @@ export class TrafficBrain {
     this.waited[id] = 0;
     this.edge[id] = 0;
     this.kerb[id] = 0;
+    this.wedge.reset(id);
   }
 
   private placeAt(id: number, s: number): TrafficSpawn {
@@ -174,6 +180,7 @@ export class TrafficBrain {
     const out = clearDrive(this.out);
     const i = self.id;
     if (!self.alive) return out;
+    if (this.wedge.backing(i, dt, out)) return out;
     const slot = this.slotOf(i);
     const path = slot.path;
     const proj = projectPath(path, self.x, self.z, this.seg[i]!, this.proj);
@@ -237,6 +244,7 @@ export class TrafficBrain {
     } else {
       out.throttle = clamp(target / DRIVE.maxFwd + (target - along) * 0.15, 0, 1);
     }
+    this.wedge.watch(i, self.x, self.z, dt, out);
     return out;
   }
 }
