@@ -1,4 +1,12 @@
 {
+ "src/game/world/stuck-canary-rally.test.ts": 117,
+ "src/game/world/stuck-canary-stunt.test.ts": 80,
+ "src/game/world/stuck-canary-city.test.ts": 79,
+ "src/game/world/stuck-canary-stunt-part2.test.ts": 76,
+ "src/game/world/stuck-canary-city-part2.test.ts": 76,
+ "src/game/world/stuck-canary-survival.test.ts": 70,
+ "src/game/world/stuck-canary-oval.test.ts": 47,
+ "src/game/world/stuck-canary-derby.test.ts": 6,
  "src/game/world/survival-chase.test.ts": 204,
  "src/game/engine/reel-view.test.ts": 78,
  "src/game/world/race-finish.test.ts": 74,

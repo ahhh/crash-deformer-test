@@ -5,7 +5,6 @@ import { FRAME, frame, makeWorld } from "./race-world.test-util.ts";
 import { chase } from "./survival-players.test-util.ts";
 import { runField } from "../ai/derby-field.test-util.ts";
 import { DEFAULT_RACE_OPTIONS } from "../match/types.ts";
-import { TRACK_ID } from "./constants.ts";
 import { parseTrack } from "./track-schema.ts";
 import { Track } from "./track.ts";
 import { TRACKS } from "./tracks/index.ts";
@@ -108,7 +107,6 @@ class StuckWatch {
 
 const RACE_LAPS = 2;
 const RACE_SEEDS = [1, 2, 3, 4, 5, 6, 7, 8];
-const COURSES = [TRACK_ID.oval, TRACK_ID.rally, TRACK_ID.city, TRACK_ID.stunt];
 
 /** A police race on `course` (the default field with the police on, every slot AI-driven, `RACE_LAPS` laps) watched to the flag. */
 function policeRace(course: string, seed: number): string[] {
@@ -177,28 +175,42 @@ function derby(seed: number): string[] {
   return watch.episodes;
 }
 
-describe(`given the game's own AI-driven fields (police races on the campaign's courses, the Survival pursuit, a derby heat), watched for a live car that asks for drive (mean |throttle| ≥ ${DRIVE}) yet moves under ${MOVE} m in ${WINDOW} s while fewer than ${PILE} other cars touch it`, () => {
-  /**
-   * Measured on main 9b188a4d (Stage 1 landed): city seed 3, car 11 from race second 57.4 at (178.5, −52.0) moved 0.20 m in 10 s at mean
-   * throttle 0.79 with one car touching. Measured on lane/uc2-solids (Stage 2, walls and props on the one top/side query): city seeds 1-8
-   * 0 stuck windows, and every other course, the pursuit and the derby 0 as well.
-   */
-  for (const course of COURSES) {
-    const title = `when the default field races ${course} with the police on, ${RACE_LAPS} laps, field seeds ${RACE_SEEDS[0]}-${RACE_SEEDS[RACE_SEEDS.length - 1]}, then no car is stuck`;
+
+const TITLE = `given the game's own AI-driven fields (police races on the campaign's courses, the Survival pursuit, a derby heat), watched for a live car that asks for drive (mean |throttle| ≥ ${DRIVE}) yet moves under ${MOVE} m in ${WINDOW} s while fewer than ${PILE} other cars touch it`;
+
+/**
+ * Measured on main 9b188a4d (Stage 1 landed): city seed 3, car 11 from race second 57.4 at (178.5, −52.0) moved 0.20 m in 10 s at mean
+ * throttle 0.79 with one car touching. Measured on lane/uc2-solids (Stage 2, walls and props on the one top/side query): city seeds 1-8
+ * 0 stuck windows, and every other course, the pursuit and the derby 0 as well.
+ * The stuck-canary test files share these cases so each runs in a fraction of the whole sweep's time. Not a test file itself.
+ */
+export function describeRaceCanary(course: string, seeds: readonly number[] = RACE_SEEDS): void {
+  describe(TITLE, () => {
+    const title = `when the default field races ${course} with the police on, ${RACE_LAPS} laps, field seeds ${seeds[0]}-${seeds[seeds.length - 1]}, then no car is stuck`;
     it(title, (t) => {
-      const stuck = RACE_SEEDS.flatMap((seed) => policeRace(course, seed));
+      const stuck = seeds.flatMap((seed) => policeRace(course, seed));
       t.diagnostic(`${course}: ${stuck.length} stuck windows${stuck.length ? `\n${stuck.join("\n")}` : ""}`);
       assert.deepEqual(stuck, []);
     });
-  }
-  it(`when the pack hunts a fleeing player on Havana for ${SURVIVAL_T} s in each of seeds ${SURVIVAL_SEEDS[0]}-${SURVIVAL_SEEDS[SURVIVAL_SEEDS.length - 1]}, then no car is stuck`, (t) => {
-    const stuck = SURVIVAL_SEEDS.flatMap((seed) => pursuit(seed));
-    t.diagnostic(`Survival: ${stuck.length} stuck windows${stuck.length ? `\n${stuck.join("\n")}` : ""}`);
-    assert.deepEqual(stuck, []);
   });
-  it(`when ${DERBY_CARS} AI cars run a derby heat to its end with seed ${DERBY_SEEDS[0]}, then no car is stuck`, (t) => {
-    const stuck = DERBY_SEEDS.flatMap((seed) => derby(seed));
-    t.diagnostic(`derby: ${stuck.length} stuck windows${stuck.length ? `\n${stuck.join("\n")}` : ""}`);
-    assert.deepEqual(stuck, []);
+}
+
+export function describePursuitCanary(seeds: readonly number[] = SURVIVAL_SEEDS): void {
+  describe(TITLE, () => {
+    it(`when the pack hunts a fleeing player on Havana for ${SURVIVAL_T} s in each of seeds ${seeds[0]}-${seeds[seeds.length - 1]}, then no car is stuck`, (t) => {
+      const stuck = seeds.flatMap((seed) => pursuit(seed));
+      t.diagnostic(`Survival: ${stuck.length} stuck windows${stuck.length ? `\n${stuck.join("\n")}` : ""}`);
+      assert.deepEqual(stuck, []);
+    });
   });
-});
+}
+
+export function describeDerbyCanary(): void {
+  describe(TITLE, () => {
+    it(`when ${DERBY_CARS} AI cars run a derby heat to its end with seed ${DERBY_SEEDS[0]}, then no car is stuck`, (t) => {
+      const stuck = DERBY_SEEDS.flatMap((seed) => derby(seed));
+      t.diagnostic(`derby: ${stuck.length} stuck windows${stuck.length ? `\n${stuck.join("\n")}` : ""}`);
+      assert.deepEqual(stuck, []);
+    });
+  });
+}
