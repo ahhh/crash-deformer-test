@@ -13,7 +13,7 @@ import { clearDents } from "./loose-dent.ts";
 import type { CarSurfaces } from "./car-surfaces.ts";
 import type { CarCage } from "./car-cage.ts";
 import { CageRig } from "./car-cage-rig.ts";
-import { CLASS_LIFT, LID, FUEL_CUTOFF_G, SIDE_HIT_X, STALL_S } from "./constants.ts";
+import { CLASS_HUBS, CLASS_LIFT, LID, FUEL_CUTOFF_G, SIDE_HIT_X, STALL_S } from "./constants.ts";
 
 export { CAR_HALF, DOOR, WHEEL_POS };
 
@@ -661,7 +661,7 @@ export class DeformableCar extends CarParts {
       if (loose !== lw.loose) {
         // Back under the class hub group (assignClass), where resetVisual's re-dress puts it.
         if (loose) this.world.add(w);
-        else (this.group.getObjectByName("classHubs") ?? this.group).add(w);
+        else (this.group.getObjectByName(CLASS_HUBS) ?? this.group).add(w);
         lw.loose = loose;
         lw.velocity.set(0, 0, 0);
         lw.angular.set(0, 0, 0);

@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { CAR_HALF, type DeformableCar } from "../vehicle/car.ts";
+import type { MassName } from "../kernel/rig-spec.ts";
 import { COMPACTOR, CompactorRig } from "./compactor.ts";
 import { strikeCar, bodyHit, type ContactBox } from "../contact/external-contact.ts";
 import { launch as launchAt, makeCar, makeWorld, tickWorld, type CrashWorld } from "../contact/crash-scenarios.test-util.ts";
@@ -383,7 +384,7 @@ export function pressByForce(force: SandwichForce): { state: CarState; face: num
 export function shortening(car: DeformableCar): number {
   const d = car.deform;
   if (!d.massActive) return 0;
-  const z = (n: string) => d.massLocal(n).z;
+  const z = (n: MassName) => d.massLocal(n).z;
   return 4.12 - ((z("bumperFL") + z("bumperFR")) * 0.5 - (z("bumperRL") + z("bumperRR")) * 0.5);
 }
 

@@ -129,7 +129,7 @@ export interface Beam {
 }
 
 /** Masses the solver reads by role every step; resolved once in the constructor. */
-type KeyMass = "cell" | "engineL" | "engineR" | "axleR" | "doorL" | "doorR" | "hubFL" | "hubFR" | "hubRL" | "hubRR" | "bumperFL" | "bumperFR" | "bumperRL" | "bumperRR";
+type KeyMass = "cell" | "roof" | "engineL" | "engineR" | "axleR" | "doorL" | "doorR" | "hubFL" | "hubFR" | "hubRL" | "hubRR" | "bumperFL" | "bumperFR" | "bumperRL" | "bumperRR";
 
 /**
  * The soft body's state and build: every field, the constructor (cages, sensors, masses, beams, lattice and
@@ -254,7 +254,7 @@ export abstract class DeformRig {
   readonly masses: MassNode[];
   protected beams: Beam[];
   protected readonly at: Record<KeyMass, MassNode>;
-  protected readonly byName: Map<string, MassNode>;
+  protected readonly byName: Map<MassName, MassNode>;
   /** Hub → mount spring pairs. */
   protected readonly suspension: readonly (readonly [MassNode, MassNode])[];
   protected readonly cageByPart: Map<BodyPartName, Cage>;
@@ -391,13 +391,14 @@ export abstract class DeformRig {
     this.sensorCount = this.sensors.length;
 
     this.masses = built.masses;
-    const cellNode = this.masses[nameIndex.get("cell") ?? 5]!;
+    const cellNode = this.masses.find((m) => m.name === "cell") ?? this.masses[5]!;
     const node = (name: MassName): MassNode => {
       const i = nameIndex.get(name);
       return i === undefined ? cellNode : this.masses[i]!;
     };
     this.at = {
       cell: cellNode,
+      roof: node("roof"),
       engineL: node("engineL"),
       engineR: node("engineR"),
       axleR: node("axleR"),

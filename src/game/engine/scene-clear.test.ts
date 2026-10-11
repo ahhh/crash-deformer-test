@@ -20,7 +20,7 @@ const CANVAS = { createElement: () => ({ width: 0, height: 0, getContext: () => 
 
 const V = new THREE.Vector3(0, 1, 0);
 const UP = new THREE.Vector3(0, 1, 0);
-const HUB = ["hubFL", "hubFR", "hubRL", "hubRR"];
+const HUB = ["hubFL", "hubFR", "hubRL", "hubRR"] as const;
 
 type Rig = {
   scene: THREE.Scene;

@@ -17,8 +17,7 @@ import { strikeCar, makeBox, partContact } from "../contact/external-contact.ts"
  * shared contact (`external-contact.ts`): the door and mirror colliders a car running down the
  * side meets too, and the body contact if a lane reaches the skin (the stock lanes do not).
  */
-const DOOR_SCENARIOS = ["mirror", "overOpen", "shut", "panelPush", "panelPull"] as const;
-export type DoorScenario = (typeof DOOR_SCENARIOS)[number];
+export type DoorScenario = "mirror" | "overOpen" | "shut" | "panelPush" | "panelPull";
 
 type RamLane = {
   /** Travel along the car: +1 rear→front, −1 front→rear. */

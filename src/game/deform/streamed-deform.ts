@@ -447,7 +447,7 @@ export class StreamedDeformation extends DeformSolve {
 
   /** The skin's 0.1 m roof clamp holds unless load crush sank the roof mass past `SUNK_ROOF` (read off the baked masses: a netplay client's skin lifts it the same way). */
   private roofHolds(): boolean {
-    const roof = this.byName.get("roof")!;
+    const roof = this.at.roof;
     return this.massPos[this.masses.indexOf(roof) * 3 + 1]! > roof.rest.y - SUNK_ROOF;
   }
 

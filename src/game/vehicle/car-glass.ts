@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { PART_FAMILY } from "../kernel/physics-core.js";
 import type { GlassName } from "./car-core.ts";
 import { CAR_STYLES, type BodyStyle, type GlassQuad } from "./car-variants.ts";
 import { B_PILLAR_Z, GLASS_BELT_Y, WINDSHIELD_BASE, WINDSHIELD_W, glassTopY, glassX, lerp } from "./car-mesh.ts";
@@ -140,7 +141,7 @@ export function glassCorners(style: BodyStyle): Float32Array {
     for (let k = 0; k < 4; k++) {
       const across = k & 1;
       const t = k >> 1;
-      const v = p < 2 ? quadPoint(quads[p]!, across * 2 - 1, t, 0) : sidePoint(sign, style, name.startsWith("door") ? doorSpan(style) : quarterSpan(style), across, t);
+      const v = p < 2 ? quadPoint(quads[p]!, across * 2 - 1, t, 0) : sidePoint(sign, style, name.startsWith(PART_FAMILY.door) ? doorSpan(style) : quarterSpan(style), across, t);
       v.toArray(out, p * 12 + k * 3);
     }
   }

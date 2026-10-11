@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import type { DeformableCar } from "../vehicle/car.ts";
-import { LAMP_SEAT, LIGHT_BAR } from "../vehicle/constants.ts";
+import { INTERIOR_MESH, LAMP_SEAT, LIGHT_BAR } from "../vehicle/constants.ts";
 
 /**
  * Distance detail, one rule for every car in every scene. Seen from the camera (m, at the 50 degree lens the game frames with),
@@ -52,7 +52,7 @@ function takeMid(car: DeformableCar): THREE.Object3D[] {
   const parts: THREE.Object3D[] = [];
   car.group.traverse((o) => {
     const m = o as THREE.Mesh;
-    if (o.name !== LAMP_SEAT && (!m.isMesh || (m as THREE.InstancedMesh).isInstancedMesh || m.castShadow || car.flushCasters.includes(m) || m.name === "interior" || m.name === "panel")) return;
+    if (o.name !== LAMP_SEAT && (!m.isMesh || (m as THREE.InstancedMesh).isInstancedMesh || m.castShadow || car.flushCasters.includes(m) || m.name === INTERIOR_MESH || m.name === "panel")) return;
     m.layers.disable(0);
     parts.push(m);
   });

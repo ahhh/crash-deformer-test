@@ -429,7 +429,7 @@ export class Probe {
       if (p.detached) r.detached.push(p.name);
     }
     for (const l of snap.lamps) if (!l.intact) r.lampsOut.push(`${l.kind}${l.side < 0 ? "L" : "R"}`);
-    for (const h of ["hubFL", "hubFR", "hubRL", "hubRR"]) if (car.deform.hubPopped(h)) r.hubsPopped.push(h);
+    for (const h of ["hubFL", "hubFR", "hubRL", "hubRR"] as const) if (car.deform.hubPopped(h)) r.hubsPopped.push(h);
     return r;
   }
 }

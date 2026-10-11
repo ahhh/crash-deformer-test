@@ -3,6 +3,10 @@ export const LID = { hood: "hood", trunk: "trunk" } as const;
 /** The names a car's meshes carry in the scene graph (`Object3D.name`) and its parts carry in `DetachPart.name`: found by name from the cage, the ragdoll, the suspension and the class lift. */
 export const LIGHT_BAR = "lightBar";
 export const CLASS_LIFT = "classLift";
+export const CLASS_HUBS = "classHubs";
+export const INTERIOR_MESH = "interior";
+/** The body geometry's per-vertex paint attribute: 0 paint, 1 primer (a torn panel's vertices). */
+export const PRIMER_ATTRIBUTE = "primer";
 export const BUMPER_F = "bumperF";
 /** The name of a car's head or tail lamp seat (`Object3D.name`): `addLamps` names it, the distance cut finds it. */
 export const LAMP_SEAT = "lampSeat";

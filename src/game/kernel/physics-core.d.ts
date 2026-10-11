@@ -15,6 +15,16 @@ export const TRANSFER: {
   readonly packed: number;
 };
 
+export const PART_FAMILY: {
+  readonly bumper: "bumper";
+  readonly wing: "wing";
+  readonly rail: "rail";
+  readonly door: "door";
+  readonly hub: "hub";
+  readonly mirror: "mirror";
+  readonly quarter: "quarter";
+};
+
 export type CrushBands = { yield: number; middle: number; max: number };
 
 export function regionSoftness(name: string): number;

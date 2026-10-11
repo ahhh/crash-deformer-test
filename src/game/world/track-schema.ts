@@ -13,7 +13,7 @@ const pair = z.tuple([z.number().min(0), z.number().min(0)]);
 const CHECKPOINTS = "checkpoints";
 const SHORTCUTS = "shortcuts";
 /** An `along` row's side: both of the road's. */
-const BOTH = "both";
+export const ALONG_BOTH = "both";
 
 /** Omitted node fields inherit the previous node's value (node 0 takes `road`). */
 const node = z.object({
@@ -88,7 +88,7 @@ const along = z.object({
   prefab: z.enum(PREFAB_IDS),
   /** Metres between copies along the centreline. */
   every: z.number().min(2),
-  side: z.enum(["left", "right", BOTH]).default(BOTH),
+  side: z.enum(["left", "right", ALONG_BOTH]).default(ALONG_BOTH),
   /** Metres outside the wall line (road edge + runoff); negative = inside the runoff. */
   offset: z.number().default(1.5),
   fromNode: z.number().int().min(0).optional(),

@@ -1,11 +1,11 @@
-import { hypot2, detSin, detCos } from "../kernel/physics-core.js";
+import { hypot2, detSin, detCos, PART_FAMILY } from "../kernel/physics-core.js";
 import * as THREE from "three";
 import { TYRE_R } from "../deform/deform-state.ts";
 import { BUMPER_F } from "./constants.ts";
 import { DOOR } from "./car-mesh.ts";
 import { hingePose, INTERIOR_MASSES, interiorPose } from "./part-pose.ts";
 import { activeGround, NO_FLOOR } from "../world/ground.ts";
-import { MASS_SPECS } from "../kernel/rig-spec.ts";
+import { MASS_SPECS, type MassName } from "../kernel/rig-spec.ts";
 import { flutterShell, makeShell, poseShell, recentre, setPrimer, shellBox } from "./car-panels.ts";
 import { carClass, CLASSES } from "./vehicle-classes.ts";
 import { applyDents } from "./loose-dent.ts";
@@ -258,9 +258,9 @@ export abstract class CarParts extends CarGlass {
   /** Whether a door, mirror or quarter panel has left the car; a mirror rides off on its torn door. */
   partOff(name: "doorL" | "doorR" | "mirrorL" | "mirrorR" | "quarterL" | "quarterR"): boolean {
     const i = name.endsWith("L") ? 0 : 1;
-    if (name.startsWith("quarter")) return this.quarterParts[i]!.detached;
+    if (name.startsWith(PART_FAMILY.quarter)) return this.quarterParts[i]!.detached;
     const door = this.doorParts[i]!.detached;
-    return name.startsWith("door") ? door : door || this.mirrorParts[i]!.detached;
+    return name.startsWith(PART_FAMILY.door) ? door : door || this.mirrorParts[i]!.detached;
   }
 
   /** Unlatch a door and leave it at rest `theta` open (rad, up to the stop); 0 shuts and latches it. */
@@ -505,7 +505,7 @@ export abstract class CarParts extends CarGlass {
     for (let k = 0; k < this.glassPanes.length; k++) {
       const g = this.glassPanes[k]!;
       if (g.state === "shattered" || g.skin) continue;
-      const onDoor = g.parts.includes("doorLeft") || g.parts.includes("doorRight");
+      const onDoor = g.parts.some((n) => n === "doorLeft" || n === "doorRight");
       if (onDoor) continue;
       let nearby = 0;
       for (let q = 0; q < g.parts.length; q++) nearby = Math.max(nearby, this.deform.partCompression(g.parts[q]!));
@@ -532,7 +532,7 @@ export abstract class CarParts extends CarGlass {
     for (let k = 0; k < this.glassPanes.length; k++) {
       const g = this.glassPanes[k]!;
       if (g.state === "shattered") continue;
-      const strain = this.deform.cageStrain(g.skin ?? (g.parts.includes("doorLeft") ? "doorLeft" : "doorRight"));
+      const strain = this.deform.cageStrain(g.skin ?? (g.parts.some((n) => n === "doorLeft") ? "doorLeft" : "doorRight"));
       if (g.state === "intact" && strain > GLASS_CRACK) this.crackGlass(g);
       if (strain > (g.skin === "glassFront" ? GLASS_LAMINATED : GLASS_TEMPERED)) this.shatterGlass(g);
     }
@@ -719,7 +719,7 @@ export abstract class CarParts extends CarGlass {
   }
 
   /** A popped hub's wheel leaves the car: a world object launched at the hub's speed, out and up. */
-  protected dropWheel(i: number, hub: string): void {
+  protected dropWheel(i: number, hub: MassName): void {
     const w = this.looseWheels[i]!;
     w.loose = true;
     this.group.updateMatrixWorld();

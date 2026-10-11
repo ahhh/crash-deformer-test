@@ -10,7 +10,7 @@ import {
   forceTransfer,
   hypot2,
 } from "./physics-util.ts";
-import type { BodyPartName } from "../kernel/rig-spec.ts";
+import type { BodyPartName, MassName } from "../kernel/rig-spec.ts";
 import { DeformParticleHelper, DeformRigHelper } from "./deform-helper.ts";
 import { DeformHit } from "./deform-hit.ts";
 import type { Beam, MassNode } from "./deform-rig.ts";
@@ -137,7 +137,7 @@ export abstract class DeformState extends DeformHit {
     return best.name;
   }
 
-  hubPopped(name: string): boolean {
+  hubPopped(name: MassName): boolean {
     return !!this.byName.get(name)?.popped;
   }
 
@@ -161,15 +161,15 @@ export abstract class DeformState extends DeformHit {
     }
   }
 
-  massLocal(name: string): THREE.Vector3 {
+  massLocal(name: MassName): THREE.Vector3 {
     return this.massByName(name).local;
   }
 
-  massWorld(name: string): THREE.Vector3 {
+  massWorld(name: MassName): THREE.Vector3 {
     return this.massByName(name).world;
   }
 
-  massVel(name: string): THREE.Vector3 {
+  massVel(name: MassName): THREE.Vector3 {
     return this.massByName(name).vel;
   }
 
@@ -295,7 +295,7 @@ export abstract class DeformState extends DeformHit {
     return (this.at.hubFL.popped ? 0 : 1) | (this.at.hubFR.popped ? 0 : 2) | (this.at.hubRL.popped ? 0 : 4) | (this.at.hubRR.popped ? 0 : 8);
   }
 
-  private massByName(name: string): MassNode {
+  private massByName(name: MassName): MassNode {
     return this.byName.get(name) ?? this.at.cell;
   }
 

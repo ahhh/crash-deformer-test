@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { computeNormalsFast } from "../deform/fast-normals.ts";
-import { hypot2, detSin, detCos } from "../kernel/physics-core.js";
+import { hypot2, detSin, detCos, PART_FAMILY } from "../kernel/physics-core.js";
+import { PRIMER_ATTRIBUTE } from "./constants.ts";
 import { ARCH_R, DOOR, WHEEL_POS } from "./car-mesh.ts";
 import type { BodyStyle } from "./car-variants.ts";
 
@@ -125,7 +126,7 @@ function region(name: PanelName, ids: number[], pos: Float32Array): PanelRegion 
     const b = k % 65536;
     if (!edges.has(b * 65536 + a)) shell.push(a, nv + b, b, a, nv + a, nv + b);
   }
-  const kind = name.startsWith("quarter") ? "quarter" : "arch";
+  const kind = name.startsWith(PART_FAMILY.quarter) ? "quarter" : "arch";
   const side = name.endsWith("L") ? -1 : 1;
   const origin = new THREE.Vector3();
   let zMin = Infinity;
@@ -304,7 +305,7 @@ export function flutterShell(r: PanelRegion, object: THREE.Object3D, a: number):
 
 /** The under-panel: the panel's vertices on the body painted to primer (or back to paint), by the paint's `primer` attribute. */
 export function setPrimer(r: PanelRegion, body: THREE.BufferGeometry, on: boolean): void {
-  const attr = body.getAttribute("primer") as THREE.BufferAttribute;
+  const attr = body.getAttribute(PRIMER_ATTRIBUTE) as THREE.BufferAttribute;
   for (const v of r.verts) attr.setX(v, on ? 1 : 0);
   attr.needsUpdate = true;
 }

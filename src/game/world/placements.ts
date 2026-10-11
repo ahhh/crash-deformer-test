@@ -1,5 +1,6 @@
 import { hypot2, detSin, detCos } from "../kernel/physics-core.js";
 import { PREFABS, type PrefabId } from "./catalog.ts";
+import { ALONG_BOTH } from "./track-schema.ts";
 import { KNOCK, PROP, Surface, WALL } from "./surfaces.ts";
 import { blankPoint, blankProjection, blankSegment, pointOn, projectPath, segmentAt, type Projection, type Track, type TrackPath } from "./track.ts";
 
@@ -217,7 +218,7 @@ export function placeProps(track: Track): Placed[] {
       // Nothing beside a bridge span (it would stand on the ground far below) or inside a tunnel.
       if (path.deck[k] || path.tunnel[k]) continue;
       const heading = Math.atan2(pt.tx, pt.tz);
-      for (const sign of a.side === "both" ? [1, -1] : a.side === "left" ? [1] : [-1]) {
+      for (const sign of a.side === ALONG_BOTH ? [1, -1] : a.side === "left" ? [1] : [-1]) {
         const lat = sign * (pt.half + (sign > 0 ? path.runL[k]! : path.runR[k]!) + a.offset);
         const x = pt.x + pt.tz * lat;
         const z = pt.z - pt.tx * lat;

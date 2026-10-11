@@ -42,6 +42,8 @@ const FALL_EYE_Y = 1.5;
 export const RIDE_PAUSE = 2.5;
 /** A pointer that travels less (px) than this is a click, not a drag. */
 const CLICK_PX = 8;
+/** The canvas cursor while nothing is held: an open hand over a drag-to-orbit surface. */
+const CURSOR_GRAB = "grab";
 
 /** Mean position of the cars still on the disc (falling and vaporized ones skipped; zero for an empty fleet). */
 export function centroid(out: THREE.Vector3, cars: readonly DeformableCar[]): THREE.Vector3 {
@@ -346,7 +348,7 @@ export class ChaseCamera {
 
   attach(): void {
     this.canvas.style.touchAction = "none";
-    this.canvas.style.cursor = "grab";
+    this.canvas.style.cursor = CURSOR_GRAB;
     this.canvas.addEventListener("pointerdown", this.onPointerDown);
     this.canvas.addEventListener("pointermove", this.onPointerMove);
     this.canvas.addEventListener("pointerup", this.onPointerUp);
@@ -761,7 +763,7 @@ export class ChaseCamera {
     const click = this.pointerTravel < CLICK_PX;
     this.dragging = false;
     this.lookDragging = false;
-    this.canvas.style.cursor = "grab";
+    this.canvas.style.cursor = CURSOR_GRAB;
     try {
       this.canvas.releasePointerCapture(e.pointerId);
     } catch {

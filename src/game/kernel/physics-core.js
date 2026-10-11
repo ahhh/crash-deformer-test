@@ -30,15 +30,18 @@ const TRANSFER = {
 /** Closing speed (m/s) at which the crush gate reaches 1 (about 50 km/h); the gate grows with its square. */
 const FRONTAL_REF = 14;
 
+/** The name prefixes that tell a body part's family: mass nodes (`bumperFL`), cages and sensors (`bumperFront`), detach parts (`mirrorL`), glass and panels (`doorL`, `quarterR`). */
+const PART_FAMILY = Object.freeze({ bumper: "bumper", wing: "wing", rail: "rail", door: "door", hub: "hub", mirror: "mirror", quarter: "quarter" });
+
 function regionSoftness(name) {
-  if (name.startsWith("bumper")) return 1;
-  if (name.startsWith("wing")) return 0.78;
+  if (name.startsWith(PART_FAMILY.bumper)) return 1;
+  if (name.startsWith(PART_FAMILY.wing)) return 0.78;
   if (name === "engineL" || name === "engineR") return 0.16;
-  if (name.startsWith("rail")) return 0.3;
-  if (name.startsWith("door")) return 0.22;
+  if (name.startsWith(PART_FAMILY.rail)) return 0.3;
+  if (name.startsWith(PART_FAMILY.door)) return 0.22;
   if (name === "tank" || name === "axleR") return 0.34;
   if (name === "roof" || name === "cell") return 0.08;
-  if (name.startsWith("hub")) return 0.06;
+  if (name.startsWith(PART_FAMILY.hub)) return 0.06;
   return 0.2;
 }
 
@@ -337,6 +340,7 @@ function sinCosAt(v, i) {
 export {
   CRASH,
   TRANSFER,
+  PART_FAMILY,
   regionSoftness,
   crushGate,
   dtImpulseScale,

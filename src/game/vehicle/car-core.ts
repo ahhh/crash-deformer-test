@@ -6,6 +6,7 @@ import { TYRE_R } from "../deform/deform-state.ts";
 import { BUMPER_F, LAMP_SEAT, LID, LIGHT_BAR } from "./constants.ts";
 import { computeNormalsFast } from "../deform/fast-normals.ts";
 import { hypot2, round4 } from "../deform/physics-util.ts";
+import { PART_FAMILY } from "../kernel/physics-core.js";
 import {
   DOOR,
   WHEEL_POS,
@@ -356,7 +357,7 @@ export abstract class CarCore {
   protected doorRRest: Float32Array;
   protected hoodOrigin: THREE.Vector3;
   protected trunkOrigin: THREE.Vector3;
-  protected interior: THREE.Mesh;
+  readonly interior: THREE.Mesh;
   private mirrorL: THREE.Mesh;
   private mirrorR: THREE.Mesh;
   /** Police roof light bar (skinned with the roof cage), its part, rest shape and seat; null on other styles. */
@@ -568,7 +569,7 @@ export abstract class CarCore {
       swing: DoorHinge | null = null,
     ): DetachPart => {
       const p: DetachPart = {
-        name, mirror: name.startsWith("mirror"), bumper: name.startsWith("bumper"),
+        name, mirror: name.startsWith(PART_FAMILY.mirror), bumper: name.startsWith(PART_FAMILY.bumper),
         object,
         restPos: object.position.clone(),
         restQuat: object.quaternion.clone(),

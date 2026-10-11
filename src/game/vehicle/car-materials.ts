@@ -1,7 +1,8 @@
 import * as THREE from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { once } from "../kernel/scalar.ts";
-import { detSin, detCos } from "../kernel/physics-core.js";
+import { detSin, detCos, PART_FAMILY } from "../kernel/physics-core.js";
+import { INTERIOR_MESH } from "./constants.ts";
 
 /** The shared car textures and materials (paint, tone grid, glass, crack map, lamp mask) and the small multi-tone parts built on them. */
 
@@ -13,7 +14,7 @@ export function makeMirror(sign: number): THREE.Mesh {
   const glass = toned(new THREE.PlaneGeometry(0.08, 0.06), 0x9aa8b4, 0.08, 0.7);
   glass.rotateY(sign * Math.PI * 0.5);
   glass.translate(sign * 0.212, 0.01, 0);
-  return new THREE.Mesh(mergeToned([arm, cap, glass], "mirror"), partsMaterial());
+  return new THREE.Mesh(mergeToned([arm, cap, glass], PART_FAMILY.mirror), partsMaterial());
 }
 
 /** Cabin tub, dash, headliner, bulkhead, seats, side walls and steering wheel: one draw. */
@@ -35,9 +36,9 @@ export function makeInterior(): THREE.Mesh {
     parts.push(toned(new THREE.BoxGeometry(0.3, 0.32, 0.07), ...seat).rotateX(-0.12).translate(x, 0.58, 0.06 - 0.16));
   }
   for (const sign of [-1, 1]) parts.push(box(0.03, 0.5, 1.1, vinyl, sign * 0.4, 0.62, 0.02));
-  const mesh = new THREE.Mesh(mergeToned(parts, "interior"), partsMaterial());
+  const mesh = new THREE.Mesh(mergeToned(parts, INTERIOR_MESH), partsMaterial());
   // The engine's distance detail keeps it on far cars: it shows through the glass.
-  mesh.name = "interior";
+  mesh.name = INTERIOR_MESH;
   return mesh;
 }
 

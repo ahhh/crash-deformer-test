@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { hypot3, detSin } from "../kernel/physics-core.js";
+import { hypot3, detSin, PART_FAMILY } from "../kernel/physics-core.js";
 import { regionSoftness, regionCrushBands } from "./physics-util.ts";
 import { makeCluster, type ShapeCluster, type ShapeParticle } from "./shape-match.ts";
 import {
@@ -115,10 +115,10 @@ function makeMasses(nameIndex: Map<MassName, number>): MassNode[] {
       baseX: -0,
       baseZ: -0,
       bands: regionCrushBands(spec.name),
-      hub: spec.name.startsWith("hub"),
-      bumper: spec.name.startsWith("bumper"),
-      rail: spec.name.startsWith("rail"),
-      crumple: spec.name.startsWith("bumper") || spec.name.startsWith("wing"),
+      hub: spec.name.startsWith(PART_FAMILY.hub),
+      bumper: spec.name.startsWith(PART_FAMILY.bumper),
+      rail: spec.name.startsWith(PART_FAMILY.rail),
+      crumple: spec.name.startsWith(PART_FAMILY.bumper) || spec.name.startsWith(PART_FAMILY.wing),
       softness: regionSoftness(spec.name),
       index: i,
     };

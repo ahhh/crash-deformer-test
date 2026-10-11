@@ -5,7 +5,7 @@
  */
 import * as THREE from "three";
 import type { CarStyleId } from "./car-variants.ts";
-import { CLASS_LIFT } from "./constants.ts";
+import { CLASS_HUBS, CLASS_LIFT } from "./constants.ts";
 
 export type VehicleClassId = "sedan" | "muscle" | "truck" | "monster" | "police";
 /** Netplay wire order (a snapshot sends the index): append only. */
@@ -403,12 +403,12 @@ export function assignClass(car: Dressable, id: VehicleClassId): void {
   const s = CLASSES[id];
   const g = car.group;
   let body = g.getObjectByName(CLASS_LIFT);
-  let hubs = g.getObjectByName("classHubs");
+  let hubs = g.getObjectByName(CLASS_HUBS);
   if (!body) {
     body = new THREE.Group();
     body.name = CLASS_LIFT;
     hubs = new THREE.Group();
-    hubs.name = "classHubs";
+    hubs.name = CLASS_HUBS;
     g.add(body, hubs);
   }
   const wheelLift = WHEEL_RADIUS * (s.wheelScale - 1);

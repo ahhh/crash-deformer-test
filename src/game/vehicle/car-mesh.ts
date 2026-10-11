@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { hypot2, detSin } from "../kernel/physics-core.js";
+import { PRIMER_ATTRIBUTE } from "./constants.ts";
 import { CAR_STYLES, type BodyStyle, type ProfileStation, type YZ } from "./car-variants.ts";
 
 export const WHEEL_POS: [number, number, number][] = [
@@ -551,7 +552,7 @@ export function makeChassisGeometry(style: BodyStyle = SEDAN): THREE.BufferGeome
   // The loft is merged first: its vertex `s * ring + i` and its first (slices - 1) * ring * 2 triangles (`panelRegions` cuts panels out of them).
   merged.userData.loft = { ring: rings[0]!.length, slices: zs.length };
   // 0 = paint, 1 = primer (`car-materials.ts` withPrimer): a torn panel's vertices are set dark.
-  merged.setAttribute("primer", new THREE.BufferAttribute(new Float32Array(merged.getAttribute("position").count), 1));
+  merged.setAttribute(PRIMER_ATTRIBUTE, new THREE.BufferAttribute(new Float32Array(merged.getAttribute("position").count), 1));
   return merged;
 }
 

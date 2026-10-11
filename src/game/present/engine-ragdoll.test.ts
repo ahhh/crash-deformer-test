@@ -2,6 +2,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import * as THREE from "three";
 import "../kernel/rapier-node.test-util.ts";
+import type { MassName } from "../kernel/rig-spec.ts";
 import { DeformableCar } from "../vehicle/car.ts";
 import { launch, makeCar, makeWorld, tickWorld } from "../contact/crash-scenarios.test-util.ts";
 import { armKill, assignClass, DEFAULT_REALISM } from "../vehicle/vehicle-classes.ts";
@@ -42,7 +43,7 @@ const _l = new THREE.Vector3();
 const _f = new THREE.Vector3();
 const _q = new THREE.Quaternion();
 /** Car-local z of mass `name`. */
-function endZ(car: DeformableCar, name: string): number {
+function endZ(car: DeformableCar, name: MassName): number {
   _f.set(0, 0, 1).applyQuaternion(car.group.quaternion);
   return _l.copy(car.deform.massWorld(name)).sub(car.group.position).dot(_f);
 }
