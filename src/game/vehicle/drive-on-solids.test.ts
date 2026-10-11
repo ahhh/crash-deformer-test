@@ -174,7 +174,8 @@ describe("given a car standing on another car's roof, at full throttle", () => {
 
   // Measured on this lane: a sedan on a sedan's roof rests belly-down with its tyres 0.3 m off the hood and trunk (the plate under a crushed roof
   // is not the drawn hood and trunk), so it has no tyre to drive and stands still (stack-drive.test.ts keeps that as the sedan stack's rest state).
-  it.todo(`when a sedan stands on a sedan's roof, then its speed after ${TIMES.join(", ")} s is within ${BAND * 100} % of the same sedan on a flat platform at its rest height (0.00 m/s against the platform's 7.31 at 0.5 s today, 100 % short of a 5 % bar: no tyre reaches the roof; closes in Stage 3, where the roof is the drawn body's cage the tyres reach)`, () => {
+  // Stage 3 landed the roof as the drawn body's cage and the number did not move: 0.00 m/s at 0.5 s against the platform's 7.31 (100 % short of the 5 % bar).
+  it.todo(`when a sedan stands on a sedan's roof, then its speed after ${TIMES.join(", ")} s is within ${BAND * 100} % of the same sedan on a flat platform at its rest height (0.00 m/s against the platform's 7.31 at 0.5 s today, 100 % short of a 5 % bar: the upper sedan sinks belly-down on the crushed roof and no tyre reaches the hood or trunk; after the plan: hold the stacked sedan's tyres on the hood and trunk, not the roof plate)`, () => {
     const on = driveOnRoof("sedan", TIMES, true, 1.19);
     const flat = driveOnRoof("sedan", TIMES, false, on.rest);
     matches("the sedan's roof", on.run, flat.run, TIMES.length);
