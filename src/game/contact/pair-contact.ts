@@ -4,7 +4,7 @@ import { armPairWithRows, MU_BODY, rowsClosing, WALL_CRUSH } from "../vehicle/ca
 import type { MassNode } from "../deform/deform-rig.ts";
 import { leftoverCrumple, satPushCap, hypot2, CRASH } from "../deform/physics-util.ts";
 import { satCars } from "./sat.ts";
-import { bandsMeet, OUTLINE_REACH } from "./cage-outline.ts";
+import { bandsMeet, OUTLINE_REACH, standing, STANDING_CLEAR, VERTICAL_CLEAR } from "./cage-outline.ts";
 import { strikeCar, faceDepth, carRow, takeRow, type ContactBox } from "./external-contact.ts";
 import { bodyContact, BODY_SIZE, BODY_VX, BODY_VZ, BODY_W, BODY_X, BODY_Z, CT_DEPTH, CT_E, CT_JMAX, CT_MU, CT_NX, CT_NZ, CT_SIZE, CT_X, CT_Z, OUT_EBS_A, OUT_EBS_B, OUT_PUSH_A, OUT_PUSH_B, OUT_SIZE } from "./body-contact.ts";
 import { ARM_CLOSING, PAIR_MU, SOLID_E } from "./constants.ts";
@@ -361,7 +361,7 @@ export function resolveCarPair(carA: DeformableCar, carB: DeformableCar, dt: num
   // pair closes in this slice, and, once the hit is on, by less than the crush has taken both faces back (a crush that keeps up with
   // the closing leaves the faces apart by what it has eaten: the contact does not end where it works), the hit goes on.
   const eaten = crushedSoFar(carA.deform) + crushedSoFar(carB.deform);
-  const hit = satCars(carA, carB, _n, _p, hypot2(carA.velocity.x - carB.velocity.x, carA.velocity.z - carB.velocity.z) * dt + eaten);
+  const hit = satCars(carA, carB, _n, _p, hypot2(carA.velocity.x - carB.velocity.x, carA.velocity.z - carB.velocity.z) * dt + eaten, standing(carA, carB) ? STANDING_CLEAR : VERTICAL_CLEAR);
   const n = _n;
   n.y = 0;
   if (n.lengthSq() > 1e-8) n.normalize();
