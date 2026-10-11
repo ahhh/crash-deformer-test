@@ -8,10 +8,8 @@ import { bandsMeet, OUTLINE_REACH } from "./cage-outline.ts";
 import { strikeCar, faceDepth, carRow, takeRow, type ContactBox } from "./external-contact.ts";
 import { bodyContact, BODY_SIZE, BODY_VX, BODY_VZ, BODY_W, BODY_X, BODY_Z, CT_DEPTH, CT_E, CT_JMAX, CT_MU, CT_NX, CT_NZ, CT_SIZE, CT_X, CT_Z, OUT_EBS_A, OUT_EBS_B, OUT_PUSH_A, OUT_PUSH_B, OUT_SIZE } from "./body-contact.ts";
 import { ARM_CLOSING, PAIR_MU, SOLID_E } from "./constants.ts";
-import { TYRE_HALF_W } from "../deform/deform-contact.ts";
 import { FOOT_HALF_L } from "../vehicle/car-mesh.ts";
 import { SOLID_AT_REST } from "../world/constants.ts";
-import { TYRE_R } from "../deform/deform-state.ts";
 import { detSin, detCos } from "../kernel/physics-core.js";
 
 const _v = new THREE.Vector3();
@@ -446,43 +444,4 @@ export function resolveCarPair(carA: DeformableCar, carB: DeformableCar, dt: num
   _hit.contact.copy(_p);
   _hit.normal.copy(n);
   return _hit;
-}
-
-/** A pair's four tyre-rectangle axes (unit x, z) and both tyres' summed half-extent along each. */
-const _axes = new Float64Array(12);
-
-/** A tyre seen from above is a 2·TYRE_R × 2·TYRE_HALF_W rectangle on its hub, along its car. */
-function tyreAxes(carA: DeformableCar, carB: DeformableCar): void {
-  const fA = carA.fwdFlat,
-    rA = carA.rightFlat,
-    fB = carB.fwdFlat,
-    rB = carB.rightFlat;
-  for (let k = 0; k < 4; k++) {
-    const u = k === 0 ? fA : k === 1 ? rA : k === 2 ? fB : rB;
-    _axes[k * 3] = u.x;
-    _axes[k * 3 + 1] = u.z;
-    _axes[k * 3 + 2] =
-      TYRE_R * (Math.abs(fA.x * u.x + fA.z * u.z) + Math.abs(fB.x * u.x + fB.z * u.z)) +
-      TYRE_HALF_W * (Math.abs(rA.x * u.x + rA.z * u.z) + Math.abs(rB.x * u.x + rB.z * u.z));
-  }
-}
-
-/** Deepest overlap (m) of the two cars' tyres, negative for the closest clearance. */
-export function tyreOverlap(carA: DeformableCar, carB: DeformableCar): number {
-  tyreAxes(carA, carB);
-  let depth = -Infinity;
-  for (let ai = 0; ai < carA.deform.masses.length; ai++) {
-    const a = carA.deform.masses[ai]!;
-    if (!a.hub || a.popped) continue;
-    for (let bi = 0; bi < carB.deform.masses.length; bi++) {
-      const b = carB.deform.masses[bi]!;
-      if (!b.hub || b.popped) continue;
-      const dx = a.world.x - b.world.x;
-      const dz = a.world.z - b.world.z;
-      let pen = Infinity;
-      for (let k = 0; k < 12; k += 3) pen = Math.min(pen, _axes[k + 2]! - Math.abs(dx * _axes[k]! + dz * _axes[k + 1]!));
-      depth = Math.max(depth, pen);
-    }
-  }
-  return depth;
 }

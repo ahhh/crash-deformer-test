@@ -23,7 +23,6 @@ export function dtImpulseScale(dt: number): number;
 export function closingKeScale(closing: number): number;
 export function regionCrushBands(name: string): CrushBands;
 export function forceTransfer(travel: number, bands: CrushBands, packed: boolean): number;
-export function leftoverPass(remain: number, pass: number): number;
 export function leftoverCrumple(travel: number): number;
 export function crushStroke(ebs: number, squash: number): number;
 export function satPushCap(dt: number): number;

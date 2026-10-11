@@ -26,3 +26,8 @@ export function separateSphereFromBounds(
   }
   return hit;
 }
+
+/** The share of a crushed region's remaining closing speed that passes on, `pass` of it (0..1); none when not closing. */
+export function leftoverPass(remain: number, pass: number): number {
+  return (remain > 0 ? remain : 0) * Math.min(1, Math.max(0, pass));
+}

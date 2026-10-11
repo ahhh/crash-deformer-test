@@ -1,6 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import * as THREE from "three";
+import { dtImpulseScale, TRANSFER } from "../kernel/physics-core.js";
 import {
   CRASH,
   applyGroundFriction,
@@ -11,17 +12,14 @@ import {
   clampSpeed,
   regionSoftness,
   crushGate,
-  dtImpulseScale,
   closingKeScale,
   forceTransfer,
   regionCrushBands,
-  leftoverPass,
-  TRANSFER,
   satPushCap,
   hypot2,
   hypot3,
 } from "./physics-util.ts";
-import { separateSphereFromBounds } from "./physics-util.test-util.ts";
+import { leftoverPass, separateSphereFromBounds } from "./physics-util.test-util.ts";
 
 describe("given the CRASH constants (the tuned crash-physics numbers, researched for a sedan and from NCAP crash tests)", () => {
   it("when the pulse length, crush distance and tyre friction values are read, then they sit in the published bands (pulse 0.09–0.16 s, crush 0.45–0.75 m, friction 0.9 at peak, 0.75 sliding, 0.4 scuffing)", () => {

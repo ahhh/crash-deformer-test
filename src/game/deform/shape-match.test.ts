@@ -1,24 +1,16 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import * as THREE from "three";
+import { m3, m3Id, m3Mul, m3Det, m3Polar, quatId, rebuildAqqWeighted } from "../kernel/shape-match-core.js";
+import { m3RotationAngle, transformNormal, transformSkinPointInto } from "./shape-match.test-util.ts";
 import {
-  m3,
-  m3Id,
-  m3Mul,
-  m3Det,
-  m3Polar,
   m3FrobeniusI,
-  m3RotationAngle,
-  quatId,
   makeCluster,
-  rebuildAqqWeighted,
   type ShapeCluster,
   matchCluster,
   PLASTIC,
   applyPlasticity,
-  transformSkinPointInto,
   matchSkinLocal,
-  transformNormal,
   deformBeta,
   goalAlpha,
   stiffnessIters,

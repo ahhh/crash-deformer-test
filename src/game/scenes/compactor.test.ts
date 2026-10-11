@@ -1,11 +1,18 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { COMPACTOR, CompactorRig as Rig, compactorStage, travelOf } from "./compactor.ts";
+import { COMPACTOR, CompactorRig as Rig, compactorStage } from "./compactor.ts";
 import { makeCar } from "../contact/crash-scenarios.test-util.ts";
 import { leftoverCrumple } from "../deform/physics-util.ts";
 import { TYRE_R } from "../deform/deform-state.ts";
 import type { DeformMode } from "../deform/deform-rig.ts";
+import type { StreamedDeformation } from "../deform/streamed-deform.ts";
 import { forModes } from "../vehicle/test-support.ts";
+
+function travelOf(d: StreamedDeformation, name: string): number {
+  const m = d.masses.find((n) => n.name === name);
+  if (!m) return 0;
+  return m.local.distanceTo(m.rest);
+}
 
 /** The press scene's rig on a parked car of `mode`. */
 function pressRig(mode: DeformMode): Rig {

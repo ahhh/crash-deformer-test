@@ -1,7 +1,8 @@
 import * as THREE from "three";
 import { bleedAfterSlide, DeformableCar } from "../vehicle/car.ts";
 import { JerseyBarrier, type ContactHit } from "../scenes/engine-props.ts";
-import { tyreOverlap } from "./pair-contact.ts";
+import { TYRE_HALF_W } from "../deform/deform-contact.ts";
+import { TYRE_R } from "../deform/deform-state.ts";
 import { bodyHit } from "./external-contact.ts";
 import { beginImpact, easeTimeScale, phaseClock, stepPhase, type PhaseClock } from "../match/phase.ts";
 import { CAGES } from "../kernel/rig-spec.ts";
@@ -543,4 +544,43 @@ export function runPair(kphA: number, kphB: number, kind: "head-on" | "t-bone" =
   const pb = new Probe(b, new THREE.Vector3(-1, 0, 0));
   run(w, [pa, pb], opts.after ?? 1.5);
   return [pa.finish(), pb.finish()];
+}
+
+/** A pair's four tyre-rectangle axes (unit x, z) and both tyres' summed half-extent along each. */
+const tyreAxesOf = new Float64Array(12);
+
+/** A tyre seen from above is a 2·TYRE_R × 2·TYRE_HALF_W rectangle on its hub, along its car. */
+function tyreAxes(carA: DeformableCar, carB: DeformableCar): void {
+  const fA = carA.fwdFlat,
+    rA = carA.rightFlat,
+    fB = carB.fwdFlat,
+    rB = carB.rightFlat;
+  for (let k = 0; k < 4; k++) {
+    const u = k === 0 ? fA : k === 1 ? rA : k === 2 ? fB : rB;
+    tyreAxesOf[k * 3] = u.x;
+    tyreAxesOf[k * 3 + 1] = u.z;
+    tyreAxesOf[k * 3 + 2] =
+      TYRE_R * (Math.abs(fA.x * u.x + fA.z * u.z) + Math.abs(fB.x * u.x + fB.z * u.z)) +
+      TYRE_HALF_W * (Math.abs(rA.x * u.x + rA.z * u.z) + Math.abs(rB.x * u.x + rB.z * u.z));
+  }
+}
+
+/** Deepest overlap (m) of the two cars' tyres, negative for the closest clearance. */
+export function tyreOverlap(carA: DeformableCar, carB: DeformableCar): number {
+  tyreAxes(carA, carB);
+  let depth = -Infinity;
+  for (let ai = 0; ai < carA.deform.masses.length; ai++) {
+    const a = carA.deform.masses[ai]!;
+    if (!a.hub || a.popped) continue;
+    for (let bi = 0; bi < carB.deform.masses.length; bi++) {
+      const b = carB.deform.masses[bi]!;
+      if (!b.hub || b.popped) continue;
+      const dx = a.world.x - b.world.x;
+      const dz = a.world.z - b.world.z;
+      let pen = Infinity;
+      for (let k = 0; k < 12; k += 3) pen = Math.min(pen, tyreAxesOf[k + 2]! - Math.abs(dx * tyreAxesOf[k]! + dz * tyreAxesOf[k + 1]!));
+      depth = Math.max(depth, pen);
+    }
+  }
+  return depth;
 }

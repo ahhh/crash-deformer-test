@@ -57,7 +57,7 @@ function stationSlope(p: readonly ProfileStation[], i: number, key: "hw" | "yBel
   return (w0 + w1) / (w0 / d0 + w1 / d1);
 }
 
-function sampleSlice(z: number, profile: readonly ProfileStation[]): ProfileStation {
+export function sampleSlice(z: number, profile: readonly ProfileStation[]): ProfileStation {
   if (z <= profile[0]!.z) return { ...profile[0]!, z };
   for (let i = 1; i < profile.length; i++) {
     const a = profile[i - 1]!;
@@ -145,7 +145,7 @@ const DOOR_Z1 = 0.54;
 const DOOR_EDGE = 0.04;
 
 /** Front door cut only (A-pillar to B-pillar). Rear quarter stays a solid panel. */
-function doorAperture(z: number): number {
+export function doorAperture(z: number): number {
   if (z <= DOOR_Z0 || z >= DOOR_Z1) return 0;
   const a = THREE.MathUtils.smoothstep(z, DOOR_Z0, DOOR_Z0 + DOOR_EDGE);
   const b = 1 - THREE.MathUtils.smoothstep(z, DOOR_Z1 - DOOR_EDGE, DOOR_Z1);
@@ -258,30 +258,6 @@ function sectionPoints(s: ProfileStation, style: BodyStyle): Pt[] {
   const left = half.map(([x, y]) => ({ x: -x, y }));
   const right = half.map(([x, y]) => ({ x, y })).reverse();
   return [...left, { x: 0, y: Y_FLOOR }, ...right];
-}
-
-/** Side-view rest profile — tests lock this so the body cannot become a van blob. */
-export function restSideProfile(
-  z: number,
-  style: BodyStyle = SEDAN,
-): {
-  hw: number;
-  yBelt: number;
-  ySideTop: number;
-  yRoof: number;
-  cabin: number;
-  doorHole: number;
-} {
-  const s = sampleSlice(z, style.profile);
-  const doorHole = doorAperture(z);
-  return {
-    hw: s.hw,
-    yBelt: s.yBelt,
-    ySideTop: lerp(s.yBelt, 0.22, doorHole),
-    yRoof: lerp(s.yBelt, s.yRoof, s.cabin),
-    cabin: s.cabin,
-    doorHole,
-  };
 }
 
 /** Base loft stations: with SLICE_WARP ≈7 cm apart at nose/tail, 13 cm mid-cabin (8e2dc49 commit notes). */

@@ -1,7 +1,8 @@
 import * as THREE from "three";
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { makeChassisGeometry, makeHoodGeometry, makeTrunkGeometry, makeDoorGeometry, restSideProfile, CAR_HALF } from "./car-mesh.ts";
+import { makeChassisGeometry, makeHoodGeometry, makeTrunkGeometry, makeDoorGeometry, CAR_HALF } from "./car-mesh.ts";
+import { restSideProfile } from "./rest-mesh.test-util.ts";
 import { makeSideGlass, makeRearSideGlass, makeWindshield, makeRearGlass } from "./car-glass.ts";
 import { makeWheelGeometry } from "./car-materials.ts";
 import { TYRE_R } from "../deform/deform-state.ts";

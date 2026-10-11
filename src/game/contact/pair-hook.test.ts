@@ -7,7 +7,7 @@ import { armKill, assignClass, CLASSES, HANDLING, killClass, VEHICLE_CLASS_IDS, 
 import { newWorld, settleStep, stepWorld } from "../engine/world-step.ts";
 import { INITIAL_HUD } from "../hud/hud-store.ts";
 import { physicsSlice, satCars, sliceSpeed } from "./sat.ts";
-import { tyreOverlap } from "./pair-contact.ts";
+import { tyreOverlap } from "./crash-scenarios.test-util.ts";
 
 /**
  * Hooked cars: two cars locked together while one drives away (the owner's cop cars "hooked" onto the cars they chase, the

@@ -58,22 +58,12 @@ export interface ShapeCluster {
 }
 
 export {
-  m3,
-  m3Id,
-  m3Mul,
-  m3Det,
   m3FrobeniusI,
-  quatId,
-  m3Polar,
-  m3RotationAngle,
   makeCluster,
-  rebuildAqqWeighted,
   matchCluster,
   PLASTIC,
   applyPlasticity,
   resetCluster,
-  transformSkinPointInto,
-  transformNormal,
   matchSkinLocal,
   stiffnessIters,
   goalAlpha,

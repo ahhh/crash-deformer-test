@@ -73,10 +73,6 @@ function forceTransfer(travel, bands, packed) {
   return TRANSFER.above;
 }
 
-function leftoverPass(remain, pass) {
-  return (remain > 0 ? remain : 0) * clamp(pass, 0, 1);
-}
-
 function leftoverCrumple(travel) {
   return clamp(travel / 1.5, 0, 1);
 }
@@ -347,7 +343,6 @@ export {
   closingKeScale,
   regionCrushBands,
   forceTransfer,
-  leftoverPass,
   leftoverCrumple,
   crushStroke,
   satPushCap,

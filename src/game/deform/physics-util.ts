@@ -3,14 +3,11 @@ import { CRASH, hypot2, round4 } from "../kernel/physics-core.js";
 
 export {
   CRASH,
-  TRANSFER,
   regionSoftness,
   crushGate,
-  dtImpulseScale,
   closingKeScale,
   regionCrushBands,
   forceTransfer,
-  leftoverPass,
   leftoverCrumple,
   crushStroke,
   satPushCap,

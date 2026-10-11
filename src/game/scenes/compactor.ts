@@ -156,9 +156,3 @@ export class CompactorRig {
     return n;
   }
 }
-
-export function travelOf(d: StreamedDeformation, name: string): number {
-  const m = d.masses.find((n) => n.name === name);
-  if (!m) return 0;
-  return m.local.distanceTo(m.rest);
-}

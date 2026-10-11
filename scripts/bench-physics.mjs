@@ -107,7 +107,6 @@ time("matchSkinLocal animated", 40_000, () => {
   }
   m.matchSkinLocal(csa, skinRest, skinLocal, skinMass, 0.8);
 });
-time("transformSkinPointInto", 200_000, () => m.transformSkinPointInto(c, 0.2, 0.4, 1.1));
 time("crushGate+transfer", 200_000, () => {
   const g = p.crushGate(14, p.regionSoftness("bumperFL"));
   p.forceTransfer(0.3, p.regionCrushBands("bumperFL"), false);

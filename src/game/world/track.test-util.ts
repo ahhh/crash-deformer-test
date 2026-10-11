@@ -1,4 +1,8 @@
-import type { TrackFile } from "./track-schema.ts";
+import type { z } from "zod";
+import type { TrackSchema } from "./track-schema.ts";
+
+/** What a hand-written track file may omit. */
+type TrackFile = z.input<typeof TrackSchema>;
 
 /** The race and track suites' test course: an 8-node loop round a 120 × 160 m box, a checkpoint every other node. */
 export const square = (extra: Partial<TrackFile> = {}): TrackFile => ({

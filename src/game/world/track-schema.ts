@@ -134,7 +134,7 @@ const anchor = z.object({ x: z.number(), z: z.number(), yaw: z.number() });
 /** Survival mode: where the player starts and the cop formation slots behind that start (tight and staggered). */
 const survival = z.object({ start: anchor, formation: z.array(anchor).min(4).max(6) });
 
-const TrackSchema = z
+export const TrackSchema = z
   .object({
     id: z.string().regex(/^[a-z0-9-]+$/),
     name: z.string().min(1),
@@ -233,8 +233,6 @@ const TrackSchema = z
 export type SurvivalSpec = z.output<typeof survival>;
 /** Parsed track with defaults applied. */
 export type TrackJson = z.output<typeof TrackSchema>;
-/** What a hand-written track file may omit. */
-export type TrackFile = z.input<typeof TrackSchema>;
 
 /** Throws an Error listing every problem as `path: message`. */
 export function parseTrack(json: unknown): TrackJson {
