@@ -408,13 +408,22 @@ export class HunterBrain extends CopBrain {
     }
     this.stats.peak = Math.max(this.stats.peak, hunting);
     if (!this.go || humans === 0 || time < this.nextDrop || hunting >= copsWanted(time, this.formation.length, humans, this.count)) return;
-    const u = this.free();
+    const u = this.vacant();
     const tg = this.dropTarget(cars);
     if (u < 0 || !this.dropSpot(tg, cars, world)) return;
     world.park(this.first + u, this.at.x, 0, this.at.z, this.at.yaw);
     this.deploy(u, world);
     this.stats.drops++;
     this.nextDrop = time + HUNT.gap;
+  }
+
+  /** A unit to drop in: one in storage, else the longest-lying wreck (past `wreckStore`) that the camera still sees, so a pile of wrecks in view never leaves the pack empty. −1 none. */
+  private vacant(): number {
+    const u = this.free();
+    if (u >= 0) return u;
+    let oldest = -1;
+    for (let k = 0; k < this.count; k++) if (this.state[k] === DOWN && this.since[k]! > HUNT.wreckStore && (oldest < 0 || this.since[k]! > this.since[oldest]!)) oldest = k;
+    return oldest;
   }
 
   /** The free human with the fewest cops after it (the lowest car id on a tie): where the next drop-in is aimed. */

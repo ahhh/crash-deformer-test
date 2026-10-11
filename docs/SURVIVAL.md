@@ -85,7 +85,9 @@ than 20 m behind).
   5 s) is put away, and a new one is dropped onto a road 70–120 m from the player, ahead of its travel first, 12 m clear of
   every car, where the camera cannot see it (outside the view frustum by 8 m, or behind a solid). The spot must stay
   `HUNT.dropMin` = 70 m from the player's straight-on path over the next `HUNT.lag` = 0.07 s. A wreck is put away only after
-  `HUNT.wreckStore` = 6 s and only while hidden.
+  `HUNT.wreckStore` = 6 s and only while hidden; when no unit is in storage, the next drop-in reuses the longest-lying wreck
+  (past `wreckStore`) the camera still sees, so a pile of wrecks in view cannot leave the pack empty (measured: with every cop
+  in view wrecked and the humans parked, the pack went 78 s without a drop-in for one human before, 1.5 s now).
 - Cops are as tough as the race's police (`police` class, durability 1.3).
 
 ## Co-op
@@ -131,7 +133,7 @@ Not built: rescue (ramming the cop that is busting a teammate cancels the bust) 
 | the opening set piece on the real course: the cops reach the foot behind the player and leave the ground at the crest | `world/survival-setpiece.test.ts` |
 | wheels on the grass and the crest: drop matrix and drive matrix over the face, plaza, crest and alley | `vehicle/havana-fit.test.ts` |
 | a team's pack: the cops wanted, the cap and the units grow with the humans (1, 2, 4), never past the car list; each cop's quarry is the nearest free human; no drop-in within `dropMin` of any human | `ai/hunter-team.test.ts` |
-| a hosted run with several humans: they start on their own slots, the run goes on while one is free and ends when none is, its time is the last fall, a car nobody drives is parked, Retry seats the peers the room has now; a client reads the pack, the team and the run's time as the host does | `world/survival-coop.test.ts`, `net/race-net.test.ts` |
+| a hosted run with several humans: they start on their own slots, the run goes on while one is free and ends when none is, its time is the last fall, a car nobody drives is parked, Retry seats the peers the room has now; with every cop in view wrecked and the humans parked, a drop-in still comes every `HUNT.gap`; a client reads the pack, the team and the run's time as the host does | `world/survival-coop.test.ts`, `net/race-net.test.ts` |
 
 Harnesses: `world/survival-run.test-util.ts` (the director in survival mode, a scripted player, the chase camera),
 `world/survival-players.test-util.ts` (the scripted fleeing players and `chase(...)`), `world/survival-arena.test-util.ts`
