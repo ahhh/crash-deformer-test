@@ -1,9 +1,6 @@
 import type { DeformableCar } from "../vehicle/car.ts";
 import type { CarCage, CageFields, CageStyle } from "../vehicle/car-cage.ts";
 import { CAGE_STEP } from "../vehicle/car-cage.ts";
-import { cageLift } from "../vehicle/car-cage-rig.ts";
-import { PAN } from "../vehicle/car-suspension.ts";
-import { SKIN } from "../vehicle/car-surfaces.ts";
 import { CLASSES, carClass } from "../vehicle/vehicle-classes.ts";
 
 /**
@@ -16,12 +13,6 @@ export const OUTLINE_REACH = CAGE_STEP / 2;
  * resolve less (`CAGE_STEP`, the fit's bar), so a car standing on another's roof (the store carries it) is not a plan contact.
  */
 export const VERTICAL_CLEAR = CAGE_STEP;
-/**
- * The same for a pair where one car stands on the other (`standing`): the surface store carries a car down to `SKIN` under another's top
- * (a roof yielding to the weight, a sill hanging lower than the pan it rests on), so a body that rolls or slips on a roof is not a
- * plan contact until it is deeper than that. A car whose belly is under the other's top meets it from `VERTICAL_CLEAR`.
- */
-export const STANDING_CLEAR = SKIN;
 /** How many nodes around a node `bandAround` reads: 15 cm, a few times the lattice's own resolution of the body's edge. */
 const VERTICAL_WINDOW = 3;
 const _window = new Float64Array(2);
@@ -183,24 +174,4 @@ export function bandsMeet(a: DeformableCar, b: DeformableCar): boolean {
   const aHi = _band[1]!;
   worldBand(b);
   return Math.min(aHi, _band[1]!) - Math.max(aLo, _band[0]!) > VERTICAL_CLEAR;
-}
-
-/** `upper`'s belly: the mean world height (m) of its pan's points, class lift on. */
-function panHeight(upper: DeformableCar): number {
-  const e = upper.group.matrixWorld.elements;
-  const lift = cageLift(upper);
-  let sum = 0;
-  for (const p of PAN) sum += e[13]! + e[1]! * p[0] + e[5]! * (p[1] + lift) + e[9]! * p[2];
-  return sum / PAN.length;
-}
-
-/** Whether `upper`'s belly is no lower than `STANDING_CLEAR` under `lower`'s highest top (the store's reach): it stands on that car's top, or drives over it. */
-function standsOver(upper: DeformableCar, lower: DeformableCar): boolean {
-  const e = lower.group.matrixWorld.elements;
-  return panHeight(upper) >= e[13]! + e[5]! * (outlineOf(lower).high + CLASSES[carClass(lower)].lift) - STANDING_CLEAR;
-}
-
-/** Whether either car's belly is over the other's top (`standsOver`): the pair's overlap is a body standing on a body, not one beside another. */
-export function standing(a: DeformableCar, b: DeformableCar): boolean {
-  return standsOver(a, b) || standsOver(b, a);
 }
