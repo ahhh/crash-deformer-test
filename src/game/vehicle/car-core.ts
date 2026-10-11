@@ -166,6 +166,8 @@ export type ExitPane = Extract<GlassName, "windshield" | "doorL" | "doorR">;
 /** `ExitPane`s by wire code: `EXIT_PANES.indexOf(car.driverOut)` is a snapshot frame's 2 bits (0: still at the wheel). */
 export const EXIT_PANES: readonly (ExitPane | null)[] = [null, "windshield", "doorL", "doorR"];
 
+export type GlassPart = "roof" | "bonnet" | "boot" | "doorLeft" | "doorRight";
+
 export interface GlassPane {
   name: GlassName;
   mesh: THREE.Mesh;
@@ -175,7 +177,7 @@ export interface GlassPane {
   restPos: THREE.Vector3;
   restVerts: Float32Array | null;
   state: GlassState;
-  parts: ("roof" | "bonnet" | "boot" | "doorLeft" | "doorRight")[];
+  parts: GlassPart[];
   skin: "glassFront" | "glassRear" | null;
 }
 

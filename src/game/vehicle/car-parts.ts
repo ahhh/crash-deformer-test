@@ -20,6 +20,7 @@ import {
   DOOR_OPEN_MAX,
   DOOR_TEAR_MPS,
   type DoorHinge,
+  type GlassPart,
   HINGE_TEAR_J,
   type Lamp,
   type PartNetState,
@@ -41,6 +42,8 @@ import {
 import { partState, PART_SLOTS } from "./part-state.ts";
 
 const _interior = new Float64Array(4);
+const DOOR_LEFT: GlassPart = "doorLeft";
+const DOOR_RIGHT: GlassPart = "doorRight";
 
 /** A door's drawn angle (rad) per unit of crash hinge value (`hingeT`): the jam that holds a door ajar. */
 const DOOR_JAM = 1.45;
@@ -505,7 +508,7 @@ export abstract class CarParts extends CarGlass {
     for (let k = 0; k < this.glassPanes.length; k++) {
       const g = this.glassPanes[k]!;
       if (g.state === "shattered" || g.skin) continue;
-      const onDoor = g.parts.some((n) => n === "doorLeft" || n === "doorRight");
+      const onDoor = g.parts.includes(DOOR_LEFT) || g.parts.includes(DOOR_RIGHT);
       if (onDoor) continue;
       let nearby = 0;
       for (let q = 0; q < g.parts.length; q++) nearby = Math.max(nearby, this.deform.partCompression(g.parts[q]!));
@@ -532,7 +535,7 @@ export abstract class CarParts extends CarGlass {
     for (let k = 0; k < this.glassPanes.length; k++) {
       const g = this.glassPanes[k]!;
       if (g.state === "shattered") continue;
-      const strain = this.deform.cageStrain(g.skin ?? (g.parts.some((n) => n === "doorLeft") ? "doorLeft" : "doorRight"));
+      const strain = this.deform.cageStrain(g.skin ?? (g.parts.includes(DOOR_LEFT) ? DOOR_LEFT : DOOR_RIGHT));
       if (g.state === "intact" && strain > GLASS_CRACK) this.crackGlass(g);
       if (strain > (g.skin === "glassFront" ? GLASS_LAMINATED : GLASS_TEMPERED)) this.shatterGlass(g);
     }
