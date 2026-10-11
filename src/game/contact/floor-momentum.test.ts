@@ -126,7 +126,7 @@ describe("given the coasting 53 km/h T-bone, where the two cars should only be h
     return { bulletNose: (b.noseShortL + b.noseShortR) / 2, struckNose: a.noseShortR, door: a.doorMaxR, engine: a.engineTravel };
   }
 
-  it("when the bullet holds the throttle for the 0.12 s pulse or at full throttle, then its nose, the struck door and the struck engine block crush as they do when coasting, and for the pulse so does the struck nose", { todo: "the T-bone pair patch rebounds the struck door after the first exchange so the pair is no longer held (Stage 4 item 5 (car-car through the kernel))" }, () => {
+  it("when the bullet holds the throttle for the 0.12 s pulse or at full throttle, then its nose, the struck door and the struck engine block crush as they do when coasting, and for the pulse so does the struck nose", { todo: "after the plan: find why the bullet's nose crushes 0.035 m less at full throttle than coasting; at full throttle its nose crushes 0.173 m against 0.208 m coasting (bound 0.031 m); the 0.12 s pulse (nose 0.197 m, door 0.215 m, engine 0.0136 m, struck nose -0.007 m) and the struck door and engine at full throttle already pass" }, () => {
     const coast = dents(0);
     for (const hold of [0.12, Infinity]) {
       const held = dents(hold);
