@@ -93,7 +93,7 @@ const SPEEDS = [12, 30, 55] as const;
  * through the kernel give, not the closing at the first touch.
  */
 const SLIVER = SHAPES[3];
-const SLIVER_TODO = "Stage 4 item 5 (car-car through the kernel): a 0.09 m sliver of the cage arms a full 55 m/s hit it takes 0.3 m/s from; health 0.00-0.44 (start 3 dead, start 6 no hit) until the rows deliver the hit";
+const SLIVER_TODO = "after the plan: size a solid's hit from the impulse the kernel's rows deliver at the contact, not the closing speed at the first touch; a 0.09 m sliver of the cage still arms a full 55 m/s hit, and the eight starts end with health 0.00-1.00 (band 0.2: start 3 dead at 0.00, start 6 no hit at 1.00, the rest 0.26-0.40) and speed 1.5-55.0 m/s (band 5)";
 
 describe("given a fixed solid standing at the side of a sedan's path", () => {
   for (const shape of SHAPES) {
