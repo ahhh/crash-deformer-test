@@ -11,21 +11,14 @@ import { BODIES, carInState, drawnField, STATES, TOP_P95_M, TOP_PARTS, TOP_WORST
 
 /**
  * The parts the surface is off the drawn top by more than the bars, read against the drawn relief (the 3 x 3 neighbourhood clamp
- * of `reliefGap`, p95 and worst alike): measured p95 / worst (m) against the 0.05 / 0.10 bars. Each is a todo for the Stage 3 lane.
+ * of `reliefGap`, p95 and worst alike): measured p95 / worst (m) against the 0.05 / 0.10 bars. Each is a todo with its closing follow-up named.
  */
 const interiorThroughRoof =
-  "the drawn interior (its headliner stands 1.09 m over the origin and does not follow the roof mass) pokes up through the roof the drop crushed, up to 0.115 m over the drawn roof on 352 cells, and the cage is the roof there: the cage carries the interior over a gone pane's opening only, because over the whole roof it takes stack-crush.test.ts to 6 of 8 (the bottom roof 0.384 m under three cars, its band 0.12-0.26 m); closes when the drawn interior follows the roof's crush";
+  "the drawn interior (its headliner stands 1.09 m over the origin and does not follow the roof mass) pokes up through the roof the drop crushed, up to 0.115 m over the drawn roof on 352 cells, and the cage is the roof there: the cage carries the interior over a gone pane's opening only, because over the whole roof it takes stack-crush.test.ts to 6 of 8 (the bottom roof 0.384 m under three cars, its band 0.12-0.26 m); after the plan: make the drawn interior follow the roof's crush";
 const edgeCliffs: readonly { key: string; part: string; measured: string; cause: string }[] = [
   { key: "sedan/rolled", part: "cabin", measured: "p95 0.062 (bar 0.05), worst 0.079 under (bar 0.10)", cause: interiorThroughRoof },
   { key: "pickup truck/rolled", part: "cabin", measured: "p95 0.064 (bar 0.05), worst 0.078 under (bar 0.10)", cause: interiorThroughRoof },
   { key: "monster pickup/rolled", part: "cabin", measured: "p95 0.064 (bar 0.05), worst 0.078 under (bar 0.10)", cause: interiorThroughRoof },
-  {
-    key: "pickup truck/headon",
-    part: "hood",
-    measured: "p95 0.057 (bar 0.05), worst 0.094 under (bar 0.10)",
-    cause:
-      "one row of 21 of 360 cells, the last 5 cm before the nose's front edge (z 1.725): the cage's nose is one chord from the hood's front to the bumper's foot where the drawn nose is a rounded corner, so the 5 cm node row beyond the lip reads the low fascia and the cell between reads 9 cm under; 300 vertices leave it as it is, 450 close it (p95 0.045) at twice the refit cost (the bar is 1.1x) and past the 150-330 triangle bar of car-cage.test.ts",
-  },
 ];
 
 const topCases = BODIES.flatMap((b) =>
@@ -54,6 +47,6 @@ for (const testCase of topCases) {
       }
       assert.deepEqual(wrong, []);
     });
-    for (const cliff of cliffs) it.todo(`the surface's ${cliff.part} within the bars (measured ${cliff.measured}: ${cliff.cause}; Stage 3 lane)`);
+    for (const cliff of cliffs) it.todo(`the surface's ${cliff.part} within the bars (measured ${cliff.measured}: ${cliff.cause})`);
   });
 }
