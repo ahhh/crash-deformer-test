@@ -61,8 +61,9 @@ const CONTEXT = {
   /**
    * Eyes tried, nearest first: the distance (m) flat from the points' midpoint and the height (m) over it. Low ones stand 5 m
    * and 0.3 of their reach up; the high ones look down a street the low ones cannot see along (a block of buildings in every
-   * direction); the last, far and near the ground, look down the line of two points too far apart for a screen's width, one
-   * behind the other, through a narrower lens.
+   * direction); the next, far and near the ground, look down the line of two points too far apart for a screen's width, one
+   * behind the other, through a narrower lens; the last, as far and level with the points (a car thrown 45 m onto a wall off a
+   * deck: from 3 m over it the nearer point sits too far below the lens axis to be car-sized in the frame the farther one needs).
    */
   eyes: [
     [14, 9.2],
@@ -74,6 +75,9 @@ const CONTEXT = {
     [36, 3.5],
     [46, 4],
     [60, 5],
+    [36, 0.5],
+    [46, 1],
+    [60, 1.5],
   ],
   /** Directions round the midpoint tried from the seeded `turn`, then along the points' own line (rad off it, from behind either point). */
   turns: 24,

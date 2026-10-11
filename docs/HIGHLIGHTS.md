@@ -266,10 +266,15 @@ same eye. Its lens is its own: the widest up to 55° that keeps both points a ca
 height) and in frame. The eyes are tried nearest first (the midpoint's 15° turns from a seeded one, 14 to 26 m out low,
 8 to 14 m out at 25 m for a street of buildings; then, for two points further apart than a narrow screen is wide, along
 their own line from behind either one, 30 to 60 m out near the ground, the narrower lens seeing the nearer point big and
-the far one in the same frame), each with a clear line to both over the course's static solids. Where no eye works, the
+the far one in the same frame; last, 36 to 60 m out level with the points, for a pair on a deck 45 m apart, where from 3 m over
+it the nearer point sits too far below the lens axis to be car-sized in the frame the farther one needs), each with a clear line to both over the course's static solids. Where no eye works, the
 aftermath shot stays. The judge (`reel-view.test.ts`) checks every impact point of every clip at its own time on three
 screens (desktop beside its panels, a phone on its side and upright), and the earlier one still in frame when the camera
 changed between two hits.
+
+The crash cam begins before its car reaches the hit (the first cut's pick runs over the lead-in), so it is aimed at the recorded
+point's height (`ClipHit.y` of the first hit), not at the first car's height as the sim has it then: a wall hit on a kicker 9 m
+up was aimed at the ground under it (the hit at ndc 5.2, out of the frame).
 
 A hit that comes *inside* the crash cam's window (the cuts from `CUTS[0]` to `crashCamEnd`: the car keeps being hit while
 the held cam stands on it) is looked at by the held cam itself (`ReelDirector.lookahead` → `CrashHold.later`): its aim

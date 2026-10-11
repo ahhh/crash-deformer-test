@@ -665,7 +665,7 @@ export class ReelDirector {
     if (!cam.sees(still, hitAim(_c, clip.x, sim.cars[clip.firstA]!.group.position.y, clip.z, still))) cam.found = false;
   }
 
-  /** Clip `p`'s first impact: `_c` its recorded point (at the first car's height), `_n` the flat line the cars meet along (the car's heading if it hit alone). */
+  /** Clip `p`'s first impact: `_c` its recorded point (its height from the record, `ClipHit.y`, not the first car's: the crash cam begins well before the hit, with the car still on its way up a kicker), `_n` the flat line the cars meet along (the car's heading if it hit alone). */
   private firstHit(p: Prepared): void {
     const { clip, sim } = p;
     const a = sim.cars[clip.firstA]!.group.position;
@@ -674,7 +674,8 @@ export class ReelDirector {
     else _n.set(sim.cars[clip.firstA]!.velocity.x, 0, sim.cars[clip.firstA]!.velocity.z);
     if (_n.lengthSq() < 1e-6) _n.set(1, 0, 0);
     _n.normalize();
-    _c.set(clip.x, a.y, clip.z);
+    const first = clip.hits[0];
+    _c.set(clip.x, first && Math.abs(first.t - clip.firstImpact) < 1e-6 ? first.y : a.y, clip.z);
   }
 
   /**
