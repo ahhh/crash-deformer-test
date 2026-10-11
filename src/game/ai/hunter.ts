@@ -253,6 +253,11 @@ export class HunterBrain extends CopBrain {
     return n;
   }
 
+  /** Out driving: hunting with the pack released (`go`; the formation sits braked before the green). */
+  override drives(id: number): boolean {
+    return this.go && super.drives(id);
+  }
+
   protected chasing(u: number): boolean {
     return this.state[u] === HUNTING;
   }

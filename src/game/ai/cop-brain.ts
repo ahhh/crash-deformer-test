@@ -267,6 +267,17 @@ export abstract class CopBrain {
   /** How many of the `chasers` are after racer `id` (the HUD's pursuit strip). */
   abstract copsOn(id: number): number;
 
+  /** Car `id` is one of this brain's units out driving (`pullsOut`): in pursuit or hunting, not parked or stored. */
+  drives(id: number): boolean {
+    const u = id - this.first;
+    return u >= 0 && u < this.count && this.pullsOut(u);
+  }
+
+  /** Car `id`, a unit that cannot drive on (wedged), is put away: the brain's own placement drops a fresh unit in later. */
+  recall(id: number, world: HunterWorld): void {
+    this.store(id - this.first, world);
+  }
+
   /** A unit's input for this physics slice (scratch output: apply it before the next call): its drive, then the pack-mate guard. */
   think(self: AiCar, cars: readonly AiCar[], dt: number): DriveInput {
     const out = this.drive(self, cars, dt);

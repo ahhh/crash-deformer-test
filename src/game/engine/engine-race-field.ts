@@ -16,7 +16,7 @@ import { POLICE_CAP, PoliceBrain } from "../ai/police.ts";
 import type { CopBrain, HunterWorld } from "../ai/cop-brain.ts";
 import { HUNT, HunterBrain, huntUnits } from "../ai/hunter.ts";
 import { fieldAggression } from "../ai/ai-aggression.ts";
-import { RaceSession } from "../match/session.ts";
+import { BUST, RaceSession } from "../match/session.ts";
 import { SURVIVAL, humanSlot, settleRun } from "../match/survival.ts";
 import { loadBest, saveBest } from "./survival-store.ts";
 import { DORMANT, TrafficBrain } from "../ai/traffic.ts";
@@ -86,6 +86,8 @@ const STILL_DEAD = 8;
  */
 const STALL_WINDOW = 8;
 const STALL_GAIN = 25;
+/** A police car is touching another when a car in play is within `CONTACT` m of it. */
+const CONTACT = 5;
 /** Seconds a dead traffic car stays put before the bubble puts it away. */
 const TRAFFIC_DEAD = 6;
 /** Where put-away traffic waits (far off every course). */
@@ -229,6 +231,10 @@ export abstract class RaceField {
   /** Per AI racer: race time and track progress at the start of the current stall window. */
   private readonly markTime = new Float64Array(MAX_CARS);
   private readonly markProgress = new Float64Array(MAX_CARS);
+  /** Per police car id: the race time (−1: not driving) and spot where it last gained `STALL_GAIN` m. */
+  private readonly copTime = new Float64Array(MAX_CARS).fill(-1);
+  private readonly copX = new Float64Array(MAX_CARS);
+  private readonly copZ = new Float64Array(MAX_CARS);
   protected readonly snaps: AiCar[] = [];
   protected readonly poses: CarPose[] = [];
   protected readonly scratch: DriveInput = idleDrive();
@@ -359,6 +365,7 @@ export abstract class RaceField {
     this.stillFor.fill(0);
     this.markTime.fill(0);
     this.markProgress.fill(0);
+    this.copTime.fill(-1);
     this.knocked.fill(0);
     this.overFor = 0;
     this.menu = null;
@@ -699,7 +706,7 @@ export abstract class RaceField {
     return kind === "ai" || (kind === "player" && !this.seatDrives(i));
   }
 
-  /** Cars the race AI drives that made almost no track progress over the last window ask for a respawn (see `STALL_GAIN`). */
+  /** Cars the race AI drives that made almost no track progress over the last window ask for a respawn (see `STALL_GAIN`); police cars out driving that stood still over it are put away (`copStalls`). */
   protected stalls(s: RaceSession): void {
     for (let i = 0; i < this.entrants.length; i++) {
       if (!this.aiDrives(i) || s.time - this.markTime[i]! < STALL_WINDOW) continue;
@@ -708,6 +715,39 @@ export abstract class RaceField {
       this.markTime[i] = s.time;
       this.markProgress[i] = rec.progress;
     }
+    this.copStalls(s);
+  }
+
+  /** A police car out driving that stays within `STALL_GAIN` m of where it last gained that much for `STALL_WINDOW` s, and is not excused (`excused`), is put away (`CopBrain.recall`): a crashed wreck on the throttle sits in place for ever. */
+  private copStalls(s: RaceSession): void {
+    const police = this.police;
+    if (!police) return;
+    for (let id = police.first; id < police.first + police.count; id++) {
+      const c = this.snaps[id]!;
+      if (this.dormant[id] || this.deadFor[id]! > 0 || !police.drives(id)) {
+        this.copTime[id] = -1;
+        continue;
+      }
+      const t = this.copTime[id]!;
+      if (t < 0 || hypot2(c.x - this.copX[id]!, c.z - this.copZ[id]!) >= STALL_GAIN) {
+        this.copTime[id] = s.time;
+        this.copX[id] = c.x;
+        this.copZ[id] = c.z;
+      } else if (s.time - t >= STALL_WINDOW && !this.excused(c, s)) {
+        police.recall(id, this.patrolWorld);
+        this.copTime[id] = -1;
+      }
+    }
+  }
+
+  /** A police car is excused while a car is touching it (within `CONTACT` m) or a racer held slow is within `BUST.near` m of it: waiting beside it is the bust's work. */
+  private excused(c: AiCar, s: RaceSession): boolean {
+    for (const o of this.snaps) if (o !== c && !this.dormant[o.id] && hypot2(o.x - c.x, o.z - c.z) < CONTACT) return true;
+    for (let i = 0; i < this.entrants.length; i++) {
+      const o = this.snaps[i]!;
+      if (s.cars[this.rowOf[i]!]!.status === "racing" && hypot2(o.x - c.x, o.z - c.z) <= BUST.near && hypot2(o.vx, o.vz) * 3.6 < BUST.kph) return true;
+    }
+    return false;
   }
 
   /**
