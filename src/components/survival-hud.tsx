@@ -1,5 +1,6 @@
 import { RotateCcw, Trophy } from "lucide-react";
 import { MenuShell, NavButton } from "@/components/race-menu-shell";
+import { copCount } from "@/components/race-status";
 import { ReelList } from "@/components/race-reel";
 import { fmtTime } from "@/game/hud/race-clock";
 import type { RaceCommand, RaceHud, SurvivalCause, SurvivalHud } from "@/game/match/types";
@@ -59,7 +60,7 @@ export function SurvivalResults({ race, pad, onCommand }: { race: RaceHud; pad: 
             <p className="mt-2 text-sm text-muted">Best {fmtTime(r.best)}</p>
           )}
           <p className="mt-1 text-sm text-muted">
-            {r.wrecked} {r.wrecked === 1 ? "cop" : "cops"} wrecked
+            {copCount(r.wrecked)} wrecked
           </p>
         </div>
       ) : null}

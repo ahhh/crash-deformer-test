@@ -5,6 +5,9 @@ import { labLine, stripLines, type StripResult } from "./engine-bench-plan.ts";
 /** The detail A/B's arms: no cuts at all, then the ladder's rungs for 75, 50 and 30 m (`DETAIL_LEVELS`). */
 export const DETAIL_ARMS: readonly { key: string; level: number | null }[] = [{ key: "off", level: null }, { key: "75 m", level: 0 }, { key: "50 m", level: 2 }, { key: "30 m", level: 4 }];
 
+/** The pacer A/B's arms, the keys of `BenchResult.abPace`: the 1/240 s slice pinned, the 1/120 s slice pinned. */
+export const PACE_ARM = { fine: "fine", coarse: "coarse" } as const;
+
 export interface Stat {
   mean: number;
   p50: number;

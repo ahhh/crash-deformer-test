@@ -36,9 +36,12 @@ import { cn } from "@/lib/utils";
 const SEGMENT = "h-10 px-1 text-xs sm:h-7";
 const TRACK = "grid flex-1 gap-0.5 rounded-md bg-surface-2 p-0.5";
 
+/** The storage key of the open sections: the menu reads it to know whether any is open (`HudSections` writes it). */
+export const HUD_SECTIONS_KEY = "crush.hud.sections";
+
 export function HudSections(props: HudProps) {
   // Every section starts closed: the 3D view comes first, settings are a click away.
-  const [open, setOpen] = useStoredString("crush.hud.sections", "", "");
+  const [open, setOpen] = useStoredString(HUD_SECTIONS_KEY, "", "");
   const section = (id: SectionId) => ({ id, changed: changedSettings(props.state, id), engine: props.engine });
   return (
     <Accordion.Root

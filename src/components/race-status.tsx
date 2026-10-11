@@ -8,6 +8,9 @@ import { cn } from "@/lib/utils";
 const NEAR_GOAL = 500;
 const YARDS_PER_M = 1.0936;
 
+/** `1 cop`, `3 cops`: the police headcount as the pursuit strip and the survival readout word it. */
+export const copCount = (n: number): string => `${n} ${n === 1 ? "cop" : "cops"}`;
+
 /** The pursuit strip: police are chasing the viewed car. Cop count and, while the cops hold it slow beside one (the bust rule counting), the bust hold running out with the seconds left. */
 function PursuitStrip({ chase }: { chase: NonNullable<RaceView["chase"]> }) {
   return (
@@ -15,7 +18,7 @@ function PursuitStrip({ chase }: { chase: NonNullable<RaceView["chase"]> }) {
       <div className="absolute inset-0 bg-linear-to-r from-transparent via-signal-red/60 to-transparent" aria-hidden />
       <p className="relative flex items-center gap-2 text-lg font-semibold uppercase tracking-[0.2em] text-fg md:text-2xl">
         <Siren className={cn("size-5 md:size-6", chase.hold > 0.6 && "motion-safe:animate-pulse")} />
-        Chased by {chase.cops} {chase.cops === 1 ? "cop" : "cops"}
+        Chased by {copCount(chase.cops)}
       </p>
       {chase.hold > 0 ? (
         <div className="relative flex items-center gap-2">

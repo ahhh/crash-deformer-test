@@ -10,6 +10,9 @@ import { coverLens, type ReelDirector } from "./engine-highlights.ts";
 import { deleteSaved, listSaved, loadSaved, saveClip } from "./highlight-store.ts";
 import { EngineInput } from "./engine-input.ts";
 
+/** The trace's `camera.rig` while a crash cut holds the camera. */
+const CRASH_CAM_RIG = "crash-cam";
+
 /** The engine's crash highlights layer (docs/HIGHLIGHTS.md): the reel's start, its commands, saved clips. */
 export abstract class EngineReel extends EngineInput {
   /** The results reel and its solo view. */
@@ -171,12 +174,12 @@ export abstract class EngineReel extends EngineInput {
 
   /** Which rig holds the camera, mirroring `aimRigs`' and `updateCamera`'s precedence from the state they read (the trace's `camera.rig`). */
   protected cameraRig(): string {
-    if (this.highlights.playing) return this.cine.cutting ? "crash-cam" : "reel";
+    if (this.highlights.playing) return this.cine.cutting ? CRASH_CAM_RIG : "reel";
     const followed = this.followedCar();
     const shown = followed?.group.visible === true;
     if (shown && this.view.rear) return "rear-view";
     if (this.ragdolls.rideAlong && (this.showRange || !this.cine.holding)) return "ragdoll";
-    if (this.cine.cutting) return "crash-cam";
+    if (this.cine.cutting) return CRASH_CAM_RIG;
     const fp = followed?.group.position;
     if (followed && fp && (followed.falling || followed.vaporized || (fp.y < -0.01 && activeGround().heightAt(fp.x, fp.z, fp.y) === NO_FLOOR))) return "fall-watch";
     if (shown && this.seat.mode === "drive") return `drive-${this.seat.view}`;

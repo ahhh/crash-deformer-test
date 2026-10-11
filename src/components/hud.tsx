@@ -3,7 +3,7 @@ import * as Popover from "@radix-ui/react-popover";
 import { BrickWall, ChevronDown, ChevronUp, CircleDot, CircleHelp, Pause, Play, RotateCcw, SlidersHorizontal, TriangleRight } from "lucide-react";
 import { DerbyBoard, DoorPanel, LabPanel, PistonPanel, RangePanel, StackPanel } from "@/components/hud-panels";
 import { GaragePanel } from "@/components/garage-panel";
-import { HudSections } from "@/components/hud-sections";
+import { HUD_SECTIONS_KEY, HudSections } from "@/components/hud-sections";
 import { RaceOverlay, RaceStandings, RaceViewToggle, SpectateBar } from "@/components/race-hud";
 import { BenchEntry } from "@/components/bench-controls";
 import { OnlineEntry } from "@/components/online-entry";
@@ -161,7 +161,7 @@ export function Hud(props: HudProps) {
   const settingsShown = settings === "shown";
   // Touch only, with the bottom bar showing: the menu collapses to a short bar after a few seconds without a tap (`data-idle`, the `idle:`
   // variant) or on the hide button, and expands on a click or slide up on that bar or when a menu opens. Never on a bare tap (use-hud-idle).
-  const [sections] = useStoredString("crush.hud.sections", "", "");
+  const [sections] = useStoredString(HUD_SECTIONS_KEY, "", "");
   const menuOpen = (!focus && settingsShown && sections !== "") || state.race?.menu != null;
   const menu = useHudIdle(touch && !focus, menuOpen);
   // Solo view: one clip alone, full screen; the HUD is nothing but its exit.

@@ -6,6 +6,7 @@ import { PISTON_ORBIT_RATE, PistonBank } from "../present/engine-pistons.ts";
 import { DoorRam } from "../present/engine-doors.ts";
 import { sliceSpeed } from "../contact/sat.ts";
 import { PACE_BUDGET_MS, SimPacer } from "./sim-pace.ts";
+import { SETTING_KEY } from "./constants.ts";
 import { PoseBlend } from "../present/pose-blend.ts";
 import { INITIAL_HUD, type HudStore } from "../hud/hud-store.ts";
 import { easeTimeScale, PRE_IMPACT_LEAD, preImpact, stepPhase } from "../match/phase.ts";
@@ -222,7 +223,7 @@ export class CrashEngine extends EngineGarage {
     this.lab.dolls = this.ragdolls;
     this.cine = new Cinematics(this.renderer, this.scene, this.view, { sparks: this.sparks, glass: this.glassDots, witness: this.witness }, MAX_CARS, this.clock.reduceMotion);
     // `?fx=off|minimal|low|high|ultra` picks the tier for the session (bench A/B); the auto tier otherwise. Ultra loads after boot (below).
-    const fxParam = FX_TIERS.find((t) => t === new URLSearchParams(window.location.search).get("fx"));
+    const fxParam = FX_TIERS.find((t) => t === new URLSearchParams(window.location.search).get(SETTING_KEY.fx));
     this.cine.setTier(fxParam === "ultra" ? "high" : (fxParam ?? INITIAL_HUD.fxTier));
     const gl = this.renderer.getContext();
     const gpu = gl.getExtension("WEBGL_debug_renderer_info");

@@ -42,6 +42,10 @@ const BILL_W = 512;
 const BILL_AD = 256;
 const BILL_STRIP = 32;
 
+/** The window texture's frame and mullion grey, and the billboard's paper white (its ground and its STREAM / RACEWAY lettering). */
+const WINDOW_FRAME = "#5c5a55";
+const BILLBOARD_PAPER = "#f2efe6";
+
 /**
  * The race's shared textures, built once per track art. `*Gain` is the reciprocal of the texture's
  * mean linear colour: a material with `color = gain` and `map = texture` shows its vertex colour on
@@ -160,7 +164,7 @@ function makeWindows(): HTMLCanvasElement {
   const glass = ctx.createLinearGradient(0, y0, 0, y1);
   glass.addColorStop(0, "#3e5266");
   glass.addColorStop(1, "#1f2933");
-  ctx.fillStyle = "#5c5a55";
+  ctx.fillStyle = WINDOW_FRAME;
   ctx.fillRect(x0 - 6, y0 - 6, x1 - x0 + 12, y1 - y0 + 12);
   ctx.fillStyle = glass;
   ctx.fillRect(x0, y0, x1 - x0, y1 - y0);
@@ -172,7 +176,7 @@ function makeWindows(): HTMLCanvasElement {
   ctx.lineTo(x0, y1);
   ctx.lineTo(x0, y0 + 60);
   ctx.fill();
-  ctx.fillStyle = "#5c5a55";
+  ctx.fillStyle = WINDOW_FRAME;
   ctx.fillRect((x0 + x1) / 2 - 3, y0, 6, y1 - y0);
   ctx.fillStyle = "#b9b3a8";
   ctx.fillRect(x0 - 10, y1 + 6, x1 - x0 + 20, 10);
@@ -181,7 +185,7 @@ function makeWindows(): HTMLCanvasElement {
 
 function makeBillboard(): HTMLCanvasElement {
   const [c, ctx] = canvas(BILL_W, BILL_AD + BILL_STRIP);
-  ctx.fillStyle = "#f2efe6";
+  ctx.fillStyle = BILLBOARD_PAPER;
   ctx.fillRect(0, 0, 512, 256);
   ctx.fillStyle = "#c8261c";
   ctx.fillRect(0, 0, 512, 64);
@@ -191,7 +195,7 @@ function makeBillboard(): HTMLCanvasElement {
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillText("CRUSH", 256, 130);
-  ctx.fillStyle = "#f2efe6";
+  ctx.fillStyle = BILLBOARD_PAPER;
   ctx.font = "bold 40px sans-serif";
   ctx.fillText("STREAM", 256, 34);
   ctx.fillText("RACEWAY", 256, 224);

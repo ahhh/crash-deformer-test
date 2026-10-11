@@ -11,7 +11,7 @@ import type { CarStyleId } from "../vehicle/car-variants.ts";
 import { benchPlan, leaderAhead, type BenchPlan } from "./engine-bench-plan.ts";
 import { watchPage } from "./engine-bench-page.ts";
 import { warmUp } from "./engine-bench-warm.ts";
-import { browserName, describeBench, DETAIL_ARMS, perSecond, PHASE_AB_DETAIL, PHASE_AB_FX, PHASE_AB_PACE, PHASE_REPLAY, PHASE_WARM, PHASE_WINDOW, stat, type BenchResult, type BenchSettings, type Block, type RagdollCost, type ReplayResult } from "./engine-bench-report.ts";
+import { browserName, describeBench, DETAIL_ARMS, PACE_ARM, perSecond, PHASE_AB_DETAIL, PHASE_AB_FX, PHASE_AB_PACE, PHASE_REPLAY, PHASE_WARM, PHASE_WINDOW, stat, type BenchResult, type BenchSettings, type Block, type RagdollCost, type ReplayResult } from "./engine-bench-report.ts";
 import { CLIP_WAIT_S, CRASH_GAP, CRASH_SPEED, ragdollCost, REPLAY_SETTLE_S, REPLAY_TIER_S, replayTier, START_WAIT_S, type ReplayFrames } from "./engine-bench-replay.ts";
 import type { HighlightClip } from "../match/highlights.ts";
 import type { RagdollSystem } from "../present/engine-ragdoll.ts";
@@ -605,12 +605,13 @@ function settingsOf(parts: BenchParts, hud: Record<string, unknown>, top: string
   scene.traverseVisible((o) => {
     if ((o as THREE.Mesh).isMesh && o.castShadow) casters++;
   });
+  const cel = hud[SETTING_KEY.celLook];
   return {
     fxTier: parts.cine.tier,
     fxAuto: hud["fxAuto"] === true,
     post: describePost(top as FxTier),
     fxDensity: Number(hud["fxDensity"]),
-    celLook: typeof hud["celLook"] === "number" ? hud["celLook"] : null,
+    celLook: typeof cel === "number" ? cel : null,
     shadows: { enabled: renderer.shadowMap.enabled, type: ["Basic", "PCF", "PCFSoft", "VSM"][renderer.shadowMap.type] ?? String(renderer.shadowMap.type), map: `${sun.shadow.mapSize.x}x${sun.shadow.mapSize.y}`, casters },
     pixelRatio: renderer.getPixelRatio(),
     deviceRatio: Math.round(devicePixelRatio * 1000) / 1000,
@@ -891,7 +892,7 @@ export async function runBench(engine: BenchEngine, hud: () => object, search: s
   // The A/Bs hold the tier the window mostly ran, so the pacer arms differ in the pacer alone.
   engine.setFxTier(top);
   page.phase(PHASE_AB_PACE);
-  const pace = await alternate(engine, parts, t, beat, ui, "pacer", [{ key: "fine", set: () => void (engine.pace.pin = false) }, { key: "coarse", set: () => void (engine.pace.pin = true) }], BENCH.paceCycles);
+  const pace = await alternate(engine, parts, t, beat, ui, "pacer", [{ key: PACE_ARM.fine, set: () => void (engine.pace.pin = false) }, { key: PACE_ARM.coarse, set: () => void (engine.pace.pin = true) }], BENCH.paceCycles);
   engine.pace.pin = null;
   page.phase(PHASE_AB_DETAIL);
   // The detail arms run at the window's tier too (the governor is off with the tier pinned), then the governor's rung is put back.
@@ -935,7 +936,7 @@ export async function runBench(engine: BenchEngine, hud: () => object, search: s
     strip: plan.strip ? { spec: plan.strip, body: plan.body, racers: plan.racers, leaderWindowM, leaderEndM } : null,
     labThrown: plan.lab ? w.thrown : null,
     settings,
-    abPace: { fine: abPace["fine"]!, coarse: abPace["coarse"]! },
+    abPace: { fine: abPace[PACE_ARM.fine]!, coarse: abPace[PACE_ARM.coarse]! },
     abFx: { minimal: abFx["minimal"]!, low: abFx["low"]!, high: abFx["high"]!, ...(plan.ultra ? { ultra: abFx["ultra"]! } : {}) },
     abDetail: blocksOf(detail, gpu),
     device,
