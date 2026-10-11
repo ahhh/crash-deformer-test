@@ -282,8 +282,8 @@ describe("given a client car that applies the host car's state from the wire", (
     assert.ok(maxDiff(hv, client.body.geometry.getAttribute("position").array) < 0.002);
   });
 
-  // todo -> Stage 5 (recalibrate): the 58 km/h rear corner hit now tears no quarter panel (0 of the 1 the test needs). A hit off the car's
-  // centre spins the car away (yaw 0.30 rad against 0.01 rad before), so the corner crushes less (tail 0.218 m against 0.360 m at 56 km/h).
+  // todo -> after the plan: recalibrate the off-centre wall hit's crush against the lever's spin. The 58 km/h rear corner hit tears no quarter
+  // panel (0 of the 1 the test needs): the lever spins the car away, so the corner crushes less.
   it.todo("when a body panel is torn off and another hinged loose, then the client shows the same hole and shell, throws its own loose panel, and the next wreck clears them", () => {
     type Row = { name: string; detached: boolean; hingeT: number; pos: { x: number; y: number; z: number } };
     const panels = (c: DeformableCar) => (c.snapshot().parts as Row[]).filter((p) => /^(quarter|arch)/.test(p.name));
