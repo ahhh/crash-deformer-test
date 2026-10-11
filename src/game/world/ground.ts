@@ -90,15 +90,15 @@ class DiscGround extends Ground {
 export const FLAT_GROUND: Ground = new FlatGround();
 export const DISC_GROUND: Ground = new DiscGround();
 
-let active: Ground = FLAT_GROUND;
-activate(active);
+const world: { ground: Ground } = { ground: FLAT_GROUND };
+activate(world.ground);
 
 export function activeGround(): Ground {
-  return active;
+  return world.ground;
 }
 
 /** `null` restores the flat plane. */
 export function setGround(g: Ground | null): void {
-  active = g ?? FLAT_GROUND;
-  activate(active);
+  world.ground = g ?? FLAT_GROUND;
+  activate(world.ground);
 }
