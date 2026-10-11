@@ -732,9 +732,7 @@ describe("given a car hit side-on by a 50 km/h wall", () => {
 });
 
 describe("given a car hitting a wall at 56 km/h", () => {
-  // todo -> Stage 5 (recalibrate): 0.051 m against the 0.05 bar, 1 mm over. The hulls' crush is fed from the touch (the contact begins a
-  // slice before the overlap, `strikeCar`), not from the first slice's depth, which moved the calibrated cabin skin by a millimetre.
-  it.todo("when the hit is over, then the skin over the cabin section intrudes no more than 0.05", () => {
+  it("when the hit is over, then the skin over the cabin section intrudes no more than 0.05", () => {
     const r = runWall(56);
     assert.ok(r.skinCabin <= 0.05, `cabin skin intrudes ${r.skinCabin.toFixed(3)} m`);
   });
