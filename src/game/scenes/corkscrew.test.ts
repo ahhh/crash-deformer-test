@@ -91,20 +91,20 @@ function launch(v: number): Run {
  * sooner (7.6° against 9.0°), closing at 1.5 m/s on a 2.1 m lever, and the car leaves the lip spinning 1.01 rad/s, not 1.27 (the same
  * 20 % short at every speed: 14 m/s 125° against 151°, 22 m/s 268 against 329, 27 m/s 358 against 571). The bands are the plan's
  * and stand; with no cage vertices in the point table the same flight reproduces them to the bit (151 / 329 / 573°, roof / wheels /
- * roof). Rows that fail by it are `todo` until the corkscrew's takeoff is recalibrated against the cage's tail.
+ * roof). Rows that fail by it stay `todo` with today's roll and rest; closer: after the plan, recalibrate the corkscrew's takeoff against the cage's tail.
  */
 const BANDS = [
-  { v: 6, name: "it is too slow to climb, so it rolls back out of the mouth without leaving the ground", air: false, roll: [0, 0], rest: "wheels", todo: false },
-  { v: 14, name: "it flies, rolls half a turn and lands on its roof", air: true, roll: [130, 230], rest: "roof", todo: true },
-  { v: 22, name: "it flies, rolls a full turn and lands back on its wheels", air: true, roll: [310, 410], rest: "wheels", todo: true },
-  { v: 27, name: "it flies, rolls a turn and a half and lands on its roof", air: true, roll: [490, 620], rest: "roof", todo: true },
+  { v: 6, name: "it is too slow to climb, so it rolls back out of the mouth without leaving the ground", air: false, roll: [0, 0], rest: "wheels", todo: "" },
+  { v: 14, name: "it flies, rolls half a turn and lands on its roof", air: true, roll: [130, 230], rest: "roof", todo: "touchdown roll 125° (band 130–230°), rests on its wheels" },
+  { v: 22, name: "it flies, rolls a full turn and lands back on its wheels", air: true, roll: [310, 410], rest: "wheels", todo: "touchdown roll 268° (band 310–410°), rests on its roof" },
+  { v: 27, name: "it flies, rolls a turn and a half and lands on its roof", air: true, roll: [490, 620], rest: "roof", todo: "touchdown roll 374° (band 490–620°)" },
 ] as const;
 
 describe("given the corkscrew ramp as the ground, and a driverless car launched at it from 6 m short of its mouth until the car comes to rest", () => {
   afterEach(() => setGround(null));
 
   for (const b of BANDS) {
-    (b.todo ? it.todo : it)(`when it is launched at ${b.v} m/s, then ${b.name}, and after takeoff it never goes deeper into the ground than the suspension's stop`, (t) => {
+    (b.todo ? it.todo : it)(`when it is launched at ${b.v} m/s, then ${b.name}, and after takeoff it never goes deeper into the ground than the suspension's stop${b.todo ? ` (today ${b.todo}; after the plan: recalibrate the corkscrew's takeoff against the cage's tail)` : ""}`, (t) => {
       const r = launch(b.v);
       t.diagnostic(`${b.v} m/s: air ${r.air.toFixed(2)} s, touchdown roll ${r.landRoll.toFixed(0)}°, up.y ${r.upY.toFixed(2)} (${r.rest}), deepest ${r.dip.toFixed(3)} m`);
       const failures: string[] = [];
