@@ -94,10 +94,11 @@ import { makeSnapshot, MAX_NET_CARS, MSG, NET_VERSION, readEjection, readSnapsho
  * monster brake 26), so a replayed truck or monster brakes and corners differently; 57: Stage 5 rear stroke gain 1.08, so a replayed
  * car hit in the tail crushes deeper; 58: a crashed car on its tyres with its pedal held drives instead of sliding, and a police car
  * that stands still 8 s is put away, so a replayed wreck or stalled cop moves differently; 59: a Survival hunter creeping on a stopped
- * quarry is read at its own speed and a drop-in may reuse an in-view wreck, so a replayed Survival pack moves differently.
+ * quarry is read at its own speed and a drop-in may reuse an in-view wreck, so a replayed Survival pack moves differently; 60: a car
+ * standing on another's top within the surface store's reach is not a plan hit, so a replayed stack moves differently.
  * A saved clip also records `NET_VERSION` (its snapshots' layout).
  */
-const REPLAY_VERSION = 59;
+const REPLAY_VERSION = 60;
 /** Bounds a decoder enforces (a clip is ≤ 13 s at ≤ 300 steps/s, ≤ 15 keyframes). */
 const MAX_STEPS = 8192;
 const MAX_KEYS = 64;
