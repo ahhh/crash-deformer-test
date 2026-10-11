@@ -177,8 +177,10 @@ export class HunterBrain extends CopBrain {
   private readonly racers: number;
   private readonly formation: SurvivalSpec["formation"];
   private readonly obstacles: Obstacles;
-  /** Driving, so a slow one may be pulling out (not waiting in storage). */
-  protected readonly pullsOut = (u: number): boolean => this.state[u] !== STORED;
+  /** Driving, so a slow one may be pulling out (not waiting in storage), unless it is creeping on purpose (`settled`): that one is read at its real speed. */
+  protected readonly pullsOut = (u: number): boolean => this.state[u] !== STORED && this.settled[u] === 0;
+  /** Per unit: it is within `SETTLE` m of a quarry that has stopped, so its creep is its own pace and not a start-up. */
+  private readonly settled: Uint8Array;
   private readonly state: Uint8Array;
   private readonly lost: Float64Array;
   /** Per unit: the side (+1 / −1) it last bent round a solid, so it keeps to it. */
@@ -211,6 +213,7 @@ export class HunterBrain extends CopBrain {
     this.formation = spec.formation;
     this.obstacles = new Obstacles(colliders);
     this.state = new Uint8Array(count);
+    this.settled = new Uint8Array(count);
     this.aim = new Int16Array(count).fill(-1);
     this.lost = new Float64Array(count);
     this.queued = new Int8Array(count);
@@ -276,6 +279,7 @@ export class HunterBrain extends CopBrain {
     out.boost = false;
     const u = self.id - this.first;
     if (u < 0 || u >= this.count) return out;
+    this.settled[u] = 0;
     // Each cop hunts the nearest human still free; the one it is after now is its `aim`.
     const target = this.nearestHunted(self.x, self.z, cars);
     this.aim[u] = target;
@@ -288,6 +292,7 @@ export class HunterBrain extends CopBrain {
     const dz = tg.z - self.z;
     const dist = hypot2(dx, dz);
     const tv = hypot2(tg.vx, tg.vz);
+    this.settled[u] = tv <= BLOCKABLE && dist < SETTLE ? 1 : 0;
     // How far the unit stands ahead of its target along the target's travel (+), and whether it faces it from there.
     const along = -(dx * detSin(tg.yaw) + dz * detCos(tg.yaw));
     const headOn = along > WAIT_BEHIND && detSin(self.yaw) * dx + detCos(self.yaw) * dz > dist * HEAD_ON;
