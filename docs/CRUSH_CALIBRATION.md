@@ -10,7 +10,7 @@ comes from `npm run sweep` (`scripts/crush-sweep.mjs`, shape mode) or from `barr
 | squash | "Stroke", shown as the crush stroke at 56 km/h | **0.32** (0.52 m) | 0.109–0.729 (0.40–0.75 m) | crush stroke, plasticity and shape-match stiffness (below) |
 | buckle | "Wrinkle" | **0.45** | 0–1 | skin fold size only; no physics target |
 | realism | Handling's "Arcade ↔ Real" | **0.25** | 0–1 | when a car dies (`killTravel`), owned by `docs/HANDLING.md` |
-| rig | `rig-spec.ts` `CAGES` | `chassisRear.maxCrush` **0.38** | - | rear stroke = 0.69 × the front's 0.55 |
+| rig | `rig-spec.ts` `CAGES` | `chassisRear.maxCrush` **0.38** | - | rear stroke = 1.08 × 0.69 × the front's 0.55 (`REAR_STROKE_GAIN` in `deform-contact.ts`: the 50 km/h tail is 0.62× the nose, 0.57× without it) |
 
 - Defaults live in `hud-store.ts` `INITIAL_HUD`; ranges in `KNOB_RANGES` / `STROKE_RANGE_M`. The engine setters
   (`setSquash`, `setBuckle`) clamp to the same bounds. `knob-defaults.test.ts` checks that each default sits inside its

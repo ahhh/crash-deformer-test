@@ -33,6 +33,8 @@ const VY_SPAN = 0.004;
 const DRIVE_TURN_HOLD = 1 / 30; // sim s a driven wreck's turn rate stays reported after `applyDrive` set it (followGroup)
 /** A mass this close (m) to a rigid face still counts as resting on it. */
 const FACE_SKIN = 0.02;
+/** A rear hit's stroke over the front's, beyond the cages' chassisRear / chassisFront ratio: 50 km/h reverse into the wall crushes the tail 0.6–1.0× the nose's 50 km/h front hit (barrier.test.ts), 0.57× at the bare 0.69 ratio. */
+const REAR_STROKE_GAIN = 1.08;
 /** Numbers per contact row of `faceHits`: x, z, nx, nz, depth. */
 export const FACE_ROW = 5;
 
@@ -537,7 +539,7 @@ export abstract class DeformContact extends DeformState {
     const out = this.strokeOut;
     if (Math.abs(ix) > Math.abs(iz)) out[0] = Math.min(this.at.doorL.bands.max, stroke);
     else if (iz <= 0) out[0] = stroke;
-    else out[0] = stroke * (this.cageByPart.get("chassisRear")!.spec.maxCrush / this.cageByPart.get("chassisFront")!.spec.maxCrush);
+    else out[0] = stroke * REAR_STROKE_GAIN * (this.cageByPart.get("chassisRear")!.spec.maxCrush / this.cageByPart.get("chassisFront")!.spec.maxCrush);
   }
 
   /**
