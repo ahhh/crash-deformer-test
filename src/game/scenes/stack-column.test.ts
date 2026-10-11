@@ -84,10 +84,11 @@ describe("given the owner's drops (11 cars, 0.15 m, one a second), run for 8 s a
   // roof (measured) still ends 0.10 m off, and restoring the roof cap, measuring each node's own follow of the crush (the rim of a crushed
   // roof stands, it does not follow) and `faceFollow`'s old lowering at the head change no number to the millimetre of the roof row or
   // the creep: the wander is the open lagged coupling between stacked cars (the weight a car bears on the one under it lands at that
-  // car's next step), packed roofs were what held the column before. Closes in Stage 4 item 5 (car-car through the kernel) (a car on a car is one pair solved once per
-  // slice through the kernel, no lagged borne weight).
+  // car's next step), packed roofs were what held the column before.
   for (const bodies of ["sedans", "fleet without the monster"] as const) {
-    const todo = bodies === "sedans" ? "the top car ends 0.10 m off the axis at 19 s (bar 0.05), the top five wander at 10-35 mm/s at the stock pitch, the bottom roof still sinking 1 mm/s at 366 mm; last good 2b1d472f 0.037 m with roofs packed at 449 mm, break 0b4839b5 (faceFollow's roof band: 0.074 m there); roof strength +30 %, the roof cap, per-node follow and old faceFollow at the head change nothing; the lagged weight borne between stacked cars is open; closes in Stage 4 item 5 (car-car through the kernel) (one pair solve per slice, no lagged borne weight)" : "the top car creeps off the column by 0.10 m (bar < 0.1 m, no margin): tyre and belly rows trade the weight every slice, re-measured on Stage 2 (no car top moved); closes in Stage 3 (the car's top is the cage, tyre and hull rows read it alike), Stage 4 if still open";
+    const todo = bodies === "sedans"
+      ? "after the plan: find why the sedan column still wanders now that a car on a car is one pair solved through the kernel; it ends 0.10 m off its axis (bar 0.05 m), leaning 0.1° (bar 3°), with no car off it by 0.1 m on the way"
+      : "after the plan: find why the fleet column without the monster collapses; a car leaves it by 5.69 m (bar 0.1 m): cars 0-7 end on the ground, car 1 5.69 m and car 0 4.43 m off the axis by 19 s";
     it(`when the column is made of ${bodies}, then no car leaves it by 0.1 m or more, it ends within 5 cm of its axis leaning under 3°, every car reads a load, and the roof sink never grows toward the top, from over 300 mm at the bottom to under 5 mm at the top`, { todo }, () => {
       let worst = 0;
       const { cars, rig } = column(OWNER, bodies, OWNER_S, (cs) => {
@@ -114,8 +115,8 @@ describe("given the stack scene's defaults (4 cars, 0.02 m, one every 8 s), run 
   // to 94-100 mm, and the next drop pushes the roof below that by 16 mm and the one below that by 32 mm; every car stands belly on the
   // roof under it with its tyres 0.21-0.32 m clear of the hood and boot. The first bad commit is e7252ffa (the car's top is the cage, not
   // the plate: 18ecaba9 passes); the cage's refit threshold (REFIT_EPSILON to 0.1 mm) and the per-node follow of the crush change no
-  // millimetre of it. Closes in Stage 5 (the roof strength law's constants and `SKIN_STRAIN`, recalibrated with their sources).
-  it("when the column is made of sedans, then each roof is crushed more than the roof above it by over 20 mm, and the top roof under 2 mm", { todo: "159/112/94/0 mm against the bar's 20 mm step (112 -> 94: 18; main 158/114/92/0: 22, two millimetres of margin) on the plastic history of the 2 cm drops (static law 31/81/122 mm); first bad commit e7252ffa (the cage is the car's top); the cage's refit threshold and per-node follow change nothing; closes in Stage 5 (roof strength law constants and SKIN_STRAIN recalibrated)" }, () => {
+  // millimetre of it.
+  it("when the column is made of sedans, then each roof is crushed more than the roof above it by over 20 mm, and the top roof under 2 mm", { todo: "after the plan: recalibrate the roof strength law's constants and SKIN_STRAIN with their sources; the roofs read 159/112/94/0 mm bottom to top, the 112 -> 94 step 18 mm against the bar's 20 mm (the top roof at 0 mm passes)" }, () => {
     const { cars, rig } = column(DEFAULTS, "sedans", DEFAULTS_S);
     const { crushMm } = stackLoads(cars, rig.dropped);
     assert.ok(crushMm[3]! < 2, `top ${crushMm[3]!.toFixed(1)} mm`);
@@ -153,7 +154,7 @@ describe("given the owner's drops (11 cars, 0.15 m, one a second) of the mixed f
     assert.ok(worst < 4, `a car reported ${worst.toFixed(1)} m/s off its masses (${at})`);
   });
 
-  it.todo("when the fleet's monster truck (slot 5; tyres on 0.9 m of spring, body 0.48 m up) carries four cars or more, then it rolls 5-30° on the support of its tyres, which has no spring to bring it level, and the column above it falls: 11 fleet cars, 0.15 m, 1 s");
+  it.todo("when the fleet's monster truck (slot 5; tyres on 0.9 m of spring, body 0.48 m up) carries four cars or more, then it rolls 5-30° on the support of its tyres, which has no spring to bring it level, and the column above it falls: 11 fleet cars, 0.15 m, 1 s (after the plan: hold the fleet column on its base so the monster is loaded; measured over 12 s the column slides off its base, car 0 1.0 m off at 3 s and 5.2 m at 12 s, and the monster ends on the ground at 0.0° with 2 cars at most above it, its roll peaking at 34.1° once)");
 });
 
 describe("given the player picked a car type in the settings", () => {
