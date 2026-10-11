@@ -1,6 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { HUNT } from "../ai/hunter.ts";
+import { BUST } from "../match/session.ts";
 import { humanSlot } from "../match/survival.ts";
 import type { DriveInput } from "../vehicle/car-drive.ts";
 import { FRAME, frame, makeWorld, type World } from "./race-world.test-util.ts";
@@ -140,7 +141,7 @@ describe("given a hosted Survival run with the host and a peer seated", () => {
   });
 });
 
-/** Every cop the camera sees is wrecked on the spot (and stays: a wreck in view is never put away), the humans parked: the pack runs out of units unless a drop-in may reuse a wreck. A cop shows when it is placed and visible. */
+/** Every cop the camera sees, or that comes within the bust's reach of a human, is wrecked on the spot (and a wreck in view is never put away), the humans parked: the pack runs out of units unless a drop-in may reuse a wreck. Without the reach rule a cop out of the host's sight busts the peer first (2 humans: run over at 45 s, before the units are used up). A cop shows when it is placed and visible. */
 function wreckedInView(peers: readonly number[], seconds: number): { arrivals: number[]; units: number; time: number } {
   const w = coopWorld(peers);
   try {
@@ -159,7 +160,9 @@ function wreckedInView(peers: readonly number[], seconds: number): { arrivals: n
         const moved = c.placements !== (placed[i] ?? c.placements);
         placed[i] = c.placements;
         if (moved && c.group.visible && w.race.time > 0) arrivals.push(w.race.time);
-        if (c.group.visible && w.race.time > 0 && visibleFrom(w, c.group.position.x, c.group.position.z)) c.deform.drivetrainAlive = false;
+        const { x, z } = c.group.position;
+        const reached = cars.slice(0, humans).some((h) => Math.hypot(h.group.position.x - x, h.group.position.z - z) <= BUST.near);
+        if (c.group.visible && w.race.time > 0 && (reached || visibleFrom(w, x, z))) c.deform.drivetrainAlive = false;
       }
     }
     return { arrivals, units: w.live().length - humans, time: w.race.time };
