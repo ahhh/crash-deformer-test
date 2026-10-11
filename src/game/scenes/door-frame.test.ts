@@ -71,8 +71,8 @@ class Probe extends DeformableCar {
 }
 
 describe("given a quarter panel smushed back by a 56 km/h rear crash into a wall", () => {
-  // todo -> Stage 5 (recalibrate): the 56 km/h rear corner hit leaves the panel at hinge 0.031 where the test needs a dent to push back;
-  // the car now spins away off the wall (yaw 0.30 rad against 0.01 rad) and crushes the corner less (tail 0.218 m against 0.360 m).
+  // todo -> after the plan: recalibrate the off-centre wall hit's crush against the lever's spin. The 56 km/h rear corner hit leaves the panel
+  // at hinge 0.055 where the test needs more than 0.25 to push back: the lever spins the car away, so the corner crushes less.
   it.todo("when the car steps 60 frames of its own hinge target, then the pushed-back panel stays at its dent instead of rising, while a panel that was not pushed does rise above 0.25", () => {
     const hit = (smush: boolean): number => {
       const car = new Probe(paint(), new THREE.Scene());
