@@ -677,8 +677,7 @@ export abstract class DeformContact extends DeformState {
 
   /**
    * Hull push (m) along the unit (nx, nz) this car may still take now, out of `amount` (`PushBudget`): one slice's
-   * pairs and SAT passes, mass-sphere shifts and wall translations share one cap. `touchSpeed` is the faster of
-   * the two touching cars.
+   * pairs and SAT passes, mass-sphere shifts and wall translations share one cap. `touchSpeed` is this car's own speed.
    */
   takePush(nx: number, nz: number, amount: number, dt: number, touchSpeed: number): number {
     if (touchSpeed > this.sliceTouch) this.sliceTouch = touchSpeed;

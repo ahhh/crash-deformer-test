@@ -6,7 +6,7 @@ import { leftoverCrumple, satPushCap, hypot2, CRASH } from "../deform/physics-ut
 import { satCars } from "./sat.ts";
 import { bandsMeet, OUTLINE_REACH } from "./cage-outline.ts";
 import { strikeCar, faceDepth, carRow, takeRow, type ContactBox } from "./external-contact.ts";
-import { bodyContact, BODY_SIZE, BODY_VX, BODY_VZ, BODY_W, BODY_X, BODY_Z, CT_DEPTH, CT_E, CT_JMAX, CT_MU, CT_NX, CT_NZ, CT_SIZE, CT_X, CT_Z, OUT_EBS_A, OUT_EBS_B, OUT_SIZE } from "./body-contact.ts";
+import { bodyContact, BODY_SIZE, BODY_VX, BODY_VZ, BODY_W, BODY_X, BODY_Z, CT_DEPTH, CT_E, CT_JMAX, CT_MU, CT_NX, CT_NZ, CT_SIZE, CT_X, CT_Z, OUT_EBS_A, OUT_EBS_B, OUT_PUSH_A, OUT_PUSH_B, OUT_SIZE } from "./body-contact.ts";
 import { ARM_CLOSING, PAIR_MU, SOLID_E } from "./constants.ts";
 import { TYRE_HALF_W } from "../deform/deform-contact.ts";
 import { FOOT_HALF_L } from "../vehicle/car-mesh.ts";
@@ -19,6 +19,7 @@ const _w = new THREE.Vector3();
 const _n = new THREE.Vector3();
 const _p = new THREE.Vector3();
 const _tn = new THREE.Vector3();
+const _dir = new THREE.Vector3();
 
 type PairHit = {
   impulse: number;
@@ -40,10 +41,9 @@ export function impulseCar(car: DeformableCar, nx: number, ny: number, nz: numbe
   car.velocity.z += nz * j * inv;
 }
 
-export function pushCar(car: DeformableCar, nx: number, ny: number, nz: number, amount: number, dv = 0): void {
+export function pushCar(car: DeformableCar, nx: number, ny: number, nz: number, amount: number): void {
   if (car.deform.massActive) {
-    const sep = Math.min(amount, 0.09);
-    car.deform.separateAlong(nx, ny, nz, sep, dv);
+    car.deform.separateAlong(nx, ny, nz, Math.min(amount, 0.09));
     car.deform.followGroup(car.group, car.velocity, car.angular, 0);
     car.refreshBasis();
     return;
@@ -51,8 +51,6 @@ export function pushCar(car: DeformableCar, nx: number, ny: number, nz: number, 
   car.group.position.x += nx * amount;
   car.group.position.y += ny * amount;
   car.group.position.z += nz * amount;
-  car.velocity.x += nx * dv;
-  car.velocity.z += nz * dv;
   car.refreshBasis();
   car.deform.bindKinematic(car.group, car.velocity, car.angular);
 }
@@ -178,18 +176,24 @@ export function wallBounce(car: DeformableCar, face: ContactBox, nx: number, nz:
 }
 
 /**
- * A pair's shove of one slice: car A along the unit (nx, nz) by `aAmt` m, car B against it by `bAmt`, each within its wreck's
- * per-slice budget (`takePush`): the three SAT passes of one slice each pushing a full `satPushCap` moved a wedged wreck
- * 0.11 m in 6 ms (derby group pops), and one cap a slice, shared with the sphere shifts and wall translations, still put
- * 0.04–0.05 m a step on a slow wedged wreck against a zip bound of 3·v·h + 0.05 m: the cap is a push-out speed that grows
- * only with the speed of the cars touching. A shove is a position correction alone: the pair's momentum is the exchange's
+ * A pair's shove of one slice: the overlap `depth` (m) cleared along the unit (nx, nz), car A out along it and car B against it,
+ * each by the kernel's share (`bodyContact`'s push-out: the depth in inverse proportion to mass) and within its wreck's per-slice
+ * budget (`takePush`): the three SAT passes of one slice each pushing a full `satPushCap` moved a wedged wreck 0.11 m in 6 ms
+ * (derby group pops), and one cap a slice, shared with the sphere shifts and wall translations, still put 0.04–0.05 m a step on
+ * a slow wedged wreck against a zip bound of 3·v·h + 0.05 m: each car's cap is a push-out speed that grows only with its own
+ * speed (the pose jump a pop bound of 3·v·h + 2 cm reads is that car's). A shove is a position correction alone: the pair's momentum is the exchange's
  * (`exchangePair`), never a push's (a pusher kept its drive speed while its shoves moved the car it drove into 3.6–8.4 m/s at a
  * reported speed under 1 m/s: derby 10 cars, 40 s, 791 car-frames over 0.06 m in 1/60 s at under 1 m/s on main ef6611a).
  */
-function pushApart(carA: DeformableCar, carB: DeformableCar, nx: number, nz: number, aAmt: number, bAmt: number, dt: number): void {
-  const touchSpeed = Math.max(hypot2(carA.velocity.x, carA.velocity.z), hypot2(carB.velocity.x, carB.velocity.z));
-  const okA = carA.deform.massActive ? carA.deform.takePush(nx, nz, aAmt, dt, touchSpeed) : aAmt;
-  const okB = carB.deform.massActive ? carB.deform.takePush(-nx, -nz, bAmt, dt, touchSpeed) : bAmt;
+function pushApart(carA: DeformableCar, carB: DeformableCar, nx: number, nz: number, depth: number, dt: number): void {
+  _dir.set(nx, 0, nz);
+  loadPair(carA, carB, _dir, carA.group.position, 0, 0);
+  pairContact[CT_DEPTH] = depth;
+  bodyContact(pairRows, 0, BODY_SIZE, pairContact, pairResult);
+  const aAmt = pairResult[OUT_PUSH_A]!;
+  const bAmt = pairResult[OUT_PUSH_B]!;
+  const okA = carA.deform.massActive ? carA.deform.takePush(nx, nz, aAmt, dt, hypot2(carA.velocity.x, carA.velocity.z)) : aAmt;
+  const okB = carB.deform.massActive ? carB.deform.takePush(-nx, -nz, bAmt, dt, hypot2(carB.velocity.x, carB.velocity.z)) : bAmt;
   pushCar(carA, nx, 0, nz, okA);
   pushCar(carB, -nx, 0, -nz, okB);
 }
@@ -207,7 +211,7 @@ function holdComGap(carA: DeformableCar, carB: DeformableCar, leftoverA: number,
   if (_w.lengthSq() < 1e-8) return;
   _w.normalize();
   const extra = Math.min((minSep - dist) * 0.5, satPushCap(dt));
-  pushApart(carA, carB, _w.x, _w.z, extra, extra, dt);
+  pushApart(carA, carB, _w.x, _w.z, 2 * extra, dt);
 }
 
 /** Share of a hit's stroke (`strokeUsed`) both noses must have crushed before the packed structure (B1) stops a pair's closing. */
@@ -435,12 +439,7 @@ export function resolveCarPair(carA: DeformableCar, carB: DeformableCar, dt: num
   // crush length, less what `strokeUsed` has taken). Only what is deeper is a push, by position: the momentum is the exchange's.
   const give = Math.max(carA.deform.hitStroke() * (1 - carA.deform.strokeUsed()), carB.deform.hitStroke() * (1 - carB.deform.strokeUsed()));
   const extra = Math.max(0, hit - OUTLINE_REACH - Math.max(give, closing * dt));
-  if (extra > 0) {
-    const push = Math.min(extra + 0.006, satPushCap(dt));
-    const both = carA.deform.massActive && carB.deform.massActive;
-    const aAmt = both ? push * 0.5 : carA.deform.massActive ? push * 0.62 : push * 0.38;
-    pushApart(carA, carB, n.x, n.z, aAmt, push - aAmt, dt);
-  }
+  if (extra > 0) pushApart(carA, carB, n.x, n.z, Math.min(extra + 0.006, satPushCap(dt)), dt);
 
   if (spent && closing > 0 && dist > 1e-4) holdComGap(carA, carB, leftoverA, leftoverB, dist, dt);
   _hit.impulse = Math.max(met, hit * 6);

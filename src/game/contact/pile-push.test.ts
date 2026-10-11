@@ -65,24 +65,24 @@ describe("given a settled wreck with two plain cars wedged 1.4 m into its flank"
 describe("given a PushBudget (the cap on the net translation contact pushes may move a car in one slice)", () => {
   const cap = PUSH_SPEED * H;
 
-  it("when three 3 cm pushes go the same way, then the first gets 3 cm, the second only what is left of the cap and the third nothing", () => {
+  it("when three 1 cm pushes go the same way, then the first gets 1 cm, the second only what is left of the cap and the third nothing", () => {
     const b = new PushBudget();
-    const got = [0.03, 0.03, 0.03].map((a) => b.take(1, 1, 0, a, H, 0));
-    assert.ok(Math.abs(got[0]! - 0.03) < 1e-12 && Math.abs(got[1]! - (cap - 0.03)) < 1e-12 && got[2] === 0, JSON.stringify(got));
+    const got = [0.01, 0.01, 0.01].map((a) => b.take(1, 1, 0, a, H, 0));
+    assert.ok(Math.abs(got[0]! - 0.01) < 1e-12 && Math.abs(got[1]! - (cap - 0.01)) < 1e-12 && got[2] === 0, JSON.stringify(got));
   });
 
-  it("when a 3 cm push is followed by a 3 cm push back the other way, then both are granted, the net translation is zero and a push across the cancelled squeeze gets the whole cap", () => {
+  it("when a 1 cm push is followed by a 1 cm push back the other way, then both are granted, the net translation is zero and a push across the cancelled squeeze gets the whole cap", () => {
     const b = new PushBudget();
-    assert.ok(Math.abs(b.take(1, 1, 0, 0.03, H, 0) - 0.03) < 1e-12);
-    assert.ok(Math.abs(b.take(1, -1, 0, 0.03, H, 0) - 0.03) < 1e-12, "the push back the other way was refused");
+    assert.ok(Math.abs(b.take(1, 1, 0, 0.01, H, 0) - 0.01) < 1e-12);
+    assert.ok(Math.abs(b.take(1, -1, 0, 0.01, H, 0) - 0.01) < 1e-12, "the push back the other way was refused");
     assert.ok(Math.hypot(b.x, b.z) < 1e-12, "the squeeze left a net translation");
     assert.ok(Math.abs(b.take(1, 0, 1, 0.2, H, 0) - cap) < 1e-12, "a push across a cancelled squeeze gets the whole cap");
   });
 
-  it("when a wall translation or sphere shift of 2 cm is debited first, then a following push gets the cap less 2 cm and nothing once the corrections fill the cap", () => {
+  it("when a wall translation or sphere shift of 1 cm is debited first, then a following push gets the cap less 1 cm and nothing once the corrections fill the cap", () => {
     const b = new PushBudget();
-    b.debit(1, 0.02, 0);
-    assert.ok(Math.abs(b.take(1, 1, 0, 0.05, H, 0) - (cap - 0.02)) < 1e-12);
+    b.debit(1, 0.01, 0);
+    assert.ok(Math.abs(b.take(1, 1, 0, 0.05, H, 0) - (cap - 0.01)) < 1e-12);
     assert.equal(b.take(1, 1, 0, 0.05, H, 0), 0, "nothing is left once the corrections fill the cap");
   });
 

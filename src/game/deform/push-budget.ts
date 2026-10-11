@@ -2,9 +2,11 @@ import { satPushCap } from "./physics-util.ts";
 
 /**
  * Fastest (m/s) position corrections may depenetrate two slow cars: a solver's push-out speed limit. At the longest
- * slice (1/60 s) it is 3.3 cm a step, which leaves 1.7 cm of the zip bound's 5 cm for the pose re-fit after it.
+ * slice (1/60 s) it is 1.7 cm a step, and at the 8.8 ms frame of a pile 0.9 cm: a wreck's pose jump from the pair pass
+ * stays inside the 2 cm of the pop bound (3·v·h + 2 cm), where 2 m/s (1.8 cm plus the touching speed's share) went over it
+ * and 1.5 m/s still popped a derby wreck by 3 mm.
  */
-export const PUSH_SPEED = 2;
+export const PUSH_SPEED = 1;
 /** Extra push-out speed per m/s of the faster of two touching cars: the overlap a hit makes in a slice grows with it. */
 const TOUCH_GAIN = 2;
 /**
