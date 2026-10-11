@@ -226,9 +226,9 @@ describe("given a head-on crash where one car is a police car", () => {
       ragdolls.update(FRAME, cars, true, true, 0, null);
     }
     const mesh = scene.getObjectByName("ragdolls") as THREE.InstancedMesh;
-    // Slots fill in car order; each slot's first piece is the chest.
+    // Slots fill in throw order, which the sim settles: each car's dummy is found by its car; each slot's first piece is the chest.
     const per = mesh.count / 2;
-    const chest = (s: number) => `#${mesh.getColorAt(s * per, new THREE.Color()).getHexString()}`;
+    const chest = (car: number) => `#${mesh.getColorAt(ragdolls["dolls"].findIndex((d) => d.live && d.car === car) * per, new THREE.Color()).getHexString()}`;
     const shirts = [chest(0), chest(1)];
     ragdolls.dispose();
     // The cop keeps the uniform whatever the look seed; the civilian wears a palette tee that is not the cop navy.
@@ -376,7 +376,9 @@ describe("given the ride-along camera following a driver thrown in a head-on at 
   }
 
   it("when a dummy flies under the eye through every shot change, then the shots go windshield, follow, trackside, no shot change moves the camera more than 0.1 m, and the aim never turns faster than 4 rad/s", async () => {
-    const cars = headOn(26);
+    // At 26 m/s the dummies stop at the other car (v 29 -> 6 m/s at x 0.8) and lie on its roof, inside its cylinder, where no
+    // trackside spot is clear; at 30 m/s they land on open ground (6.7 m out).
+    const cars = headOn(30);
     const ragdolls: RagdollSystem = new RagdollSystem(new THREE.Scene(), () => ragdolls.follow(), () => {});
     await ragdolls.preload();
     const w = makeWorld(cars, false, false);
