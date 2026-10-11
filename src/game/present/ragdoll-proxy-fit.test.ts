@@ -25,7 +25,7 @@ const RAY_LENGTH_M = 8;
  * rolled cabin rows (p95 0.062-0.064).
  */
 const interiorThroughRoof =
-  "the proxy's roof leaf is within 0.5 cm of the cage's top, which is 5.6 cm under the drawn headliner (standing 1.09 m over the origin, it does not follow the roof mass and pokes up through the roof the drop crushed) on the three rows over the windshield's foot; closes when the drawn interior follows the roof's crush (Stage 5 recalibration)";
+  "cabin p95 0.06 m against the 0.05 m bar on the pickup and monster rolled rows: the proxy's roof leaf is within 0.5 cm of the cage's top, which is 5.6 cm under the drawn headliner (standing 1.09 m over the origin, it does not follow the roof mass and pokes up through the roof the drop crushed) on the three rows over the windshield's foot; after the plan: make the drawn interior follow the roof's crush";
 
 const proxyCases = BODIES.flatMap((b) =>
   STATES.map((s) => ({
