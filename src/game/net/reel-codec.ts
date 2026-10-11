@@ -90,10 +90,11 @@ import { makeSnapshot, MAX_NET_CARS, MSG, NET_VERSION, readEjection, readSnapsho
  * past a trunk is no longer carried through its own length by the walk back); 54: Stage 4 item 5 (car-car through the kernel): car pairs meet
  * through the one body-contact kernel and every contact of a slice is solved once (no repeated SAT passes, no mass-on-mass sphere pass), so a
  * replayed clip's cars in contact move differently; 55: the pair pass splits its push-out by the kernel's inverse mass and a car's push
- * budget reads its own speed, so a replayed pile's wrecks move differently.
+ * budget reads its own speed, so a replayed pile's wrecks move differently; 56: Stage 5 class balance (truck grip 41, truck brake 27,
+ * monster brake 26), so a replayed truck or monster brakes and corners differently.
  * A saved clip also records `NET_VERSION` (its snapshots' layout).
  */
-const REPLAY_VERSION = 55;
+const REPLAY_VERSION = 56;
 /** Bounds a decoder enforces (a clip is ≤ 13 s at ≤ 300 steps/s, ≤ 15 keyframes). */
 const MAX_STEPS = 8192;
 const MAX_KEYS = 64;
