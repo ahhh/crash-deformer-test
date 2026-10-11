@@ -170,8 +170,8 @@ export type RaceSnapshot = {
   firstAt: (number | null)[];
   /** A Survival run (no laps, no gates), with the hold the police need for the bust; null in a race. */
   survival: { bustTime: number } | null;
-  /** Survival, host only: the pack as the HUD shows it (cops chasing now, cops wrecked this run); null elsewhere and in a session on its own. */
-  pack: { cops: number; wrecked: number } | null;
+  /** Survival, host only: the pack as the HUD shows it (cops chasing now, cops wrecked this run) and, once the run is over, why it ended for the host's own car (the card every peer reads); null elsewhere and in a session on its own. */
+  pack: { cops: number; wrecked: number; cause: SurvivalCause | null } | null;
   /** The host's campaign table (a campaign running), null otherwise: clients draw the standings from it. */
   campaign: CampaignSnapshot | null;
   /** The host is on the campaign's standings screen: its clients follow. */

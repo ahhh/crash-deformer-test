@@ -100,6 +100,7 @@ cops, decides the busts. Rules, all in the existing per-car machinery:
 - **Busted or wrecked:** by today's per-car rules (`RaceSession.busting`, `judge`). A fallen human spectates (the camera follows the
   field after the banner); the rest play on.
 - **The team loses when no human is free.** The run time is the team's: the race clock at the last fall. A lone player's run is as it was.
+- **The result card is the host's:** its cause (busted, wrecked, ended) is why the run ended for the host's own car, sent in the snapshot's `pack.cause` (NET 24); a guest's card reads it instead of its own car's fall, so every peer's card agrees (`net/race-net.test.ts`).
 - **Pack size:** `HUNT.perHuman` = 1 more of everything (the cops wanted, the cap, the units) per human beyond the first, so each
   human meets the pack a lone player meets, within the car list (`MAX_CARS` = 32: units are at most the cars left after the humans,
   and the cap keeps the 4 wrecks' share; 4 humans hunt at most 24 cops, 6 each). More cops, not stronger ones.

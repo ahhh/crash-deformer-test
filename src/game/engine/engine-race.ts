@@ -348,7 +348,7 @@ export class RaceDirector extends RaceWatch {
     const s = this.session;
     if (!s) return null;
     const snap = s.snapshot();
-    if (this.police instanceof HunterBrain) snap.pack = { cops: this.police.hunting, wrecked: this.police.stats.disabled };
+    if (this.police instanceof HunterBrain) snap.pack = { cops: this.police.hunting, wrecked: this.police.stats.disabled, cause: this.run?.cause ?? null };
     if (this.campaign) {
       snap.campaign = this.campaign.snapshot();
       snap.standings = this.menu === "standings";

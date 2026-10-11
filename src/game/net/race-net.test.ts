@@ -112,7 +112,7 @@ function survivalClientOf(host: World, self: number): World {
 }
 
 describe("given a hosted Survival run with the host and a peer Zed seated on car 1, both sitting still", () => {
-  it("when the run ends and a client adopts the host's state as car 1, then the client reads the run's pack, its time and its team as the host does, and its own cause", (t) => {
+  it("when the run ends and a client adopts the host's state as car 1, then the client reads the run's pack, its time, its team and its cause as the host does", (t) => {
     t.after(() => setGround(null));
     const host = makeWorld();
     host.race.setSeats(new Map([[1, "Zed"]]));
@@ -139,10 +139,51 @@ describe("given a hosted Survival run with the host and a peer Zed seated on car
     assert.equal(hud.survival!.cops, hostHud.survival!.cops, "the pack's cops ride the snapshot");
     assert.equal(hud.survival!.wrecked, hostHud.survival!.wrecked);
     assert.equal(hud.survival!.result!.time, hostHud.survival!.result!.time, "the team's time");
-    assert.equal(hud.survival!.result!.cause, "busted", "the client's own car was busted");
+    assert.equal(hud.survival!.result!.cause, hostHud.survival!.result!.cause, "the host's cause");
+    assert.equal(hud.survival!.result!.cause, "busted", "both humans were busted");
     host.race.exit();
     client.race.exit();
   });
+});
+
+describe("given a hosted Survival run with the host and a peer Zed on car 1 where one human is wrecked and the other sits to be busted", () => {
+  for (const { wrecks, host: cause, own } of [
+    { wrecks: 1, host: "busted", own: "wrecked" },
+    { wrecks: 0, host: "wrecked", own: "busted" },
+  ] as const) {
+    it(`when car ${wrecks} is wrecked and the other held until busted and a client adopts the host's state as car 1, then the client's card reads the host's cause (${cause}), not its own car's (${own})`, (t) => {
+      t.after(() => setGround(null));
+      const host = makeWorld();
+      host.race.reseed(2);
+      host.race.setSeats(new Map([[1, "Zed"]]));
+      host.race.enter(true);
+      const state = { acc: 0 };
+      const sit = { throttle: 0, steer: 0, brake: 0, ebrake: true, boost: false };
+      let wrecked = false;
+      for (let n = 0; n < 60 * 120 && host.race.phase !== "finished"; n++) {
+        host.seat.mode = "drive";
+        host.seat.carIndex = 0;
+        host.seat.intent.analogGas = true;
+        host.seat.intent.gas = 0;
+        host.seat.intent.handbrake = true;
+        host.race.setRemoteInput(1, sit);
+        frame(host, state);
+        if (!wrecked && host.race.time > 3) {
+          host.live()[wrecks]!.driverOut = "windshield";
+          wrecked = true;
+        }
+      }
+      assert.equal(host.race.phase, "finished", "both humans fell");
+      const hostCause = host.race.hud().survival!.result!.cause;
+      assert.equal(hostCause, cause, "the host's own car's cause");
+      const peer = host.race.snapshot()!.cars.find((c) => c.id === 1)!;
+      assert.equal(peer.bustedAt != null ? "busted" : "wrecked", own, "the peer's own car fell the other way");
+      const client = survivalClientOf(host, 1);
+      assert.equal(client.race.hud().survival!.result!.cause, hostCause);
+      host.race.exit();
+      client.race.exit();
+    });
+  }
 });
 
 describe("given a hosted Survival run that has just begun with a peer Zed seated on car 1", () => {

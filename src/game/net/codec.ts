@@ -51,8 +51,9 @@ carries the peer's own meter (a sixth byte), so every browser shows any viewed c
 21: `MSG.roster` (12): the host's table of which peer drives which car, so voice finds each peer's range; peers on 20 would drop it.
 22: co-op: a race snapshot carries the survival run (`survival`: bust time, pack count and wrecked), the campaign table and its standings flag, and a race HUD the team result, so peers on 21 would not follow a shared Survival run or campaign.
 23: the Havana lobby: `MSG.roster` entries carry each player's cleaned name (after the peer id), `MSG.input` flags gain bit 16 (`INPUT_RESET`: put my car back at a lobby spawn, repaired) and a race message carries the lobby's start gate (`gate`: players needed, game the Go switch starts), so peers on 22 would misread the roster and ignore the gate.
+24: a Survival race snapshot's pack carries `cause` (why the run ended for the host's car), so every peer's result card reads the host's, and peers on 23 would show their own.
 */
-export const NET_VERSION = 23;
+export const NET_VERSION = 24;
 
 /** Most cars a snapshot or derby board may carry (the engine's `MAX_CARS`). */
 export const MAX_NET_CARS = 32;
@@ -712,7 +713,14 @@ const RACE_SNAP = z.looseObject({
   order: z.array(z.number().int()).max(MAX_NET_CARS),
   firstAt: z.array(z.number().nullable()).max(100 * 256),
   survival: z.object({ bustTime: z.number().finite().min(0).max(600) }).nullable().default(null),
-  pack: z.object({ cops: z.number().int().min(0).max(MAX_NET_CARS), wrecked: z.number().int().min(0).max(10_000) }).nullable().default(null),
+  pack: z
+    .object({
+      cops: z.number().int().min(0).max(MAX_NET_CARS),
+      wrecked: z.number().int().min(0).max(10_000),
+      cause: z.enum(["busted", "wrecked", "ended"]).nullable().default(null),
+    })
+    .nullable()
+    .default(null),
   campaign: CAMPAIGN_SNAP.nullable().default(null),
   standings: z.boolean().default(false),
 });

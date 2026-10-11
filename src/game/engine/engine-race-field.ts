@@ -617,7 +617,7 @@ export abstract class RaceField {
     const time = s.team() ? s.time : (me.outTime ?? s.time);
     const { best, isNew } = settleRun(this.bestBefore, time);
     if (isNew) saveBest(s.track.id, time);
-    const cause = me.bustedAt != null ? "busted" : me.status === "out" ? "wrecked" : "ended";
+    const cause = this.pack?.cause ?? (me.bustedAt != null ? "busted" : me.status === "out" ? "wrecked" : "ended");
     this.run = { time, best, isNew, cause, wrecked: this.pack?.wrecked ?? (this.police instanceof HunterBrain ? this.police.stats.disabled : 0) };
   }
 
