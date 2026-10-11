@@ -1,6 +1,6 @@
 import { BENCH_STRIP_ID, TRACK_ID } from "../world/constants.ts";
 
-/** Names the benches' page and the pages that start them share. */
+/** Names and quantities several engine files share: the benches' page and the pages that start them, the spark threshold. */
 
 /** The page query that asks for a bench (`?bench=city`): `benchPlan` reads it, the loop and the lab page look for it. The strip course's id is the same word, so a run's result id and the query read alike. */
 export const BENCH_QUERY = BENCH_STRIP_ID;
@@ -14,3 +14,5 @@ export const COURSE_QUERY = "course";
 export const STRIP_QUERY = { cars: "cars", same: "same", len: "len", props: "props", traffic: "traffic" } as const;
 /** The settings the bench reads off the HUD and the HUD's reset command names (`night`, `wet`, `realism`, `fx`), the HUD's `celLook`, and the page query `?fx=` that pins the tier: one spelling for all. */
 export const SETTING_KEY = { night: "night", wet: "wet", realism: "realism", fx: "fx", celLook: "celLook" } as const;
+/** A hit whose impulse is no more than this throws no sparks: a brush, not a crash. */
+export const SPARK_MIN_IMPULSE = 1.2;

@@ -8,6 +8,7 @@ import { propContact, type PropHits } from "../contact/prop-contact.ts";
 import type { ContactHit } from "../scenes/engine-props.ts";
 import { BENCH, BOARD, BRACKET_T, FLOOR, heldPose, labColliders, labGround, labPlaced, labSurfaces, LAB_LAYOUTS, type LabItem, type LabLayout, type LabPresetId, type LabSurface } from "../scenes/lab.ts";
 import type { CarType } from "../scenes/fleet.ts";
+import { UPRIGHT } from "../scenes/constants.ts";
 import type { Ground } from "../world/ground.ts";
 import { solidsOf, type Placed, type PropCollider } from "../world/placements.ts";
 import { armSolids, type Surface } from "../world/surfaces.ts";
@@ -18,7 +19,6 @@ import { detSin, detCos, hypot2, hypot3 } from "../kernel/physics-core.js";
 const AFTER_S = 0.3;
 /** A car moved this far (m) from where it stood when the throw left, or tipped past `UPRIGHT`, has fallen. */
 const FELL_M = 0.3;
-const UPRIGHT = 0.9;
 /** Path samples: one per `PATH_S` sim seconds, `PATH_N` of them (10 s). */
 const PATH_S = 1 / 60;
 const PATH_N = 600;

@@ -10,6 +10,9 @@ import {
   RED, ROAD_LIFT, RoadIndex, sampleAt, SKIRT_RADIUS, surfaceHex, texClass, WHITE,
 } from "./track-mesh.ts";
 
+/** How far (m) past the farthest scatter the terrain extends beyond the track's bounds. */
+const SCATTER_PAD = 40;
+
 /** Track art on the ground: terrain with its far skirt, road / runoff ribbons, markings and kerbs. */
 
 /** A deck span this far (m) over the terrain under it is clear of what it crosses; nearer the ground (its ramp ends) it is ground like any other. */
@@ -66,7 +69,7 @@ type TerrainGrid = {
 
 function sampleTerrain(track: Track, ground: TrackGround, index: RoadIndex): TerrainGrid {
   const far = Math.max(60, ...track.json.scatter.map((s) => s.far));
-  const margin = Math.max(80, far + 40);
+  const margin = Math.max(80, far + SCATTER_PAD);
   const b = track.bounds;
   const x0 = Math.floor((b.minX - margin) / BLOCK) * BLOCK;
   const z0 = Math.floor((b.minZ - margin) / BLOCK) * BLOCK;

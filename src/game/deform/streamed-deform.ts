@@ -8,6 +8,7 @@ import { cageAxis, cageCoeffs } from "./deform-state.ts";
 import { skinKernel, skinKey, type SkinDynamic, type SkinKernel, type SkinStatic, type SkinTables } from "./skin-kernel.ts";
 import { FACE_TOP, SKIN_STRAIN } from "./load-crush.ts";
 import { detSin } from "../kernel/physics-core.js";
+import { FAR_SIDE_DOT, MIN_WEIGHT_SUM } from "./constants.ts";
 
 const _a = new THREE.Vector3();
 const _c = new THREE.Vector3();
@@ -18,6 +19,8 @@ const _q = new THREE.Quaternion();
 const _axis = new THREE.Vector3();
 /** The roof mass sunk past this (m) is load crush: a crash alone holds it within `maxLift` (0.07 m, deep 0.28), so the skin's 0.1 m roof clamp lifts. */
 const SUNK_ROOF = 0.075;
+/** The share of a cage's `maxCrush` its sensor-driven lift may use before the 0.85 m cap. */
+const CAGE_CRUSH_SHARE = 0.9;
 
 /** `simState`: `v` into `buf` at `o`, or with `write` from it; returns the next offset. */
 function simVec(buf: Float64Array, o: number, v: THREE.Vector3, write: boolean): number {
@@ -156,7 +159,7 @@ export class StreamedDeformation extends DeformSolve {
     for (let si = 0; si < this.sensors.length; si++) {
       const s = this.sensors[si]!;
       const far = s.rest.x * inward.x + s.rest.z * inward.z;
-      if (!this.bidirectional && far > 0.18) continue;
+      if (!this.bidirectional && far > FAR_SIDE_DOT) continue;
       const doorOnly = s.spec.part === "doorLeft" || s.spec.part === "doorRight";
       let best = 0;
       for (let mi = 0; mi < this.masses.length; mi++) {
@@ -190,7 +193,7 @@ export class StreamedDeformation extends DeformSolve {
         _d.addScaledVector(_e, w);
         wsum += w;
       }
-      if (wsum > 1e-6) s.pos.addScaledVector(_d, 1 / wsum);
+      if (wsum > MIN_WEIGHT_SUM) s.pos.addScaledVector(_d, 1 / wsum);
     }
   }
 
@@ -250,7 +253,7 @@ export class StreamedDeformation extends DeformSolve {
       let px = dx,
         py = dy,
         pz = dz;
-      if (wsum > 1e-6) {
+      if (wsum > MIN_WEIGHT_SUM) {
         px = py = pz = 0;
         for (let k = this.cornerStart[j]!, e = this.cornerStart[j + 1]!; k < e; k++) {
           const o = this.cornerXf[k]!;
@@ -299,7 +302,7 @@ export class StreamedDeformation extends DeformSolve {
           _d.addScaledVector(_e, w);
           wsum += w;
         }
-        if (wsum > 1e-6) {
+        if (wsum > MIN_WEIGHT_SUM) {
           const lid = cage.spec.name === "bonnet" || cage.spec.name === "boot" || cage.glass;
           // Follow live masses. A far-side 0.12 scale left rest-sized cages
           // sticking through walls / the other car.
@@ -371,7 +374,7 @@ export class StreamedDeformation extends DeformSolve {
         cap = isCell && !this.deepCrush ? 0.16 : Math.max(2.2, maxTravel + 0.2);
       } else if (isCell) cap = 0.1;
       else if (cage.spec.name === "doorLeft" || cage.spec.name === "doorRight") cap = 0.28;
-      else cap = Math.min(cage.spec.maxCrush * 0.9, 0.85);
+      else cap = Math.min(cage.spec.maxCrush * CAGE_CRUSH_SHARE, 0.85);
       cap = Math.max(cap, maxTravel * 0.95);
       if (isCell && !this.deepCrush) cap = Math.min(cap, this.bidirectional ? 0.16 : 0.14);
       for (let i = 0; i < 8; i++) {

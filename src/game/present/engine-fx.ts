@@ -3,6 +3,9 @@ import { hypot3, round4, snapshotPoints } from "../deform/physics-util.ts";
 import { GRAVITY } from "../kernel/constants.ts";
 import { landOn } from "../vehicle/loose-step.ts";
 
+/** The thump's gain per unit of impact impulse, on top of its 0.22 floor. */
+const THUMP_GAIN_PER_IMPULSE = 0.012;
+
 const _pv = new THREE.Vector3();
 const STILL = new THREE.Vector3();
 /** Pale blue-white: powdered glass. */
@@ -670,7 +673,7 @@ export class CrashAudio {
     thump.type = "sine";
     thump.frequency.setValueAtTime(48, t);
     thump.frequency.exponentialRampToValueAtTime(22, t + dur);
-    thumpG.gain.setValueAtTime(Math.min(0.7, 0.22 + impulse * 0.012), t);
+    thumpG.gain.setValueAtTime(Math.min(0.7, 0.22 + impulse * THUMP_GAIN_PER_IMPULSE), t);
     thumpG.gain.exponentialRampToValueAtTime(0.001, t + dur);
     thump.connect(thumpG).connect(ctx.destination);
     thump.start(t);

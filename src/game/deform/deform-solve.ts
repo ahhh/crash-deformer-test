@@ -25,6 +25,7 @@ import { resistYaw } from "./tyre-yaw.ts";
 import { tiltedRise } from "./hub-plane.ts";
 import { holdMomentum, holdPositions, turnVelocities, undoNetTurn } from "./turn-hold.ts";
 import { detSin, detCos } from "../kernel/physics-core.js";
+import { MIN_INERTIA, MIN_INV_MASS, MIN_MASS_SUM, SQUASH_REACH } from "./constants.ts";
 
 /** Elastic part (m) of a crushed node's travel; the rest is permanent set. */
 const SPRINGBACK = 0.08;
@@ -100,7 +101,7 @@ export abstract class DeformSolve extends DeformContact {
     if (this.deepCrush) this.deepShape = true;
     const squeeze = this.squeezeShape;
     const deep = this.deepShape;
-    const maxCrush = squeeze ? 1.65 : 0.5 + this.squash * 1.15;
+    const maxCrush = squeeze ? 1.65 : 0.5 + this.squash * SQUASH_REACH;
     // B1/B3/B4: a hit only crushes as far as its stroke reaches (armMasses has no hit).
     let stroke = Infinity;
     if (this.hitSpeed >= 0) {
@@ -341,7 +342,7 @@ export abstract class DeformSolve extends DeformContact {
         const ima = a.dynamic ? 1 / a.mass : 0;
         const imb = b.dynamic ? 1 / b.mass : 0;
         const inv = ima + imb;
-        if (inv > 1e-8) {
+        if (inv > MIN_INV_MASS) {
           if (a.dynamic) a.world.addScaledVector(_n, extra * (ima / inv));
           if (b.dynamic) b.world.addScaledVector(_n, -extra * (imb / inv));
         }
@@ -677,7 +678,7 @@ export abstract class DeformSolve extends DeformContact {
         cz += m.world.z * m.mass;
         msum += m.mass;
       }
-      if (msum > 1e-8) {
+      if (msum > MIN_MASS_SUM) {
         mx /= msum;
         mz /= msum;
         cx /= msum;
@@ -692,7 +693,7 @@ export abstract class DeformSolve extends DeformContact {
           l += m.mass * (rz * m.vel.x - rx * m.vel.z);
           inertia += m.mass * (rx * rx + rz * rz);
         }
-        const w = !rigid && inertia > 1e-9 ? l / inertia : 0;
+        const w = !rigid && inertia > MIN_INERTIA ? l / inertia : 0;
         for (let mi = 0; mi < this.masses.length; mi++) {
           const m = this.masses[mi]!;
           if (!m.dynamic) continue;

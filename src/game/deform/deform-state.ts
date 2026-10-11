@@ -16,6 +16,7 @@ import { DeformHit } from "./deform-hit.ts";
 import type { Beam, MassNode } from "./deform-rig.ts";
 import { CageStrain, maxCompression, sensorsByPart } from "./cage-measure.ts";
 import { detSin, detCos } from "../kernel/physics-core.js";
+import { FAR_SIDE_DOT, MIN_IMPACT_ZONE, MIN_MASS_SUM, MIN_WEIGHT_SUM } from "./constants.ts";
 
 /** Packed bumper-to-block-centre length (m): bumper beam and radiator crushed flat ahead of a
  *  0.36 m block. Nose crush past the 0.84 m rest gap minus this shoves the engine back. */
@@ -350,7 +351,7 @@ export abstract class DeformState extends DeformHit {
       sum += this.nodeTransfer(m) * w;
       wsum += w;
     }
-    return wsum > 1e-6 ? sum / wsum : 0.1;
+    return wsum > MIN_WEIGHT_SUM ? sum / wsum : 0.1;
   }
 
   /** 1 at the hit corner, ~0 on the opposite side of the same axle. */
@@ -379,7 +380,7 @@ export abstract class DeformState extends DeformHit {
 
   protected impactWeight(m: MassNode): number {
     const far = m.rest.x * this.impactInward.x + m.rest.z * this.impactInward.z;
-    if (!this.bidirectional && far > 0.18) return 0;
+    if (!this.bidirectional && far > FAR_SIDE_DOT) return 0;
     return this.crumpleWeight(m) * this.cornerWeight(m);
   }
 
@@ -406,7 +407,7 @@ export abstract class DeformState extends DeformHit {
     const passFront = this.frontTransfer();
     for (const m of this.masses) {
       const zone = this.impactWeight(m);
-      if (zone < 0.04) continue;
+      if (zone < MIN_IMPACT_ZONE) continue;
       const d = m.world.distanceTo(worldPoint);
       const reach = m.radius * 2.8;
       if (d > reach) continue;
@@ -522,7 +523,7 @@ export abstract class DeformState extends DeformHit {
       mz += m.vel.z * m.mass;
       msum += m.mass;
     }
-    if (msum < 1e-8) return false;
+    if (msum < MIN_MASS_SUM) return false;
     mx /= msum;
     my /= msum;
     mz /= msum;

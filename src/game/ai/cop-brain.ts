@@ -5,6 +5,7 @@ import { classStats, type ClassStats } from "../vehicle/vehicle-classes.ts";
 import type { AiCar } from "./derby-ai.ts";
 import { MAX_CARS } from "../scenes/fleet.ts";
 import { clamp, hash01, wrapPi } from "../kernel/scalar.ts";
+import { REVERSE_THROTTLE } from "./constants.ts";
 
 /** Closer than this (m), on the same stretch of road, a unit attacks; beyond it it drives the racing line. */
 export const ATTACK = 35;
@@ -17,6 +18,8 @@ export const RAM_TIME = 3;
 export const CATCH_UP = 20;
 /** Its target this far (m) behind along the road, a unit ahead of it crawls until it comes up. */
 export const WAIT_BEHIND = 5;
+/** A throttle above this means the unit is trying to drive on, so being pinned counts as stuck. */
+const DRIVING_THROTTLE = 0.35;
 /** Attack geometry (m, in the target's frame): the rear quarter a PIT starts from, how far alongside a door slam lines up, the gap ahead of a block. */
 const PIT_BACK = 2;
 const PIT_SIDE = 1.7;
@@ -93,7 +96,7 @@ export class Backoff {
   backing(u: number, dt: number, out: DriveInput): boolean {
     if (this.back[u]! <= 0) return false;
     this.back[u]! -= dt;
-    out.throttle = -0.9;
+    out.throttle = REVERSE_THROTTLE;
     out.steer = this.backSteer[u]!;
     return true;
   }
@@ -108,7 +111,7 @@ export class Backoff {
       this.anchorX[u] = x;
       this.anchorZ[u] = z;
       this.stuck[u] = 0;
-    } else if (out.throttle > 0.35) this.stuck[u]! += dt;
+    } else if (out.throttle > DRIVING_THROTTLE) this.stuck[u]! += dt;
     else this.stuck[u] = Math.max(0, this.stuck[u]! - dt * 2);
     if (this.stuck[u]! > STUCK_FOR) {
       this.stuck[u] = 0;

@@ -66,6 +66,8 @@ const SAME_WALL_COS = 0.996;
 const SAME_WALL_GAP = 0.25;
 /** How far (m) past its footprint a prism still touches a car's doors and mirrors, and the margin the reach adds. */
 const DOOR_REACH = 0.3;
+/** The mass (kg) of a car a knocked prop's momentum share is taken against: a sedan's. */
+const KNOCK_CAR_MASS = 1400;
 /** The car as every solid meets it this slice: `_span` filled from its drawn body (`bodySpan`) and its cage's plan box. */
 function measure(car: DeformableCar): void {
   const v = car.velocity;
@@ -166,7 +168,7 @@ function solidContact(car: DeformableCar, i: number, s: Surface, k: number, knoc
     const mass = P[o + PR_MASS]!;
     const speed = hypot2(v.x, v.z);
     hits.knock(id, i, v.x * 1.1 - nx * 1.5, 2 + speed * 0.25, v.z * 1.1 - nz * 1.5);
-    const keep = 1 - mass / (mass + 1400);
+    const keep = 1 - mass / (mass + KNOCK_CAR_MASS);
     if (car.deform.massActive) impulseCar(car, nx, 0, nz, mass * closing * 0.5);
     else {
       v.x *= keep;

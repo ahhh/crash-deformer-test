@@ -7,13 +7,16 @@ import { Backoff } from "./cop-brain.ts";
 import { SURFACE_IDS, SURFACES } from "../world/catalog.ts";
 import { blankPoint, blankProjection, pointOn, projectPath, type Track, type TrackPath } from "../world/track.ts";
 import { clamp, wrapPi } from "../kernel/scalar.ts";
+import { STRAIGHT_CURV } from "./constants.ts";
 
 /** Look this far (m) ahead in the lane for anything in the way. */
-const LOOK = 18;
+const LANE_LOOK = 18;
 /** Half lane (m): a car this close sideways is in our lane. */
 const LANE_HALF = 2.1;
 /** Gap (m) traffic keeps to whatever is stopped ahead. */
 const STOP_GAP = 7;
+/** Below this speed (m/s) a blocked car is stopped, and its wait begins. */
+const STOPPED_SPEED = 0.8;
 /** Seconds stopped behind a blocker before edging round it (toward the road centre, or our own kerb for a car facing us). */
 const WAIT = 2.5;
 /** Seconds spent edging round once started (long enough to clear a car at walking pace). */
@@ -199,7 +202,7 @@ export class TrafficBrain {
       const dx = o.x - self.x;
       const dz = o.z - self.z;
       const ahead = dx * fx + dz * fz;
-      if (ahead <= 0.5 || ahead > LOOK) continue;
+      if (ahead <= 0.5 || ahead > LANE_LOOK) continue;
       if (Math.abs(dx * fz - dz * fx) > LANE_HALF) continue;
       if (ahead < gap) {
         gap = ahead;
@@ -208,7 +211,7 @@ export class TrafficBrain {
       }
     }
     const blocked = gap < STOP_GAP + 3 && gapAlong < 1;
-    this.waited[i] = blocked && speed < 0.8 ? this.waited[i]! + dt : blocked ? this.waited[i]! : 0;
+    this.waited[i] = blocked && speed < STOPPED_SPEED ? this.waited[i]! + dt : blocked ? this.waited[i]! : 0;
     if (this.waited[i]! > WAIT) {
       this.waited[i] = 0;
       this.edge[i] = EDGE_TIME;
@@ -232,7 +235,7 @@ export class TrafficBrain {
     out.steer = clamp((2 * Math.max(speed, 3) * detSin(alpha)) / ld / Math.max(0.2, turnMax), -1, 1);
 
     const curv = Math.abs(path.curv[proj.k]!);
-    let target = Math.min(this.speed, curv > 1e-4 ? (DRIVE.turn * 0.6) / curv : Infinity);
+    let target = Math.min(this.speed, curv > STRAIGHT_CURV ? (DRIVE.turn * 0.6) / curv : Infinity);
     // Speed that still stops STOP_GAP short of it at a gentle 4 m/s².
     if (gap < Infinity) target = Math.min(target, Math.max(0, gapAlong) + Math.sqrt(8 * Math.max(0, gap - STOP_GAP)));
     if (edging) target = Math.min(this.speed, 4);

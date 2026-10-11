@@ -4,7 +4,7 @@ import type { Collider, RigidBody, World } from "@dimforge/rapier3d-simd";
 import { disable, type Rapier } from "../kernel/rapier.ts";
 import { activeGround } from "../world/ground.ts";
 import { mulberry32 } from "../world/placements.ts";
-import { blendPose, readPose } from "./ragdoll-body.ts";
+import { AIR_ANGULAR, AIR_LINEAR, blendPose, readPose } from "./ragdoll-body.ts";
 import { block } from "./ragdoll-mesh.ts";
 
 /**
@@ -52,12 +52,10 @@ const BODIES = 1 + ITEMS_MAX;
 export const PURSE_BODIES = BODIES;
 const PIECES = 1 + STRAP.length + ITEMS_MAX;
 /**
- * Damping (per s) in the air, and once a body lies on the ground. A light box landing at 15 m/s on the range's sand
+ * Damping (per s) once a body lies on the ground (in the air it is the dummy's: `AIR_LINEAR`, `AIR_ANGULAR`). A light box landing at 15 m/s on the range's sand
  * (friction 3) spun up to 80 rad/s and skipped 30 m past the dummy (headless range probe), so no body turns faster
  * than `SPIN_MAX` rad/s (`advance`).
  */
-const AIR_LINEAR = 0.05;
-const AIR_ANGULAR = 0.8;
 const GROUND_LINEAR = 4;
 const GROUND_ANGULAR = 8;
 const SPIN_MAX = 15;

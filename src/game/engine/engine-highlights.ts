@@ -11,6 +11,7 @@ import { CINE, withCars, type Sight } from "../present/spectate-cam.ts";
 import { crashCamEnd, CUTS, hitAim, laterHits, type CrashCam, type CrashHold } from "../present/engine-cine.ts";
 import { contextEye, contextPose, overheadPose } from "../present/highlight-cam.ts";
 import { ClipSim, type ReplayScene } from "./engine-replay.ts";
+import { SPARK_MIN_IMPULSE } from "./constants.ts";
 
 /** Wall seconds of the far-overhead flight into each clip. */
 export const FLIGHT_S = 3;
@@ -615,7 +616,7 @@ export class ReelDirector {
     const shown = shownTo >= this.presentedAt ? shownTo - this.presentedAt : 0;
     this.presentedAt = shownTo;
     const hit = sim.world.strongest;
-    if (hit.contact && hit.normal && hit.impulse > 1.2 && performance.now() / 1000 - this.sparkAt > SPARK_GAP) {
+    if (hit.contact && hit.normal && hit.impulse > SPARK_MIN_IMPULSE && performance.now() / 1000 - this.sparkAt > SPARK_GAP) {
       this.sparkAt = performance.now() / 1000;
       this.host.hit(hit.contact, hit.normal, hit.impulse);
     }

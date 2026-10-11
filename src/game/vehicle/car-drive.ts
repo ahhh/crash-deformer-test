@@ -7,6 +7,7 @@ import { C_GRIP, HIT_SIZE } from "../world/surfaces.ts";
 import { assists, carClass, carDrivability, CLASSES, HANDLING, SELF_RIGHT_SLOWEST, type Assists, type Drivability } from "./vehicle-classes.ts";
 import { LOSS_SIZE, wheelLoss } from "./wheel-loss.ts";
 import { detSin, detCos } from "../kernel/physics-core.js";
+import { FLIPPED_UP_Y, GRIP_YAW_CAP } from "./constants.ts";
 
 /** Shared by derby AI and the player seat. */
 export type DriveInput = {
@@ -266,7 +267,7 @@ export function applyDrive(car: DeformableCar, input: DriveInput, dt: number, to
   const slideBite = grip * ((1 - realism) * DRIVE.slideGrip[0] + realism * DRIVE.slideGrip[1]);
   if (drift < 0.05 && v > 1) {
     // Gripping: the tyres cap the yaw rate (understeer at the realistic end).
-    const cap = (grip * 1.05) / v;
+    const cap = (grip * GRIP_YAW_CAP) / v;
     yawRate = Math.max(-cap, Math.min(cap, yawRate));
   } else if (drift >= 0.05) {
     yawRate *= 1 + DRIVE.slideYaw * drift;
@@ -417,7 +418,7 @@ export class FlipClock {
 
   /** Counts `dt` while flipped; true (and restarts) once it has run `wait` s. Infinity `wait` holds it at 0. */
   step(upY: number, speed: number, dt: number, wait: number): boolean {
-    if (upY > 0.35 || speed > 2.5 || wait === Infinity) {
+    if (upY > FLIPPED_UP_Y || speed > 2.5 || wait === Infinity) {
       this.t = 0;
       return false;
     }

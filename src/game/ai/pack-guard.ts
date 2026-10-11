@@ -3,6 +3,7 @@ import type { DriveInput } from "../vehicle/car-drive.ts";
 import type { AiCar } from "./derby-ai.ts";
 import { clamp } from "../kernel/scalar.ts";
 import { classStats } from "../vehicle/vehicle-classes.ts";
+import { GRIP_YAW_CAP } from "../vehicle/constants.ts";
 
 /** Seconds ahead a police car looks for a pack-mate on its path; the guard has the wheel from half of it on. */
 const HORIZON = 3;
@@ -40,9 +41,9 @@ export function guardMates(self: AiCar, cars: readonly AiCar[], first: number, c
   const speed = hypot2(self.vx, self.vz);
   const vx = speed < MOVING ? fx * MOVING : self.vx;
   const vz = speed < MOVING ? fz * MOVING : self.vz;
-  // The car's yaw rate under the steer the drive asked for, as `applyDrive` turns it (full lock at `turn`, less below 8 m/s; tyres cap it at 1.05 grip / v).
+  // The car's yaw rate under the steer the drive asked for, as `applyDrive` turns it (full lock at `turn`, less below 8 m/s; tyres cap it at `GRIP_YAW_CAP` grip / v).
   const v = hypot2(vx, vz);
-  const cap = (1.05 * grip) / v;
+  const cap = (GRIP_YAW_CAP * grip) / v;
   const omega = clamp(out.steer * turn * (0.35 + 0.65 * Math.min(1, v / 8)), -cap, cap);
   // The mate it reaches soonest steers it away; but one passing alongside or behind cannot be braked for, and read alone it hid the
   // mate dead ahead (the steer went away from the graze, straight into the one ahead), so a mate ahead is read first and the

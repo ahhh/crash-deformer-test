@@ -9,6 +9,8 @@ import { PLATE } from "./compactor.ts";
 /** A sandbox lamp post's height (m) and mass (kg): a thin steel upright a car knocks over. */
 const LAMP_POST_HEIGHT = 5.3;
 const LAMP_POST_MASS = 60;
+/** The height (m) of a ramp ball's prism: the cap that stands above the ground. */
+const RIG_BALL_TOP = 0.2;
 /** The closing speed (m/s) from which a body meeting a ramp ball's side shatters it. */
 export const BALL_BREAK_CLOSING = 7.5;
 /** The closing speed (m/s) above which a body meeting a lamp post folds it (main's `resolveLampPoles`: 3.5); slower, the post stands and the body meets it as a solid. */
@@ -35,7 +37,7 @@ export class RigSolids extends Surface {
     this.addPrism({ x: 0, z: 0, yaw: 0, hx: BARRIER_HALF.x, hz: BARRIER_HALF.z, base: 0, top: BARRIER_TOP, id: RIG_SLAB, role: RIG, moves: true });
     for (const id of [RIG_PLATE_FRONT, RIG_PLATE_REAR]) this.addPrism({ x: 0, z: 0, yaw: 0, hx: PLATE.hx, hz: PLATE.hz, base: PLATE.y - PLATE.hy, top: PLATE.y + PLATE.hy, id, role: RIG, moves: true });
     for (let k = 0; k < RIG_POLES; k++) this.addPrism({ x: 0, z: 0, yaw: 0, hx: 0.12, hz: 0.12, circle: true, base: 0, top: LAMP_POST_HEIGHT, id: RIG_POLE_FIRST + k, role: KNOCK, mass: LAMP_POST_MASS, knockSpeed: POLE_FOLD_CLOSING, moves: true });
-    for (let k = 0; k < RIG_BALLS; k++) this.addPrism({ x: 0, z: 0, yaw: 0, hx: 0.5, hz: 0.5, circle: true, base: 0, top: 0.2, id: RIG_BALL_FIRST + k, role: PROP, moves: true });
+    for (let k = 0; k < RIG_BALLS; k++) this.addPrism({ x: 0, z: 0, yaw: 0, hx: 0.5, hz: 0.5, circle: true, base: 0, top: RIG_BALL_TOP, id: RIG_BALL_FIRST + k, role: PROP, moves: true });
     for (let i = 0; i < this.count; i++) this.disable(i);
     this.seal();
   }

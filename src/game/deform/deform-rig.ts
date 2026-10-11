@@ -9,6 +9,7 @@ import {
   type MassName,
   type SensorSpec,
 } from "../kernel/rig-spec.ts";
+import { DEFAULT_BUCKLE, DEFAULT_SQUASH } from "./constants.ts";
 import { DeformParticleHelper, DeformRigHelper } from "./deform-helper.ts";
 import { bindLattice, buildRunStructures, INF_K, restoreInto, runTemplate, wrinkleSeeds } from "./deform-build.ts";
 import { FACES, faceFollow, IMPRINT_NONE } from "./load-crush.ts";
@@ -306,8 +307,8 @@ export abstract class DeformRig {
   protected bodySin = 0;
   protected readonly bodyC = new THREE.Vector3();
   protected readonly bodyRestC = new THREE.Vector3();
-  squash = 0.32;
-  buckle = 0.45;
+  squash = DEFAULT_SQUASH;
+  buckle = DEFAULT_BUCKLE;
   mode: DeformMode = "shape";
   protected clusters: ShapeCluster[] = [];
   /** Per-cluster absorption (its owner cage's), fixed at build time. */

@@ -27,6 +27,7 @@ import { Track, blankProjection } from "../world/track.ts";
 import { OFF_MENU, TRACKS } from "../world/tracks/index.ts";
 import { HAVANA } from "../world/tracks/havana.ts";
 import { carClass, classStats, HANDLING } from "../vehicle/vehicle-classes.ts";
+import { FLIPPED_UP_Y } from "../vehicle/constants.ts";
 import { DEFAULT_RACE_OPTIONS, type CarPose, type Entrant, type RaceMenu, type RaceOptions, type RaceSnapshot, type SurvivalHud } from "../match/types.ts";
 import { CrashRecorder } from "./engine-record.ts";
 import { makeCarFrame, type CarFrame } from "../net/codec.ts";
@@ -758,7 +759,7 @@ export abstract class RaceField {
   protected judge(i: number, car: DeformableCar, dt: number, racing: boolean): boolean {
     if (car.driverOut !== null || !car.deform.drivetrainAlive) return false;
     const upY = car.group.matrixWorld.elements[5]!;
-    this.flipFor[i] = upY < 0.35 ? this.flipFor[i]! + dt : 0;
+    this.flipFor[i] = upY < FLIPPED_UP_Y ? this.flipFor[i]! + dt : 0;
     if (this.flipFor[i]! > FLIP_DEAD) return false;
     const still = racing && !this.humanDrives(i) && car.velocity.lengthSq() < 0.36;
     this.stillFor[i] = still ? this.stillFor[i]! + dt : 0;

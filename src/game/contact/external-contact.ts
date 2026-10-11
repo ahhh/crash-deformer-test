@@ -9,6 +9,9 @@ import { FACE_ROW } from "../deform/deform-contact.ts";
 import { ARM_CLOSING, SOLID_MU } from "./constants.ts";
 import { outlineOf } from "./cage-outline.ts";
 
+/** The sideways kick (m/s) a broken mirror leaves with, away from its side of the car. */
+const MIRROR_PUSH_X = 0.8;
+
 /**
  * One contact model for anything that strikes a car: the Doors ram, a press plate, a piston face
  * or another car's body. The striker is an oriented box with a velocity and a mass (`Infinity`:
@@ -553,7 +556,7 @@ function hitMirror(car: DeformableCar, side: -1 | 1, lane: Lane): void {
     return;
   }
   lane.u = Math.sqrt(lane.u * lane.u - (2 * MIRROR_BREAK_J) / lane.kg);
-  car.breakMirror(side, _push.set(side * 0.8, 0.6, s * lane.u));
+  car.breakMirror(side, _push.set(side * MIRROR_PUSH_X, 0.6, s * lane.u));
 }
 
 /** The point `radius` m along a door's plan line from its hinge, the door open `theta` rad, in the car's frame: `across` outward from the car's middle, `along` forward (m). */

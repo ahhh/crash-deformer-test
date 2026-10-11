@@ -9,6 +9,8 @@ import type { CrashPhase } from "../match/phase.ts";
 import type { SpecView } from "../present/engine-camera.ts";
 import type { CarPart, PersonPick } from "../match/look-data.ts";
 import type { DriverLook } from "../present/driver-look.ts";
+import { DEFAULT_BUCKLE, DEFAULT_SQUASH } from "../deform/constants.ts";
+import { PISTON_SHOT } from "../scenes/constants.ts";
 
 type CompactStage = "open" | "contact" | "wells" | "mid" | "max";
 
@@ -204,7 +206,7 @@ export const INITIAL_HUD: CrashHudState = {
   showRamps: false,
   showCompactor: false,
   showPistons: false,
-  pistons: { selected: 0, speedKph: 40, massKg: 1500, hardness: 1, holdCar: false, hopSeconds: 6.5, hopSynced: true, busy: false, energyKj: 0, ebsKph: 0 },
+  pistons: { selected: 0, speedKph: PISTON_SHOT.speedKph, massKg: PISTON_SHOT.massKg, hardness: 1, holdCar: false, hopSeconds: PISTON_SHOT.hopSeconds, hopSynced: true, busy: false, energyKj: 0, ebsKph: 0 },
   showDoors: false,
   doors: { side: 1, kph: 12, kg: 300, open: false, busy: false, energyJ: 0, shot: null },
   range: null,
@@ -235,8 +237,8 @@ export const INITIAL_HUD: CrashHudState = {
   eta: 0,
   cageCount: 16,
   sensorCount: 20,
-  squash: 0.32,
-  buckle: 0.45,
+  squash: DEFAULT_SQUASH,
+  buckle: DEFAULT_BUCKLE,
   fxDensity: 0.7,
   carCount: 5,
   speedMin: 10,

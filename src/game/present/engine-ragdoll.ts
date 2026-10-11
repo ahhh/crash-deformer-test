@@ -49,6 +49,7 @@ import { joinUp } from "./ragdoll-joints.ts";
 import { groundColliders, PATCH_AHEAD, PATCH_HALF, type Pole } from "./ragdoll-ground.ts";
 import { courseSolids, type Solid } from "./ragdoll-solids.ts";
 import { hypot2, hypot3 } from "../kernel/physics-core.js";
+import { GRAVITY } from "../kernel/constants.ts";
 
 /** Live dummies at once; a fifth throw recycles the oldest. */
 const SLOTS = 4;
@@ -57,7 +58,6 @@ const LIFE = 10;
 /** Seconds after the throw the dummy ignores its own car and the other dummies (the collision groups below): it
  *  starts inside its own cabin, over its own lower box. */
 const GRACE = 0.35;
-const GRAVITY = 9.6;
 /** Dummy friction against anything (the lower of the pair counts): low, so it slides a good way (owner, 2026-10-02). */
 const SLIDE = 0.12;
 /** Jersey barrier height (m): the barrier-block prefab's art. */

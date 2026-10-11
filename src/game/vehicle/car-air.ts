@@ -4,6 +4,7 @@ import type { LooseShape } from "./car-core.ts";
 import { activeGround, NO_FLOOR } from "../world/ground.ts";
 import { C_AUX, C_DEPTH, C_GRIP, C_H, C_NX, C_NY, C_NZ, C_OWNER, C_PX, C_PY, C_PZ, C_TOUCH, EDGE_HIT, edgeCross, HIT_SIZE, MU_TYRE, patchOf, pointContact, pointContactHeld, PQ_SIZE, PQ_VX, PQ_VY, PQ_VZ, PQ_X, PQ_Y, PQ_Z, ridgeCross, staticTop, topsTop, wheelContact } from "../world/surfaces.ts";
 import { HUB_FLOOR, TYRE_R } from "../deform/deform-state.ts";
+import { MIN_SLIDE } from "../deform/constants.ts";
 import { barrierSpeed, CRASH, hypot2, plasticEnergy } from "../deform/physics-util.ts";
 import { CAR_HALF, WHEEL_POS } from "./car-mesh.ts";
 import { droop, PAN, SPRINGS, UNDERSIDE } from "./car-suspension.ts";
@@ -971,7 +972,7 @@ export function solveRows(n: number): void {
         _vp.copy(_tn).multiplyScalar(across);
       }
       const slide = _vp.length();
-      if (slide < 1e-6) continue;
+      if (slide < MIN_SLIDE) continue;
       // Friction holds what the contact carries over the passes: its normal impulse after a yielding face's cut (a tyre in its springs:
       // its push). Bounded by each pass's push instead, a sedan's belly rows on a roof whose budget its tyres had spent gripped at 0.6 of
       // impulses the cut then took back, and the sedan under took that grip as a 4 rad/s roll.

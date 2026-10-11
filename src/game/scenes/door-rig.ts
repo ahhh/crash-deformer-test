@@ -2,6 +2,7 @@ import * as THREE from "three";
 import type { DeformableCar } from "../vehicle/car.ts";
 import { hypot3 } from "../kernel/physics-core.js";
 import { strikeCar, makeBox, partContact } from "../contact/external-contact.ts";
+import { KPH_PER_MS } from "../kernel/constants.ts";
 
 /**
  * The door/mirror knock scenes of `docs/door-mirror-sketch.png`, on a car parked at the origin
@@ -138,7 +139,7 @@ export class DoorRig {
     this.side = side;
     this.kph = THREE.MathUtils.clamp(kph, 1, 120);
     this.kg = THREE.MathUtils.clamp(kg, 5, 5000);
-    const drive = this.carMoves ? -this.lane.dir * (this.kph / 3.6) : 0;
+    const drive = this.carMoves ? -this.lane.dir * (this.kph / KPH_PER_MS) : 0;
     car.velocity.set(car.fwdFlat.x * drive, 0, car.fwdFlat.z * drive);
     car.speed = Math.abs(drive);
     // After the velocity, so the door's pendulum starts from this motion rather than a jump to it.
@@ -150,7 +151,7 @@ export class DoorRig {
     for (let i = 0; i < masses.length; i++) masses[i]!.local.toArray(this.particles0, i * 3);
     this.verts0.set((car.body.geometry.getAttribute("position") as THREE.BufferAttribute).array as Float32Array);
     this.face = -this.lane.dir * RAM.start;
-    this.u = this.kph / 3.6;
+    this.u = this.kph / KPH_PER_MS;
     this.phase = "run";
     this.touched = false;
     this.stopped = false;

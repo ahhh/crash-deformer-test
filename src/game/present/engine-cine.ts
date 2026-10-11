@@ -13,6 +13,7 @@ import type { Ultra } from "./ultra/ultra.ts";
 import { FX_REACH, type Witness } from "./witness.ts";
 import { NO_FLOOR } from "../world/ground.ts";
 import { SLOMO_HOLD } from "../match/phase.ts";
+import { MIN_SIM_DT } from "./constants.ts";
 
 /** Mark-map edge (texels) per tier: 2048 over the 96 m sandbox is 4.7 cm a texel. */
 const MARK_RES: Record<FxTier, number> = { off: 0, minimal: 1024, low: 1024, high: 2048, ultra: 2048 };
@@ -546,7 +547,7 @@ export class Cinematics {
   update(wallDt: number, simDt: number, cars: readonly DeformableCar[], followed: DeformableCar | null, driving: boolean, fxDensity: number): void {
     if (this.tierNow === "off") return;
     this.hitStop = Math.max(0, this.hitStop - wallDt);
-    if (simDt > 1e-5) this.detectHits(cars, followed, driving, wallDt);
+    if (simDt > MIN_SIM_DT) this.detectHits(cars, followed, driving, wallDt);
     this.marks.update(cars, simDt);
     if (this.marks.slipping) this.emitSlipFx(cars.length, wallDt, fxDensity);
     this.tyreSmoke.update(Math.max(simDt, wallDt * 0.6), this.view.camera);

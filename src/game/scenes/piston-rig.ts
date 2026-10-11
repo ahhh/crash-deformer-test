@@ -3,6 +3,7 @@ import type { DeformableCar } from "../vehicle/car.ts";
 import { strikeCar, makeBox, partContact } from "../contact/external-contact.ts";
 import type { StreamedDeformation } from "../deform/streamed-deform.ts";
 import { KPH_PER_MS } from "../kernel/constants.ts";
+import { PISTON_SHOT } from "./constants.ts";
 
 type MassNode = StreamedDeformation["masses"][number];
 
@@ -35,13 +36,13 @@ export type PistonConfig = {
 };
 
 export const PISTON_DEFAULTS: Readonly<PistonConfig> = {
-  speedKph: 40,
-  massKg: 1500,
+  speedKph: PISTON_SHOT.speedKph,
+  massKg: PISTON_SHOT.massKg,
   hardness: 1,
   faceWidth: 1.2,
   faceHeight: 0.5,
   holdCar: false,
-  hopSeconds: 6.5,
+  hopSeconds: PISTON_SHOT.hopSeconds,
 };
 
 export const PISTON = {

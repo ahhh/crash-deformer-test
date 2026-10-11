@@ -7,6 +7,7 @@ import { DerbyPocket } from "./derby-pocket.ts";
 import { clamp, hash01 } from "../kernel/scalar.ts";
 import { OpeningWatch } from "./derby-opening.ts";
 import { personality, type Personality } from "./personality.ts";
+import { TURN_ROUND_THROTTLE } from "./constants.ts";
 
 export type AiCar = {
   id: number;
@@ -109,6 +110,10 @@ const BOOST_CONE = 0.9;
  * boosted nose-to-nose hit at 7.5 s (`derby.test.ts`: none before 8 s).
  */
 const BOOST_FACED = 0.5;
+/** How far inside the boards (m) a pursuit's aim point stays. */
+const BOARD_MARGIN = 2.4;
+/** The throttle a driver crawls at with no open space worth heading for. */
+const CRAWL_THROTTLE = 0.35;
 
 /** What a driver is doing this tick (`tacticOf`). */
 const TACTICS = ["idle", "unstick", "hold", "layback", "reverse", "jturn", "nose", "swing", "sideswipe"] as const;
@@ -554,7 +559,7 @@ export class DerbyBrain {
       px = tgt.x + tgt.vx * tau;
       pz = tgt.z + tgt.vz * tau;
     }
-    const lim = this.radius - 2.4;
+    const lim = this.radius - BOARD_MARGIN;
     const r = hypot2(px, pz);
     if (r > lim) {
       px *= lim / r;
@@ -666,7 +671,7 @@ export class DerbyBrain {
       const tailOut = -(detSin(self.yaw) * self.x + detCos(self.yaw) * self.z) / r;
       if (tailOut > 0.4 && !(d < 5 && ae < 0.5)) {
         // Backing into the boards: pull forward and let the swing bring the tail round.
-        out.throttle = 0.6;
+        out.throttle = TURN_ROUND_THROTTLE;
         out.steer = Math.sign(err) || p.side;
       }
     }
@@ -682,7 +687,7 @@ export class DerbyBrain {
     const r = hypot2(self.x, self.z);
     this.openSpace(self, others, 14, 0.8 * smooth(this.radius - 9, this.radius - 4, r), _aim);
     if (hypot2(_aim.x, _aim.z) < 0.25) {
-      out.throttle = 0.35;
+      out.throttle = CRAWL_THROTTLE;
       this.boards(self, p, speed);
       return;
     }

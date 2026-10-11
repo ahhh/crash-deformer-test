@@ -12,6 +12,7 @@ import { WALL } from "./engine-lab.ts";
 import { lookColours } from "../present/car-look.ts";
 import { pickedLook } from "../present/driver-look.ts";
 import { GARAGE } from "../present/garage-art.ts";
+import { KPH_PER_MS } from "../kernel/constants.ts";
 
 /**
  * HUD publish: the engine's state as one `CrashHudState` snapshot.
@@ -90,7 +91,7 @@ export abstract class EngineHud extends EngineWarm {
         kg: this.doorRig.kg,
         open: this.carA.doorHinge(this.doorRig.side).theta > 0.01,
         busy: this.doorRig.phase === "run",
-        energyJ: 0.5 * this.doorRig.kg * (this.doorRig.kph / 3.6) ** 2,
+        energyJ: 0.5 * this.doorRig.kg * (this.doorRig.kph / KPH_PER_MS) ** 2,
         shot: this.doorShot && {
           detached: this.doorShot.detached,
           doorDeg: this.doorShot.doorDeg,

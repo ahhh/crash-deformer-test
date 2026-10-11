@@ -345,9 +345,9 @@ type SnapCar = {
 };
 
 function spent(nowLen: number, restLen: number): number {
-  const span = restLen - 0.36;
-  if (span <= 1e-6) return 0;
-  return Math.max(0, Math.min(1, (restLen - nowLen) / span));
+  const room = restLen - 0.36;
+  if (room <= 1e-6) return 0;
+  return Math.max(0, Math.min(1, (restLen - nowLen) / room));
 }
 
 /**

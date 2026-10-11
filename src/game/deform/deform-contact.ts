@@ -16,6 +16,7 @@ import { BodyFit } from "./body-fit.ts";
 import type { MassNode } from "./deform-rig.ts";
 import type { StreamedDeformation } from "./streamed-deform.ts";
 import { detSin, detCos, sinCosAt } from "../kernel/physics-core.js";
+import { MIN_IMPACT_ZONE, MIN_INV_MASS, MIN_SLIDE, SQUASH_REACH } from "./constants.ts";
 
 /** Engine slack (m) a hit too slow to pack the nose still allows (mounts, not crush).
  *  This replaces the old first-hit ENGINE_LIGHT_CAP: the block's reach now
@@ -37,6 +38,8 @@ const FACE_SKIN = 0.02;
 const REAR_STROKE_GAIN = 1.08;
 /** Numbers per contact row of `faceHits`: x, z, nx, nz, depth. */
 export const FACE_ROW = 5;
+/** The share of the wreck's frame pitch and roll (rad) reported as its x and z spin (rad/s). */
+const TILT_SPIN_GAIN = 0.4;
 
 const _a = new THREE.Vector3();
 const _b = new THREE.Vector3();
@@ -87,7 +90,7 @@ function sphereHit(a: MassNode, b: MassNode, slice: number): void {
   const ima = a.dynamic ? 1 / a.mass : 0;
   const imb = b.dynamic ? 1 / b.mass : 0;
   const inv = ima + imb;
-  if (inv < 1e-8) return;
+  if (inv < MIN_INV_MASS) return;
   const crumple = a.crumple || b.crumple;
   const travelA = a.local.distanceTo(a.rest);
   const travelB = b.local.distanceTo(b.rest);
@@ -126,7 +129,7 @@ function sphereHit(a: MassNode, b: MassNode, slice: number): void {
     _t.y = b.vel.y - a.vel.y + _n.y * -rel;
     _t.z = b.vel.z - a.vel.z + _n.z * -rel;
     const slide = _t.length();
-    const jt = slide > 1e-6 ? Math.min(slide / inv, SHEET_MU * j) / slide : 0;
+    const jt = slide > MIN_SLIDE ? Math.min(slide / inv, SHEET_MU * j) / slide : 0;
     if (a.dynamic) {
       const sn = -j * ima;
       const st = jt * ima;
@@ -353,10 +356,10 @@ export abstract class DeformContact extends DeformState {
     clampSpeed(velocityOut, CRASH.maxMassMps);
     // Spin: what the masses carry (L/I) plus a driven wreck's steer (`driveTurn`); the write-back's kept turn is a position
     // correction, so only `keptSpin` shows it. Never the frame's own turn. Field writes: set() boxed all three.
-    angularOut.x = Math.max(-2, Math.min(2, pitch * 0.4));
+    angularOut.x = Math.max(-2, Math.min(2, pitch * TILT_SPIN_GAIN));
     angularOut.y = _fit.spin() + (this.drivetrainAlive && this.elapsed - this.keptTurn[2]! < DRIVE_TURN_HOLD ? this.keptTurn[1]! : 0);
     if (dt > 0) { this.keptTurn[3] = this.keptTurn[0]! / dt; this.keptTurn[0] = 0; } // prettier-ignore
-    angularOut.z = Math.max(-2, Math.min(2, roll * 0.4));
+    angularOut.z = Math.max(-2, Math.min(2, roll * TILT_SPIN_GAIN));
     this.prevYaw = yawSafe;
   }
 
@@ -535,7 +538,7 @@ export abstract class DeformContact extends DeformState {
   protected measureStroke(): void {
     const ix = this.impactInward.x;
     const iz = this.impactInward.z;
-    const stroke = Math.min((0.5 + this.squash * 1.15) * 1.1, crushStroke(Math.max(0, this.hitSpeed), this.squash));
+    const stroke = Math.min((0.5 + this.squash * SQUASH_REACH) * 1.1, crushStroke(Math.max(0, this.hitSpeed), this.squash));
     const out = this.strokeOut;
     if (Math.abs(ix) > Math.abs(iz)) out[0] = Math.min(this.at.doorL.bands.max, stroke);
     else if (iz <= 0) out[0] = stroke;
@@ -821,7 +824,7 @@ export abstract class DeformContact extends DeformState {
       if (!m.dynamic) continue;
       if (m.hub && !m.popped && !this.deepCrush) continue;
       const zone = this.impactWeight(m);
-      if (zone < 0.04) continue;
+      if (zone < MIN_IMPACT_ZONE) continue;
       const d = m.world.distanceTo(worldPoint);
       const reach = 1.05 + s * 0.35;
       if (d > reach) continue;

@@ -97,6 +97,8 @@ const TOUCH_GAP = 0.15;
 const TOUCH_NOW = 0.03;
 /** A part hinged or swung no further than this (rad, or the hinge value) is still within a shadow texel of its rest (4.7 cm). */
 const FLUSH_HINGE = 0.02;
+/** How fast (hinge value per s) a hinged part swings toward its target. */
+const HINGE_RATE = 3.2;
 
 /** The hinge value above which a part counts as folding (hung open, crushed, flapping), by hinge kind. */
 function foldAt(p: DetachPart): number {
@@ -175,7 +177,7 @@ export abstract class CarParts extends CarGlass {
         else if (p.hinge === "tail") target = THREE.MathUtils.clamp((crush - 0.1) / 0.6, 0, 1);
         else if (p.region) target = THREE.MathUtils.clamp((crush - PANEL_HINGE[p.region.kind].on) / PANEL_HINGE[p.region.kind].range, 0, 1);
       }
-      p.hingeT = Math.min(p.hingeMax, Math.max(p.hingeT, Math.min(target, p.hingeT + Math.max(dt * 3.2, 0.012))));
+      p.hingeT = Math.min(p.hingeMax, Math.max(p.hingeT, Math.min(target, p.hingeT + Math.max(dt * HINGE_RATE, 0.012))));
       // `folding` is read by the net state and the recorder's keyframes at every step, so it is set here, not in the frame's pose.
       p.folding = p.hingeT > foldAt(p);
       if (p.hinge === "door" && onHit) this.springDoor(p);

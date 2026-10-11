@@ -5,6 +5,7 @@ import { BodyFit } from "./body-fit.ts";
 import { DeformRig, type DeformMode, type MassNode } from "./deform-rig.ts";
 import { FACES, FACE_AXIS } from "./load-crush.ts";
 import { detSin, detCos } from "../kernel/physics-core.js";
+import { MIN_WEIGHT_SUM } from "./constants.ts";
 
 /** Most (m/s) a wheel freed by the plant may slide off the body's speed (`seatHubs`). Goes with the plant hand-over: Stage 4 item 6 (wreck split). */
 const HUB_SLIP = 8;
@@ -573,7 +574,7 @@ export abstract class DeformHit extends DeformRig {
       down += downstream;
       downMass += downstream * m.mass;
     }
-    if (wsum < 1e-6) {
+    if (wsum < MIN_WEIGHT_SUM) {
       // Graze / unknown contact: fall back to the crumple face as a whole.
       for (let i = 0; i < n; i++) {
         const m = masses[i]!;
@@ -583,7 +584,7 @@ export abstract class DeformHit extends DeformRig {
         wsum += w;
       }
     }
-    if (wsum < 1e-6) return;
+    if (wsum < MIN_WEIGHT_SUM) return;
     const invW = 1 / wsum;
     const downDv = downMass > 1e-9 ? (j * down * invW) / downMass : 0;
     for (let i = 0; i < n; i++) {

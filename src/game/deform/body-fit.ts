@@ -1,3 +1,5 @@
+import { MIN_INERTIA } from "./constants.ts";
+
 /**
  * The spin a wreck's masses carry in the ground plane (x/z, about +y): angular momentum over inertia about their
  * centroid. Sums are taken about a reference point (the cell), so a car a kilometre from the origin loses no digits.
@@ -31,7 +33,7 @@ export class BodyFit {
     const m = this.spinMass;
     if (m < 1e-9) return 0;
     const inertia = this.si - (this.sx * this.sx + this.sz * this.sz) / m;
-    if (inertia < 1e-9) return 0;
+    if (inertia < MIN_INERTIA) return 0;
     return (this.sl - (this.sz * this.svx - this.sx * this.svz) / m) / inertia;
   }
 }

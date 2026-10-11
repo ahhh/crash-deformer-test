@@ -23,3 +23,7 @@ export const FUEL_CUTOFF_G = 10;
 export const SIDE_HIT_X = 0.7;
 /** How long (s) the engine stays cut before it restarts (the switch is resettable; design pillar 2: a car that dies at once is lame). A short pick, no source: the stall is felt, not the end of the run. */
 export const STALL_S = 3;
+/** A car whose body's up·world-up (`upY`) is below this is on its roof or side. */
+export const FLIPPED_UP_Y = 0.35;
+/** The share of its lateral grip (grip / v, rad/s) the tyres hold a car's yaw rate to while it grips (`applyDrive`). */
+export const GRIP_YAW_CAP = 1.05;

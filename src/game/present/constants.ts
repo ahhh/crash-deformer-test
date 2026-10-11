@@ -8,3 +8,5 @@ export const SHOT_FOV = 55;
 export const SLOW_WINDOWS = 2;
 /** The name of a lamp's night light pool decal (`Object3D.name`): `makeLamp` names it, the prefab builder shares it with the scene and `syncPools` hides it with a knocked pole. */
 export const LAMP_POOL = "pool";
+/** A frame whose sim time (s) is no more than this advanced nothing: no hit to read, no mark to stamp. */
+export const MIN_SIM_DT = 1e-5;

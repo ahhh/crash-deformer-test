@@ -1,7 +1,7 @@
 import { hypot2, detSin, detCos } from "../kernel/physics-core.js";
 import { chargeBoost, idleDrive, topUpBoost, type DriveInput } from "../vehicle/car-drive.ts";
 import { mood } from "./ai-aggression.ts";
-import { GUARD_BRAKE_IDX, GUARD_COUNT, GUARD_LEAD_IDX, GUARD_TURN_IDX } from "./constants.ts";
+import { GUARD_BRAKE_IDX, GUARD_COUNT, GUARD_LEAD_IDX, GUARD_TURN_IDX, REVERSE_THROTTLE, STRAIGHT_CURV, TURN_ROUND_THROTTLE } from "./constants.ts";
 import { guardContact } from "./contact-guard.ts";
 import { DERBY_RULES, STUCK_SPEED, type AiCar } from "./derby-ai.ts";
 import { personality, type Personality } from "./personality.ts";
@@ -44,6 +44,8 @@ const LINE_W = 2.4;
 const EDGE = 1.4;
 /** Lane change rate (m/s). */
 const LANE_RATE = 3.2;
+/** Sideways bias (m, scaled by the driver's side) the planned line takes off the road's centre line. */
+const LINE_SIDE_BIAS = 0.8;
 /** A shortcut is chosen this far (m) before its mouth. */
 const COMMIT = 45;
 /** A boost burst starts only with at least this much meter (no stutter on the dregs). */
@@ -283,7 +285,7 @@ export class RaceBrain {
 
     if (this.recover[i]! > 0) {
       this.recover[i]! -= dt;
-      out.throttle = -0.9;
+      out.throttle = REVERSE_THROTTLE;
       out.steer = this.recoverSteer[i]!;
       this.lastThrottle[i] = 0;
       this.charge(i, false);
@@ -390,7 +392,7 @@ export class RaceBrain {
     const err = target - along;
     if (Math.abs(alpha) > 1.9 && speed < 6) {
       // Facing the wrong way: full lock and crawl round.
-      out.throttle = 0.6;
+      out.throttle = TURN_ROUND_THROTTLE;
       out.steer = Math.sign(alpha) || p.side;
     } else if (err >= -1.5) {
       // `applyDrive` runs up to throttle × top at the class's full rate, so ask for the target
@@ -417,7 +419,7 @@ export class RaceBrain {
       this.recover[i] = 0.9 + 0.4 * p.patience;
       // Either gear swings the nose the same way in this drive model.
       this.recoverSteer[i] = Math.sign(alpha) || p.side;
-      out.throttle = -0.9;
+      out.throttle = REVERSE_THROTTLE;
       out.brake = 0;
       out.steer = this.recoverSteer[i]!;
     }
@@ -532,7 +534,7 @@ export class RaceBrain {
       const curv = Math.abs(pp.curv[k]!);
       // `cornerSpeed`: the class's top, its lateral grip and its full-lock yaw on this surface at `HANDLING.realism`.
       // The AI lifts over a crest it would fly, like a driver over a blind crest (`crestSpeed`).
-      const corner = Math.min(top * surf.speed, curv > 1e-4 ? cornerSpeed(cls, CORNER_MARGIN / curv, surf.grip) : Infinity, crestSpeed(pp, ss));
+      const corner = Math.min(top * surf.speed, curv > STRAIGHT_CURV ? cornerSpeed(cls, CORNER_MARGIN / curv, surf.grip) : Infinity, crestSpeed(pp, ss));
       const allow = Math.sqrt(corner * corner + 2 * decel * d);
       if (allow < best) best = allow;
     }
@@ -579,7 +581,7 @@ export class RaceBrain {
     let keepGap = GAP_KEEP * pace;
     for (let d = 10; d <= 34; d += 6) curv += tr.path.curv[sampleAt(tr.path, s + d)]!;
     curv /= 5;
-    let want = clamp(Math.sign(curv) * Math.min(1, Math.abs(curv) * 30) * half * 0.45 + p.side * 0.8, -room, room);
+    let want = clamp(Math.sign(curv) * Math.min(1, Math.abs(curv) * 30) * half * 0.45 + p.side * LINE_SIDE_BIAS, -room, room);
     const aggr = this.aggression[i]!;
     let blocker = -1;
     let blockerAhead = Infinity;

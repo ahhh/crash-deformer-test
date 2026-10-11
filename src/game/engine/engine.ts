@@ -43,6 +43,7 @@ import { TrackArt } from "../present/track-art.ts";
 import { EngineGarage } from "./engine-garage.ts";
 import { GARAGE } from "../present/garage-art.ts";
 import { detSin, detCos } from "../kernel/physics-core.js";
+import { SPARK_MIN_IMPULSE } from "./constants.ts";
 
 const FIXED = 1 / 60;
 /** Deform LoD: sphere around a car — rest half-diagonal 2.5 m plus crumple slack and the
@@ -625,7 +626,7 @@ export class CrashEngine extends EngineGarage {
       this.beginCinematic(shot.contactAt, shot.normal, shot.speedBefore);
     } else if (!this.derbyMode && !this.race.active && !this.showStack && !this.showLab && this.clock.phase === "approach" && contact && normal && impulse > 0.4) {
       this.beginCinematic(contact, normal, impulse);
-    } else if ((this.derbyMode || this.race.active) && contact && normal && impulse > 1.2 && this.elapsedWall - this.sparkAt > 0.16 && this.witness.sees(contact, FX_REACH.sparks)) {
+    } else if ((this.derbyMode || this.race.active) && contact && normal && impulse > SPARK_MIN_IMPULSE && this.elapsedWall - this.sparkAt > 0.16 && this.witness.sees(contact, FX_REACH.sparks)) {
       this.sparkAt = this.elapsedWall;
       this.sparks.poof(contact, normal, Math.min(56, 18 + impulse * 0.8) * this.fxDensity);
     }

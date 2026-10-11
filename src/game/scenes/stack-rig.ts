@@ -4,6 +4,7 @@ import { ROOF_REST_Y } from "../vehicle/car-parts.ts";
 import { crownY, keelY } from "../vehicle/car-cage-rig.ts";
 import { SKIN } from "../vehicle/car-surfaces.ts";
 import { hypot2 } from "../kernel/physics-core.js";
+import { UPRIGHT } from "./constants.ts";
 
 /**
  * The stack scene (docs/LOAD_CRUSH.md): cars dropped one at a time onto a base car, so the bottom roof crushes by the
@@ -85,8 +86,6 @@ export function placeDrop(cars: readonly DeformableCar[], k: number, drop: numbe
 const COLUMN_OFFSET = 0.6;
 /** How far (m) a car's belly may ride over the roof under it and still read as standing on it (a drop in flight carries nothing yet; one from higher reads null). */
 const COLUMN_CLEAR = 0.5;
-/** Face-up: the car's up axis within about 25 degrees of vertical (`matrixWorld` Y component). */
-const UPRIGHT = 0.9;
 
 /**
  * Per car in the stack (bottom first): the weight above it (kN) and its roof's sink (mm), read off the sim's cars. Load

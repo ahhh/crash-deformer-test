@@ -625,6 +625,8 @@ function matchCluster(c, particles, beta) {
 }
 /** Slice rate the creep was tuned at (its old 1/120 s floor at the 1/240 s slice). */
 const CREEP_REF_HZ = 240;
+/** A squash and buckle both below this leave the rig rigid: no plastic flow. */
+const PLASTIC_OFF = 0.03;
 /**
  * `applyPlasticity`'s inputs: slice length (s) in [0], squash in [1], buckle in [2]. The caller fills the row, because the call is not
  * inlined and a double argument of such a call is a heap number each time (one per cluster per slice).
@@ -632,7 +634,7 @@ const CREEP_REF_HZ = 240;
 const PLASTIC = new Float64Array(3);
 function applyPlasticity(c, particles) {
   const dt = PLASTIC[0], squash = PLASTIC[1], buckle = PLASTIC[2];
-  if (squash < 0.03 && buckle < 0.03) return;
+  if (squash < PLASTIC_OFF && buckle < PLASTIC_OFF) return;
   const yieldC = 0.035 + (1 - squash) * 0.08 + (1 - buckle) * 0.04;
   const S = c.S, Sp = c.Sp;
   const err = m3FrobeniusI(S);
