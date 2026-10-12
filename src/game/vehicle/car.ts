@@ -449,7 +449,7 @@ export class DeformableCar extends CarParts {
   private integrateWreck(dt: number): void {
     const g = this.group;
     const ms = this.deform.masses;
-    g.updateMatrixWorld(false);
+    g.updateWorldMatrix(false, false);
     _c.copy(wreckCentre(this)).applyMatrix4(g.matrixWorld);
     this.deform.moveRelative(dt, this.velocity, this.angular, _c);
     const toLocal = _m.copy(g.matrixWorld).invert();
@@ -468,7 +468,7 @@ export class DeformableCar extends CarParts {
     this.yaw = g.rotation.y;
     this.pitch = g.rotation.x;
     this.roll = g.rotation.z;
-    g.updateMatrixWorld(false);
+    g.updateWorldMatrix(false, false);
     _c.copy(centre).applyMatrix4(g.matrixWorld);
     for (const m of ms) {
       m.world.copy(m.local).applyMatrix4(g.matrixWorld);
