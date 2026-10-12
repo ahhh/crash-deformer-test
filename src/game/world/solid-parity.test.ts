@@ -141,10 +141,10 @@ describe("given a sedan hitting a flat solid at the clip's 113 km/h and the jers
     const { rest } = strikeSink("stucco", "sedan", CLIP_SPEED);
     assert.ok(rest.mesh <= LEFT_IN, `${rest.mesh.toFixed(3)} m`);
   });
-  // Measured on this lane (sedan, stucco, second hit): the drawn body's deepest reach past the face is 0.279 m today (0.58 m when first measured, the clip's 0.95 m). A
-  // wreck's pose is its masses' (`syncPose`) and a hit makes every car a wreck, so the wreck's own response (`wallBounce` -> `bodyContact`, masses held on
-  // the face, the skin ahead of them) decides it, not the query.
-  it.todo("when a wreck is sent back at 113 km/h into the stucco, then its drawn body never goes more than 5 cm past the face (0.279 m deep today, the clip's 0.95 m: the wreck's pose is derived from its masses; closes in Stage 4 item 6 (wreck split))", () => {
+  // Measured (sedan, stucco, second hit): the drawn body's deepest reach past the face is 0.164 m since the wreck split (0.279 m before it, 0.58 m when
+  // first measured, the clip's 0.95 m). Limiting a slice's wall shoves to one reach in total took it under 5 cm but reshuffled the derby rows (derby.test's
+  // pops todo has the numbers).
+  it.todo("when a wreck is sent back at 113 km/h into the stucco, then its drawn body never goes more than 5 cm past the face (0.164 m deep today, the clip's 0.95 m; after the plan, with the wall shoves of a slice limited in total)", () => {
     const { peak } = strikeSink("stucco", "sedan", CLIP_SPEED, 1);
     assert.ok(peak.mesh <= LEFT_IN, `${peak.mesh.toFixed(3)} m`);
   });
