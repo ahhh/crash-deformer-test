@@ -81,13 +81,15 @@ install -m 644 -o crush -g crush crush.bundle "$ROOT/cache/crush.bundle"  # on t
 Switching back to GitHub is the same edit: `CRUSH_REPO=https://github.com/<owner>/<repo>.git`,
 `CRUSH_BRANCH=main`. The next poll deploys `main` if its commit differs from the live one.
 
-**Package manager.** `crush-deploy.sh` installs with `npm ci`, which needs `package-lock.json`. A
-cutover to another package manager (pnpm, say) that deletes the lockfile must change the install
-line in `deps()` *in the same commit*, and the new script must be installed on the box (step 2)
-before that commit lands on the branch. Otherwise every new commit fails to build: it is marked
-failed and skipped while the old release keeps serving, so nothing visibly breaks and nothing
-deploys. `deps()` skips the install when `package.json`, the lockfile and the node version hash to
-`$ROOT/state/deps-key` (written after a finished install); `rm` that file to force a reinstall.
+**Package manager.** The project is on pnpm (`packageManager` in `package.json`). `crush-deploy.sh`
+runs it through corepack (shipped with Node 24, which downloads the pinned pnpm into the `crush`
+user's cache on first use), as `corepack pnpm install --frozen-lockfile` from an empty
+`node_modules`, then `corepack pnpm run build:node`. A change of package manager must change
+`deps()` *in the same commit*, and the new script must be installed on the box (step 2) before that
+commit lands on the branch: otherwise every new commit fails to build and is skipped while the old
+release keeps serving. `deps()` skips the install when `package.json`, `pnpm-lock.yaml`,
+`pnpm-workspace.yaml` and the node version hash to `$ROOT/state/deps-key` (written after a
+finished install); `rm` that file to force a reinstall.
 
 ## 4. nginx route
 

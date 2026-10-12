@@ -143,18 +143,20 @@ main() {
   done
 }
 
-# npm ci deletes node_modules and fetches everything again, whatever changed. node_modules survives the `git clean`, so
-# an install is skipped when package.json, the lockfile and the node version hash to state/deps-key, which is written
-# only after an install finished and removed before the next one starts (a killed install is never trusted).
+# node_modules survives the `git clean`, so an install is skipped when package.json, the pnpm lockfile and workspace
+# settings and the node version hash to state/deps-key, which is written only after an install finished and removed before
+# the next one starts (a killed install is never trusted). An install starts from an empty node_modules (pnpm aborts, with
+# no terminal, on one another package manager built). pnpm is the project's `packageManager`, fetched by corepack.
 deps() {
   local key
-  key=$(cd src && as_user sh -c 'cat package.json package-lock.json && node -v' | sha256sum)
+  key=$(cd src && as_user sh -c 'cat package.json pnpm-lock.yaml pnpm-workspace.yaml && node -v' | sha256sum)
   if [[ -d src/node_modules && -e state/deps-key && $(<state/deps-key) == "$key" ]]; then
-    log "dependencies unchanged: npm ci skipped"
+    log "dependencies unchanged: pnpm install skipped"
     return 0
   fi
   rm -f state/deps-key
-  (cd src && as_user npm ci --no-audit --no-fund --loglevel=error) && printf '%s\n' "$key" >state/deps-key
+  rm -rf src/node_modules
+  (cd src && as_user COREPACK_ENABLE_DOWNLOAD_PROMPT=0 corepack pnpm install --frozen-lockfile --reporter=silent) && printf '%s\n' "$key" >state/deps-key
 }
 
 build() {
@@ -163,7 +165,7 @@ build() {
     as_user git -C src clean -q -ffdx -e node_modules &&
     deps &&
     log "deps: $((SECONDS - t)) s" &&
-    (cd src && as_user APP_BASE="$base" npm run -s build:node) &&
+    (cd src && as_user APP_BASE="$base" COREPACK_ENABLE_DOWNLOAD_PROMPT=0 corepack pnpm run --silent build:node) &&
     log "build: $((SECONDS - t)) s since checkout" &&
     as_user cp -a src/.output "$rel" &&
     printf '%s\n' "$sha" | as_user tee "$rel/REVISION" >/dev/null

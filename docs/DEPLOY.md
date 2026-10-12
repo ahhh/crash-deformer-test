@@ -87,8 +87,8 @@ One pass of `deploy/crush-deploy.sh`:
    whose last build attempt is still inside its retry wait: exit. This is the whole cost of an idle
    poll.
 3. Defer if the 1-minute load average is at or above the core count.
-4. As the `crush` user: check out the commit, `npm ci` (skipped when `package.json`, the lockfile and
-   the node version are the ones the last finished install used: `state/deps-key`), `npm run build:node`
+4. As the `crush` user: check out the commit, `corepack pnpm install --frozen-lockfile` (skipped when `package.json`,
+   the pnpm lockfile and workspace file and the node version are the ones the last finished install used: `state/deps-key`), `corepack pnpm run build:node`
    with `APP_BASE`, copy `.output` to `releases/<UTC stamp>-<sha>`. The journal logs the seconds each
    phase took.
 5. Start that release on `CRUSH_CHECK_PORT` with an in-memory database. The page and `api/rtc`
