@@ -277,6 +277,7 @@ export class StreamedDeformation extends DeformSolve {
   }
 
   protected solveCages(): void {
+    this.cornerSerial++;
     if (this.mode === "shape") {
       this.solveCagesFromShape();
       return;
@@ -653,6 +654,7 @@ export class StreamedDeformation extends DeformSolve {
     let o = 0;
     // Every number a double: the replay is the sim that recorded it only if its restored state is bit for bit the record's (a
     // 1e-9 m difference between two wedged wrecks becomes decimetres within a second).
+    if (write) this.cornerSerial++;
     o = write ? this.simScalarsIn(buf, o) : this.simScalarsOut(buf, o);
     for (let i = 0; i < this.sensors.length; i++) o = simSensor(buf, o, this.sensors[i]!, write);
     const { vecs, arrays } = this.simBlocks();

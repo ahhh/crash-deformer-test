@@ -159,6 +159,10 @@ export class CrashRecorder {
   private readonly strainBase = new Float32Array(MAX_CARS * CAGES.length);
   private readonly strainPeak = new Float32Array(MAX_CARS * CAGES.length);
   private readonly strainNow = new Float32Array(CAGES.length);
+  /** Per car slot, the last row `readStrain` read, the car it was read from and that car's `cornerSerial` then: the row stands while neither has changed. */
+  private readonly strainRow = new Float32Array(MAX_CARS * CAGES.length);
+  private readonly strainCar: (DeformableCar | null)[] = Array.from({ length: MAX_CARS }, () => null);
+  private readonly strainSerial = new Float64Array(MAX_CARS);
   private tracked = 0;
   /** Last time each car met another (`meet`): a car met within `REHIT_S` is tracked for its crush (`trackCrush`). */
   private readonly carAt = new Float64Array(MAX_CARS);
@@ -255,7 +259,7 @@ export class CrashRecorder {
       const f = s.cars[i]!;
       const car = cars[i]!;
       readCarPose(car, f);
-      this.readStrain(car, this.strainPre, i * CAGES.length);
+      this.readStrain(car, this.strainPre, i * CAGES.length, i);
       // Placed (a respawn, a wake, a put-away, wherever it landed): the replay cannot drive there, so a keyframe is taken at once, and a clip keeps it for this car.
       if (i < prev && car.placements !== this.placed[i]) placed |= 1 << i;
       this.placed[i] = car.placements;
@@ -561,10 +565,24 @@ export class CrashRecorder {
     return w.done().slice();
   }
 
-  /** Car `car`'s cage strains into `out` from `at`: all zero for a car whose body was never crushed (nothing to read). */
-  private readStrain(car: DeformableCar, out: Float32Array, at: number): void {
-    if (!car.deform.massActive) out.fill(0, at, at + CAGES.length);
-    else for (let k = 0; k < CAGES.length; k++) out[at + k] = car.deform.cageStrain(CAGES[k]!.name);
+  /**
+   * Car `car`'s (slot `i`) cage strains into `out` from `at`: all zero for a car whose body was never crushed (nothing to read).
+   * The strains are a function of the cage corners, which move only where `cornerSerial` is bumped: a car whose corners have not moved
+   * since its slot was last read (a wreck at rest, a damaged car driving on) is not measured again.
+   */
+  private readStrain(car: DeformableCar, out: Float32Array, at: number, i: number): void {
+    const L = CAGES.length;
+    if (!car.deform.massActive) {
+      out.fill(0, at, at + L);
+      return;
+    }
+    const row = i * L;
+    if (this.strainCar[i] !== car || this.strainSerial[i] !== car.deform.cornerSerial) {
+      for (let k = 0; k < L; k++) this.strainRow[row + k] = car.deform.cageStrain(CAGES[k]!.name);
+      this.strainCar[i] = car;
+      this.strainSerial[i] = car.deform.cornerSerial;
+    }
+    for (let k = 0; k < L; k++) out[at + k] = this.strainRow[row + k]!;
   }
 
   /**
@@ -594,7 +612,7 @@ export class CrashRecorder {
       if (((watch >>> i) & 1) === 0) continue;
       const o = i * L;
       const fresh = ((this.tracked >>> i) & 1) === 0;
-      this.readStrain(cars[i]!, this.strainNow, 0);
+      this.readStrain(cars[i]!, this.strainNow, 0, i);
       for (let k = 0; k < L; k++) {
         if (fresh) this.strainBase[o + k] = this.strainPeak[o + k] = this.strainPre[o + k]!;
         this.strainPeak[o + k] = Math.max(this.strainPeak[o + k]!, this.strainNow[k]!);

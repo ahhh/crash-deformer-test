@@ -153,6 +153,8 @@ export abstract class DeformRig {
   skinOwed = false;
   /** The sim baked the skin since the car's cage (`DeformableCar.cage`) was last fitted to it: the cage is fitted from that bake. */
   cageDue = true;
+  /** Counts every write of the cage corners (`solveCages`, a `simState` restore, a respawn's `rebuildRunStructures`): a reader that cached something of the corners re-reads when it moves. */
+  cornerSerial = 0;
   /** The next cage fit takes no `REFIT_EPSILON` slack: the crush window's final bake (and a client's net bake) is fitted exactly. Cleared by the fit. */
   cageExact = false;
   /** The sim has baked the masses since the car was set up: until it has, `massPos` and the cluster maps are empty and the body is its rest shape. */
@@ -477,6 +479,7 @@ export abstract class DeformRig {
   /** The per-run structures back to as built, in place: copied from the rig's shared template (`runTemplate`). */
   protected rebuildRunStructures(): void {
     restoreInto(this as unknown as Record<string, unknown>, runTemplate(this.rig));
+    this.cornerSerial++;
   }
 
   /**
