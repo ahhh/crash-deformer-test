@@ -1,0 +1,4993 @@
+1
+00:00:05,490 --> 00:00:06,570
+So, hello everyone.
+
+2
+00:00:06,730 --> 00:00:09,710
+My name is Matthew Harris from Criterion
+Games, and welcome to Vehicle Feel
+
+3
+00:00:09,710 --> 00:00:13,210
+Masterclass, Balancing Arcade
+Accessibility with Simulation Depth.
+
+4
+00:00:13,450 --> 00:00:15,830
+And if you think that's a lot of words to
+fill in one slide, then you're going to
+
+5
+00:00:15,830 --> 00:00:17,010
+love the rest of this presentation.
+
+6
+00:00:19,110 --> 00:00:22,170
+During this talk, I'm going to discuss
+Criterion's vehicle design philosophy and
+
+7
+00:00:22,170 --> 00:00:26,030
+how we build vehicle handling that is both
+intuitive but deep and masterable.
+
+8
+00:00:26,450 --> 00:00:29,130
+This talk isn't a set of hard and fast
+rules to follow to make the perfect
+
+9
+00:00:29,130 --> 00:00:32,630
+vehicle game, as all games are different,
+but it's more a sharing of our processes
+
+10
+00:00:32,630 --> 00:00:35,650
+and guidelines that we follow throughout
+development, with a view to both inform
+
+11
+00:00:35,650 --> 00:00:36,150
+and inspire.
+
+12
+00:00:36,750 --> 00:00:38,930
+Hopefully, you'll find some useful
+learnings whether you're new to vehicle
+
+13
+00:00:38,930 --> 00:00:41,010
+design or if you've just shipped your
+seventh Forza title.
+
+14
+00:00:44,280 --> 00:00:47,020
+So, before I get stuck into the
+presentation, I want to briefly talk about
+
+15
+00:00:47,020 --> 00:00:48,120
+Criterion Games' history.
+
+16
+00:00:48,780 --> 00:00:52,200
+Originally set up in 1993 as Criterion
+Software, Criterion developed the
+
+17
+00:00:52,200 --> 00:00:54,700
+RenderWare engine and started making games
+in order to show it off.
+
+18
+00:00:55,260 --> 00:00:58,600
+Early games such as Trickstyle led on to
+the incredibly popular Burnout franchise
+
+19
+00:00:58,600 --> 00:01:00,980
+and led on to Need for Speed, Hopper Suit
+and Most Wanted.
+
+20
+00:01:02,480 --> 00:01:05,940
+After over a decade of working on racing
+games, we started to lend our vehicle
+
+21
+00:01:05,940 --> 00:01:09,620
+expertise to DICE, where we worked on
+vehicles in Battlefield 1, X-Wing VR
+
+22
+00:01:09,620 --> 00:01:11,860
+Mission, and most recently, Star Wars
+Battlefront 2.
+
+23
+00:01:12,600 --> 00:01:17,420
+As for myself, I joined Criterion five
+years ago on Need for Speed, Most Wanted,
+
+24
+00:01:17,580 --> 00:01:18,960
+and worked on this selection of titles.
+
+25
+00:01:20,860 --> 00:01:23,600
+At Criterion, we encouraged
+cross-discipline skills as much as
+
+26
+00:01:23,600 --> 00:01:24,000
+possible.
+
+27
+00:01:24,240 --> 00:01:28,820
+And so, over my career at Criterion as a
+programmer, I took special interest in
+
+28
+00:01:28,820 --> 00:01:31,300
+game feel, particularly in the design of
+vehicle handling.
+
+29
+00:01:31,620 --> 00:01:34,680
+This proved incredibly useful as
+understanding how to tune in and design
+
+30
+00:01:34,680 --> 00:01:37,500
+great vehicle handling as a programmer
+meant that I could work closely with our
+
+31
+00:01:37,500 --> 00:01:39,400
+designers to deliver great game feel.
+
+32
+00:01:39,620 --> 00:01:41,980
+And that's why I'm a programmer standing
+here giving a design talk.
+
+33
+00:01:44,160 --> 00:01:45,820
+Okay, so what am I actually going to talk
+about today?
+
+34
+00:01:46,220 --> 00:01:48,860
+As you might guess from my background,
+this is going to be a technical design
+
+35
+00:01:48,860 --> 00:01:52,140
+talk, and it's aimed at taking you through
+the key parts of Criterion's vehicle
+
+36
+00:01:52,140 --> 00:01:52,980
+design philosophy.
+
+37
+00:01:53,980 --> 00:01:57,000
+Along the way, I'm going to talk about the
+key differences between arcade and
+
+38
+00:01:57,000 --> 00:02:00,760
+simulation games, and how each type
+bounces accessibility with mastery and
+
+39
+00:02:00,760 --> 00:02:01,060
+depth.
+
+40
+00:02:02,140 --> 00:02:05,420
+Then I'll move on to the simulation
+itself, and discuss our physicality-first
+
+41
+00:02:05,420 --> 00:02:08,460
+approach to designing vehicles,
+and how to identify where the play in our
+
+42
+00:02:08,460 --> 00:02:09,280
+vehicles comes from.
+
+43
+00:02:10,400 --> 00:02:14,120
+After setting up a physical simulation,
+we add accessibility through the input
+
+44
+00:02:14,120 --> 00:02:17,400
+layer on our assists, which are critical
+to providing accessibility without
+
+45
+00:02:17,400 --> 00:02:18,220
+reducing depth.
+
+46
+00:02:19,840 --> 00:02:22,920
+Once the vehicle is controllable and
+satisfying, we need to feedback the
+
+47
+00:02:22,920 --> 00:02:25,780
+vehicle's handling via the camera,
+and I'll talk through some key concepts we
+
+48
+00:02:25,780 --> 00:02:26,180
+use here.
+
+49
+00:02:27,740 --> 00:02:30,320
+Throughout the majority of the talk,
+I'll be using motorsport racing as the
+
+50
+00:02:30,320 --> 00:02:32,740
+context, as it provides a great variety of
+examples.
+
+51
+00:02:33,040 --> 00:02:35,480
+However, in the final section,
+I'm going to show how our design
+
+52
+00:02:35,480 --> 00:02:38,980
+philosophy can apply to a very different
+type of vehicle than Starfighters in Star
+
+53
+00:02:38,980 --> 00:02:39,680
+Wars Battlefront 2.
+
+54
+00:02:40,380 --> 00:02:43,020
+One important thing to note here is that
+the whole talk is focused around the
+
+55
+00:02:43,020 --> 00:02:44,180
+handling side of game feel.
+
+56
+00:02:44,720 --> 00:02:49,000
+Things like audio, VFX, sense of speed,
+and force feedback are very important to
+
+57
+00:02:49,000 --> 00:02:51,440
+game feel, but you could probably do
+entire presentations on those,
+
+58
+00:02:51,540 --> 00:02:52,620
+so I won't be talking about those today.
+
+59
+00:02:55,000 --> 00:02:57,460
+Let's start with a discussion on arcade
+versus simulation.
+
+60
+00:02:58,820 --> 00:03:02,140
+When thinking about the term arcade,
+I don't mean a game genre like top-down
+
+61
+00:03:02,140 --> 00:03:03,400
+shooters such as Geometry Wars.
+
+62
+00:03:03,400 --> 00:03:06,920
+I'm talking about a particular set of game
+design decisions that lead to a particular
+
+63
+00:03:06,920 --> 00:03:07,700
+arcade feel.
+
+64
+00:03:08,400 --> 00:03:11,800
+Games that have an arcadey feel tend to
+focus on intuitive controls that are
+
+65
+00:03:11,800 --> 00:03:15,140
+readily apparent to the player,
+make compromises on realism for the sake
+
+66
+00:03:15,140 --> 00:03:18,580
+of fun, and often have a multitude of game
+mechanics that the player is trying to
+
+67
+00:03:18,580 --> 00:03:19,560
+balance against each other.
+
+68
+00:03:20,640 --> 00:03:23,180
+Simulation games, on the other hand,
+are trying to replicate a real-world
+
+69
+00:03:23,180 --> 00:03:26,520
+experience, and so tend to have a control
+system that's about immersiveness first,
+
+70
+00:03:26,780 --> 00:03:30,080
+and aims for a high degree of realism and
+believability from its gameplay and
+
+71
+00:03:30,080 --> 00:03:30,460
+handling.
+
+72
+00:03:31,600 --> 00:03:34,560
+Simulation games tend to have fewer game
+mechanics than arcade games, as they tend
+
+73
+00:03:34,560 --> 00:03:37,620
+to focus their gameplay around controlling
+a realistic vehicle, rather than one with
+
+74
+00:03:37,620 --> 00:03:38,320
+weapons and boost.
+
+75
+00:03:40,500 --> 00:03:43,600
+Different design decisions can lead to a
+more arcade or simulation feel for your
+
+76
+00:03:43,600 --> 00:03:46,320
+game, so in the next slide I'm going to
+try putting a selection of motorsport
+
+77
+00:03:46,320 --> 00:03:48,760
+games on a sliding scale between arcade
+and simulation.
+
+78
+00:03:49,840 --> 00:03:52,720
+Let's start at the simulation end of the
+spectrum with games such as Forza Horizon,
+
+79
+00:03:53,340 --> 00:03:55,140
+regular Forza, and iRacing.
+
+80
+00:03:56,580 --> 00:03:59,640
+These games are focused towards delivering
+a realistic simulation of motorsport,
+
+81
+00:03:59,740 --> 00:04:02,760
+with their gameplay entirely around racing
+lines, cornering, and drafting.
+
+82
+00:04:03,440 --> 00:04:06,980
+They tend to have most of their assists
+off by default, but will often give the
+
+83
+00:04:06,980 --> 00:04:10,400
+user the option to turn on accessibility
+options, such as help with braking or
+
+84
+00:04:10,400 --> 00:04:10,740
+steering.
+
+85
+00:04:12,220 --> 00:04:15,060
+Simulation games tend to end up with quite
+a high learning curve, but are very
+
+86
+00:04:15,060 --> 00:04:16,940
+rewarding for players who put in the time
+to master them.
+
+87
+00:04:19,080 --> 00:04:22,600
+As we move towards arcade-style games,
+we have a subcategory in the middle of
+
+88
+00:04:22,600 --> 00:04:26,560
+Simcade, which are where hybrid games such
+as Forza Horizon and Need for Speed live.
+
+89
+00:04:28,340 --> 00:04:31,640
+These examples aim for a Hollywood realism
+tone, where things are a bit more over the
+
+90
+00:04:31,640 --> 00:04:33,440
+top, but still within the realms of real
+life.
+
+91
+00:04:34,280 --> 00:04:37,720
+Players are doing exaggerated drifts and
+massive jumps, putting cars from real
+
+92
+00:04:37,720 --> 00:04:38,280
+manufacturers.
+
+93
+00:04:39,520 --> 00:04:42,920
+There are often additional challenges
+added on top of racing in Simcade games,
+
+94
+00:04:42,920 --> 00:04:47,420
+such as extreme weather in Forza Horizon,
+or weapons and cop chases in Need for
+
+95
+00:04:47,420 --> 00:04:47,720
+Speed.
+
+96
+00:04:50,560 --> 00:04:54,300
+Finally, we get to the arcade-style races,
+which tend to go for a heavily stylized or
+
+97
+00:04:54,300 --> 00:04:55,460
+even cartoonish tone.
+
+98
+00:04:56,320 --> 00:04:59,280
+Arcade-style races tend to have a large
+variety of game mechanics, such as
+
+99
+00:04:59,280 --> 00:05:02,680
+drifting, boosting, stunts, and weapons,
+in which the players have to learn in
+
+100
+00:05:02,680 --> 00:05:03,460
+addition to racing.
+
+101
+00:05:04,840 --> 00:05:07,860
+For this reason, the racing gameplay tends
+to be quite accessible for new players,
+
+102
+00:05:08,000 --> 00:05:10,560
+but still provides plenty of depth for
+players who really want to get the most
+
+103
+00:05:10,560 --> 00:05:11,100
+out of the game.
+
+104
+00:05:13,860 --> 00:05:17,760
+So when comparing arcade and simulation,
+the arcade-style races have a variety of
+
+105
+00:05:17,760 --> 00:05:20,680
+gameplay mechanics on top of cornering and
+speed management, such as weapons,
+
+106
+00:05:20,840 --> 00:05:21,520
+stunts, and boosting.
+
+107
+00:05:22,300 --> 00:05:26,080
+Simulation races have fewer mechanics for
+the player to focus on, but have a
+
+108
+00:05:26,080 --> 00:05:29,120
+simulation focus towards realism,
+and their aim is to make cornering and
+
+109
+00:05:29,120 --> 00:05:30,500
+racing as satisfying as possible.
+
+110
+00:05:32,360 --> 00:05:35,540
+Arcade is generally more accessible and
+fun, whereas simulation is harder to get
+
+111
+00:05:35,540 --> 00:05:39,260
+into, but offers a more serious take on
+racing competition.
+
+112
+00:05:41,260 --> 00:05:44,640
+One key thing that is consistent across
+all these games is that the player has to
+
+113
+00:05:44,640 --> 00:05:46,360
+input controls at a satisfying cadence.
+
+114
+00:05:46,760 --> 00:05:49,940
+The actions per minute for simulation
+games and arcade games are actually pretty
+
+115
+00:05:49,940 --> 00:05:50,400
+comparable.
+
+116
+00:05:50,900 --> 00:05:54,140
+For a simulation game, the player focuses
+all their attention on their racing line,
+
+117
+00:05:54,420 --> 00:05:57,180
+trying to tap, brake, and turn at just the
+right intervals to nail that corner.
+
+118
+00:05:57,180 --> 00:06:01,260
+Whereas in an arcade game, the player
+divides their attention between drifting
+
+119
+00:06:01,260 --> 00:06:03,740
+around corners, but also boosting and
+firing weapons.
+
+120
+00:06:04,420 --> 00:06:07,380
+Although some people might see
+arcade-style races as casual and simple,
+
+121
+00:06:07,620 --> 00:06:11,300
+in fact, they have a wider variety of game
+challenges for the player to focus on than
+
+122
+00:06:11,300 --> 00:06:12,140
+in simulation games.
+
+123
+00:06:15,300 --> 00:06:17,660
+So when deciding where on this scale
+you're aiming for your game to be,
+
+124
+00:06:17,780 --> 00:06:19,100
+you should consider a number of factors.
+
+125
+00:06:20,220 --> 00:06:22,140
+What sort of players are you targeting
+your game at?
+
+126
+00:06:22,620 --> 00:06:25,360
+Are they serious sports fans that demand
+realism, or are your players more
+
+127
+00:06:25,360 --> 00:06:26,420
+interested in fantasy fulfillment?
+
+128
+00:06:28,100 --> 00:06:30,020
+How serious and realistic is your game
+tone?
+
+129
+00:06:31,860 --> 00:06:34,500
+If you're planning on having lots of
+mechanics such as boosts and weapons,
+
+130
+00:06:34,740 --> 00:06:36,920
+then you'll likely fall more on the arcade
+side of the spectrum.
+
+131
+00:06:39,060 --> 00:06:42,240
+Balance the number of mechanics and
+complexity of the simulation against your
+
+132
+00:06:42,240 --> 00:06:44,960
+assists, in order to achieve a sensible
+rate of actions per minute.
+
+133
+00:06:46,920 --> 00:06:49,100
+How much effort do you want to spend on
+your physical simulation?
+
+134
+00:06:49,500 --> 00:06:52,600
+If you can't put much time into physical
+simulation, but you're trying to build a
+
+135
+00:06:52,600 --> 00:06:55,580
+realistic motorsport simulator,
+then you might end up with boring and
+
+136
+00:06:55,580 --> 00:06:56,100
+shallow gameplay.
+
+137
+00:06:57,880 --> 00:07:01,060
+Do you want your game to be accessible by
+lots of players, or are you focused on an
+
+138
+00:07:01,060 --> 00:07:02,040
+experienced target market?
+
+139
+00:07:02,360 --> 00:07:05,720
+If you're building an arcade or simcade
+racer, you'll likely need some assists to
+
+140
+00:07:05,720 --> 00:07:07,760
+help keep the input frequency at
+satisfying levels.
+
+141
+00:07:09,220 --> 00:07:12,520
+Once again, these aren't hard and fast
+rules, but you should have a strong idea
+
+142
+00:07:12,520 --> 00:07:13,660
+of where you want to sit on this spectrum.
+
+143
+00:07:14,180 --> 00:07:16,820
+Don't try and have it all, otherwise you
+risk building an overly demanding and
+
+144
+00:07:16,820 --> 00:07:17,400
+complex game.
+
+145
+00:07:20,080 --> 00:07:22,880
+At Criterion, our approach has been to
+combine what we see as the best of both
+
+146
+00:07:22,880 --> 00:07:24,280
+worlds between arcade and simulation.
+
+147
+00:07:24,800 --> 00:07:28,360
+We start with physicality and build a
+realistic, physically-based simulation.
+
+148
+00:07:28,960 --> 00:07:31,820
+Then we build assists on top of that,
+which makes the simulation more
+
+149
+00:07:31,820 --> 00:07:34,660
+accessible, and allows the player to focus
+on more things at once.
+
+150
+00:07:35,560 --> 00:07:39,580
+Our designers then very carefully balance
+physicality and accessibility in order to
+
+151
+00:07:39,580 --> 00:07:43,460
+get a balanced experience that hits our
+aim of easy to learn but hard to master.
+
+152
+00:07:44,300 --> 00:07:46,880
+Criterion has used this type of approach
+since Need for Speed Hot Pursuit,
+
+153
+00:07:46,960 --> 00:07:48,260
+and it's worked well for us ever since.
+
+154
+00:07:51,910 --> 00:07:54,330
+Okay, so the next part of the vehicle
+design philosophy that I'm going to talk
+
+155
+00:07:54,330 --> 00:07:56,490
+about is the physical simulation of the
+vehicle.
+
+156
+00:08:05,410 --> 00:08:09,350
+So, we see the physical simulation as the
+foundation that allows us to build a game
+
+157
+00:08:09,350 --> 00:08:10,990
+with deep mastery and rewarding challenge.
+
+158
+00:08:11,690 --> 00:08:14,370
+In this section, I'm going to start by
+talking about how the context of our game
+
+159
+00:08:14,370 --> 00:08:17,550
+affects the elements we might want to
+simulate, and then go on to compare
+
+160
+00:08:17,550 --> 00:08:20,950
+different physical simulations of car
+dynamics by using approaches that mimic
+
+161
+00:08:20,950 --> 00:08:22,170
+real-world physical effects.
+
+162
+00:08:22,710 --> 00:08:25,770
+We ideally want to pick parts of the
+simulation that will add play to the
+
+163
+00:08:25,770 --> 00:08:28,690
+handling, giving the player multiple
+things to balance and learn in order to
+
+164
+00:08:28,690 --> 00:08:29,410
+achieve their goal.
+
+165
+00:08:31,710 --> 00:08:34,690
+Before starting work on your physical
+simulation, it's important to consider
+
+166
+00:08:34,690 --> 00:08:35,470
+your game context.
+
+167
+00:08:35,910 --> 00:08:39,070
+This is because we see the context as a
+set of requirements on your physical
+
+168
+00:08:39,070 --> 00:08:39,590
+simulation.
+
+169
+00:08:40,250 --> 00:08:43,010
+Think about if your environment is wide
+open or enclosed.
+
+170
+00:08:43,390 --> 00:08:45,710
+How might this affect the desired behavior
+of a vehicle?
+
+171
+00:08:46,630 --> 00:08:49,390
+Also consider what the player's goal is
+when driving the vehicle.
+
+172
+00:08:49,830 --> 00:08:53,270
+Are they racing, performing stunts,
+or are they just trying to get from A to
+
+173
+00:08:53,270 --> 00:08:53,470
+B?
+
+174
+00:08:53,910 --> 00:08:56,970
+If getting from A to B needs to be a
+challenge, then maybe your game is about
+
+175
+00:08:56,970 --> 00:08:57,990
+complex traversal.
+
+176
+00:09:01,840 --> 00:09:04,520
+Here's an example of a racing sim,
+Forza Motorsport.
+
+177
+00:09:04,520 --> 00:09:08,660
+The vehicle is on a wide road and will
+encounter long, curved turns, and the
+
+178
+00:09:08,660 --> 00:09:11,660
+player wants to win the race through
+precision driving through corners and
+
+179
+00:09:11,660 --> 00:09:12,860
+drafting behind other racers.
+
+180
+00:09:15,620 --> 00:09:18,380
+On the other side of the racing spectrum,
+we've got something like Burnout,
+
+181
+00:09:18,560 --> 00:09:21,880
+which is set mainly on urban roads with
+some tight turns and some jumps to
+
+182
+00:09:21,880 --> 00:09:22,200
+navigate.
+
+183
+00:09:22,680 --> 00:09:25,700
+The player could be racing against other
+vehicles, or could be doing stunts to win
+
+184
+00:09:25,700 --> 00:09:26,440
+a score attack mode.
+
+185
+00:09:26,440 --> 00:09:29,800
+There's still a focus on cornering here,
+but also on boosting and stunts.
+
+186
+00:09:32,580 --> 00:09:34,860
+Destiny's Sparrow is a great example of a
+transport vehicle.
+
+187
+00:09:35,180 --> 00:09:38,480
+It's primarily designed to go across open
+terrain, but the player will often pilot
+
+188
+00:09:38,480 --> 00:09:40,800
+it down narrow corridors, so it needs to
+deal with both.
+
+189
+00:09:41,320 --> 00:09:44,400
+The main player intention here is to get
+to their target without colliding and
+
+190
+00:09:44,400 --> 00:09:47,140
+slowing down too much, but it's lower
+pressure than the previous examples.
+
+191
+00:09:49,680 --> 00:09:53,300
+In Uncharted, the Jeep provides some light
+puzzle mechanics when trying to navigate
+
+192
+00:09:53,300 --> 00:09:54,300
+up rookie mod slides.
+
+193
+00:09:54,720 --> 00:09:57,420
+And the challenge to the player is in
+picking an effective route up the mudslide
+
+194
+00:09:57,420 --> 00:09:59,400
+while trying to keep the tires in a state
+of grip.
+
+195
+00:10:01,840 --> 00:10:04,000
+Each context has its own requirements from
+the vehicle.
+
+196
+00:10:04,640 --> 00:10:07,540
+If we change the context, we should
+re-evaluate the vehicle and see if it
+
+197
+00:10:07,540 --> 00:10:08,240
+still suits it.
+
+198
+00:10:09,020 --> 00:10:12,440
+One example of this would be the Sparrow
+in Destiny, which I really enjoyed driving
+
+199
+00:10:12,440 --> 00:10:15,760
+as a transport vehicle, but when they
+introduced Sparrow racing, I didn't feel
+
+200
+00:10:15,760 --> 00:10:17,520
+like the vehicle lent itself to racing
+very well.
+
+201
+00:10:17,800 --> 00:10:20,860
+As a timed special event, this was fine,
+but if they wanted to build more of the
+
+202
+00:10:20,860 --> 00:10:23,360
+game around racing, I'd hope that they
+would retune the vehicle to fit that
+
+203
+00:10:23,360 --> 00:10:23,720
+context.
+
+204
+00:10:26,120 --> 00:10:29,440
+During production, it's also easy to
+forget about updating a vehicle if the
+
+205
+00:10:29,440 --> 00:10:32,240
+context shifts during development,
+particularly if that vehicle has shipped
+
+206
+00:10:32,240 --> 00:10:32,600
+before.
+
+207
+00:10:33,360 --> 00:10:36,940
+We built the speeder bike for Star Wars
+Battlefront 1, and because it shipped in
+
+208
+00:10:36,940 --> 00:10:39,820
+that game, we made the assumption that it
+wouldn't take too much more work for Star
+
+209
+00:10:39,820 --> 00:10:40,540
+Wars Battlefront 2.
+
+210
+00:10:40,900 --> 00:10:44,380
+However, the new game's map topography,
+coupled with some tech debt, ended up
+
+211
+00:10:44,380 --> 00:10:46,240
+meaning we had to rework it entirely for
+the sequel.
+
+212
+00:10:47,080 --> 00:10:50,180
+Vehicle and environment are complementary
+to each other, and changing one may
+
+213
+00:10:50,180 --> 00:10:51,140
+require changing the other.
+
+214
+00:10:53,560 --> 00:10:56,620
+So, for this next part of the talk,
+I'm going to use motorsport racing as a
+
+215
+00:10:56,620 --> 00:10:57,000
+context.
+
+216
+00:10:57,380 --> 00:11:00,860
+Although my examples could apply to all
+racing games, let's think of this as
+
+217
+00:11:00,860 --> 00:11:04,420
+somewhere on the SimK part of the
+spectrum, such as Forza Horizon or Need
+
+218
+00:11:04,420 --> 00:11:04,800
+for Speed.
+
+219
+00:11:05,720 --> 00:11:09,440
+There's an expectation from this context
+for realism, so we need our simulation to
+
+220
+00:11:09,440 --> 00:11:12,720
+be based off of real physical effects,
+and allow the player to play with grip and
+
+221
+00:11:12,720 --> 00:11:13,200
+acceleration.
+
+222
+00:11:13,720 --> 00:11:17,220
+There needs to be enough depth to the
+simulation for each vehicle to accelerate
+
+223
+00:11:17,220 --> 00:11:20,660
+and turn differently, so our simulation
+needs to be detailed enough to support
+
+224
+00:11:20,660 --> 00:11:21,300
+this accurately.
+
+225
+00:11:22,280 --> 00:11:25,200
+There's an added benefit that if we use a
+realistic physical simulation,
+
+226
+00:11:25,460 --> 00:11:29,100
+we should be able to use real-world tuning
+data, such as engine or tire metrics,
+
+227
+00:11:29,360 --> 00:11:31,040
+as a starting point for tuning our
+vehicles.
+
+228
+00:11:33,980 --> 00:11:37,200
+Let's start with a trivially simple model
+in order to illustrate why detailed
+
+229
+00:11:37,200 --> 00:11:38,100
+physics models are needed.
+
+230
+00:11:38,380 --> 00:11:41,500
+This is so basic that very few gains would
+be served well by this physical model.
+
+231
+00:11:42,260 --> 00:11:46,380
+It uses a simple frictionless rigid body
+with a single force and torque applied at
+
+232
+00:11:46,380 --> 00:11:47,460
+the centre of mass to move it.
+
+233
+00:11:48,380 --> 00:11:52,060
+The result is vehicle motion that is flat,
+unrealistic, and not enjoyable or
+
+234
+00:11:52,060 --> 00:11:52,820
+interesting to drive.
+
+235
+00:11:53,100 --> 00:11:56,340
+It's very abstract in the way the forces
+are simulated, so we should take some
+
+236
+00:11:56,340 --> 00:11:58,660
+inspiration from real-world vehicles in
+order to improve it.
+
+237
+00:12:01,180 --> 00:12:03,980
+In the following slides, I'm going to go
+through how a more complex physical
+
+238
+00:12:03,980 --> 00:12:06,320
+simulation could improve the physicality
+of our vehicle.
+
+239
+00:12:06,920 --> 00:12:09,460
+I'll start by looking at a list of
+real-world systems for motorsport
+
+240
+00:12:09,460 --> 00:12:12,100
+vehicles, and then I'll pick a couple of
+those to go into in more depth.
+
+241
+00:12:13,100 --> 00:12:15,460
+We'll look at the powertrain and also tire
+friction.
+
+242
+00:12:16,980 --> 00:12:20,860
+Finally, I'll conclude this section with
+some footage from Need for Speed Most
+
+243
+00:12:20,860 --> 00:12:23,380
+Wanted in order to show off physicality in
+a shipped game.
+
+244
+00:12:26,220 --> 00:12:29,200
+So, here are a handful of real-world
+systems that we might want to simulate to
+
+245
+00:12:29,200 --> 00:12:30,900
+add more physicality in play to our
+vehicle.
+
+246
+00:12:30,900 --> 00:12:34,880
+This is an exhaustive list, but it should
+give you an idea of the sort of physical
+
+247
+00:12:34,880 --> 00:12:36,200
+effects you might want to consider.
+
+248
+00:12:36,660 --> 00:12:39,360
+In the following slides, I'm going to go
+through engine, transmission, and tire
+
+249
+00:12:39,360 --> 00:12:39,680
+friction.
+
+250
+00:12:40,880 --> 00:12:44,180
+The engine and transmission are key parts
+of the powertrain, so I'm going to refer
+
+251
+00:12:44,180 --> 00:12:45,820
+to them collectively as a powertrain
+system.
+
+252
+00:12:48,100 --> 00:12:50,600
+Let's look at an element that we would
+like for our complex physical model,
+
+253
+00:12:50,800 --> 00:12:51,440
+the powertrain.
+
+254
+00:12:51,880 --> 00:12:55,600
+The purpose of the powertrain is to
+transmit energy from the engine into the
+
+255
+00:12:55,600 --> 00:12:55,880
+wheels.
+
+256
+00:12:56,620 --> 00:13:00,680
+In this case, the engine provides energy
+to the clutch, which passes it through to
+
+257
+00:13:00,680 --> 00:13:03,000
+the transmission, and then to the
+differential in wheels.
+
+258
+00:13:03,600 --> 00:13:06,580
+At first glance, you might think that we
+could just tell the wheels to start
+
+259
+00:13:06,580 --> 00:13:08,800
+turning at a set speed, and we get the
+same result.
+
+260
+00:13:09,220 --> 00:13:11,260
+However, the powertrain has an important
+quality.
+
+261
+00:13:11,480 --> 00:13:12,680
+It is a feedback loop.
+
+262
+00:13:13,160 --> 00:13:16,700
+The engine provides torque to the wheels,
+however, the wheels will resist movement.
+
+263
+00:13:16,920 --> 00:13:19,840
+Not just because the wheel itself has
+inertia, but because the wheel is in
+
+264
+00:13:19,840 --> 00:13:22,740
+contact with the ground and needs to
+overcome the inertia of the whole vehicle
+
+265
+00:13:22,740 --> 00:13:24,700
+before it starts to rotate at an optimal
+speed.
+
+266
+00:13:25,160 --> 00:13:27,900
+So we get resistance feedback through the
+whole powertrain.
+
+267
+00:13:29,280 --> 00:13:32,660
+This means that some of the energy is used
+to overcome this inertia, affecting the
+
+268
+00:13:32,660 --> 00:13:35,440
+amount of energy that is actually used to
+drive the vehicle forward.
+
+269
+00:13:37,900 --> 00:13:41,600
+So if we decide to model these parts of a
+car, we should look into each piece and
+
+270
+00:13:41,600 --> 00:13:43,160
+see what we might want to put into our
+simulation.
+
+271
+00:13:43,920 --> 00:13:47,160
+For example, your engine simulation could
+need authorable torque at different
+
+272
+00:13:47,160 --> 00:13:50,860
+operating RPM, as well as the inertia of
+the engine itself and supporting that
+
+273
+00:13:50,860 --> 00:13:52,520
+feedback mechanism that we just talked
+about.
+
+274
+00:13:53,140 --> 00:13:56,500
+Your clutch might want different operating
+efficiencies at different RPM.
+
+275
+00:13:56,980 --> 00:14:00,420
+Your transmission could simulate numerous
+different gear setups and how long it
+
+276
+00:14:00,420 --> 00:14:01,440
+takes to change between them.
+
+277
+00:14:02,220 --> 00:14:05,680
+Finally, your tires should apply force in
+a realistic manner via tire friction,
+
+278
+00:14:05,720 --> 00:14:06,520
+which I'll go into later.
+
+279
+00:14:09,200 --> 00:14:11,780
+So we've gone away and implemented an
+improved powertrain.
+
+280
+00:14:11,920 --> 00:14:13,700
+So let's look at what that actually gets
+us.
+
+281
+00:14:14,000 --> 00:14:17,780
+Let's compare the simple model with the
+new complex powertrain version using speed
+
+282
+00:14:17,780 --> 00:14:18,600
+over time graphs.
+
+283
+00:14:19,520 --> 00:14:22,580
+On the left, we have the simple model,
+which has a very uniform acceleration
+
+284
+00:14:22,580 --> 00:14:23,140
+profile.
+
+285
+00:14:24,140 --> 00:14:27,280
+Comparing that to the more complex
+powertrain, we overall see a more curved
+
+286
+00:14:27,280 --> 00:14:31,220
+acceleration profile, indicating that we
+get more acceleration at the beginning of
+
+287
+00:14:31,220 --> 00:14:33,160
+takeoff than we do when we're nearing top
+speed.
+
+288
+00:14:34,560 --> 00:14:37,480
+You'll also note that there are small
+bumps in the graph which represent the
+
+289
+00:14:37,480 --> 00:14:38,140
+gear changes.
+
+290
+00:14:38,620 --> 00:14:41,840
+Due to the simulation of the transmission,
+we have multiple gears that are more
+
+291
+00:14:41,840 --> 00:14:45,240
+effective at providing acceleration at the
+lower of their working speed range and
+
+292
+00:14:45,240 --> 00:14:48,240
+then starts to tail off as the vehicle's
+speed approaches the next gear's working
+
+293
+00:14:48,240 --> 00:14:48,700
+range.
+
+294
+00:14:49,740 --> 00:14:52,840
+Even just looking at a vehicle driving in
+a straight line, the simulation has added
+
+295
+00:14:52,840 --> 00:14:55,780
+much more complexity and interesting
+physicality than the simple model.
+
+296
+00:14:56,740 --> 00:14:59,180
+Next up, let's have a look at another
+system, tire friction.
+
+297
+00:15:01,000 --> 00:15:04,820
+So looking at this diagram, we have the
+wheel hub with hub cap for illustration in
+
+298
+00:15:04,820 --> 00:15:06,860
+the center and the rubber tire around the
+outside.
+
+299
+00:15:07,580 --> 00:15:10,620
+The section at the bottom of the tire is
+slightly flattened under the load of the
+
+300
+00:15:10,620 --> 00:15:12,380
+vehicle and it's called the contact patch.
+
+301
+00:15:13,140 --> 00:15:16,440
+The blue lines represent the tread and
+wall of the tire and we'll show how it
+
+302
+00:15:16,440 --> 00:15:17,780
+deforms as the wheel moves forward.
+
+303
+00:15:18,640 --> 00:15:22,340
+The green dot is a specific point on the
+wheel hub and the red point is the
+
+304
+00:15:22,340 --> 00:15:25,020
+corresponding point where the tire touches
+the ground via the contact patch.
+
+305
+00:15:26,720 --> 00:15:30,280
+Now as the wheel hub rotates clockwise,
+if we look at the green point on the hub,
+
+306
+00:15:30,440 --> 00:15:31,460
+it's moved a small amount.
+
+307
+00:15:32,260 --> 00:15:35,640
+This means that the wall and tread of the
+tire stretches between the green and red
+
+308
+00:15:35,640 --> 00:15:36,040
+points.
+
+309
+00:15:36,500 --> 00:15:39,860
+The elastic force of the rubber tire now
+tries to spring back into its rest
+
+310
+00:15:39,860 --> 00:15:43,480
+position, moving the red point on the tyre
+surface towards the left, even though it
+
+311
+00:15:43,480 --> 00:15:44,540
+remains in contact with the ground.
+
+312
+00:15:44,840 --> 00:15:48,260
+This applies an equal force back onto the
+wheel hub, which pushes the whole vehicle
+
+313
+00:15:48,260 --> 00:15:48,920
+forward slightly.
+
+314
+00:15:49,520 --> 00:15:53,000
+This happens continually until the vehicle
+is travelling in a speed which matches the
+
+315
+00:15:53,000 --> 00:15:54,260
+rotational velocity of the tyre.
+
+316
+00:15:55,880 --> 00:15:58,100
+Now that we understand the physical
+behaviour we are trying to simulate,
+
+317
+00:15:58,340 --> 00:15:59,440
+we need a simulation model.
+
+318
+00:15:59,960 --> 00:16:02,640
+The dynamics of how much force is applied
+under what conditions is incredibly
+
+319
+00:16:02,640 --> 00:16:05,260
+complex, and there are many models that
+can be used to simulate it.
+
+320
+00:16:05,600 --> 00:16:07,380
+In this case, I'm going to use the Pacheco
+model.
+
+321
+00:16:08,760 --> 00:16:12,200
+In the Pacheco model, the formula takes
+the rotation speed of the wheel and
+
+322
+00:16:12,200 --> 00:16:13,360
+relative velocity of the road.
+
+323
+00:16:13,780 --> 00:16:17,180
+The slip angle is the angle between the
+direction of the ground velocity and the
+
+324
+00:16:17,180 --> 00:16:18,040
+direction of the wheel hub.
+
+325
+00:16:18,500 --> 00:16:20,660
+The Pacheco formula produces two forces.
+
+326
+00:16:21,000 --> 00:16:24,340
+The longitudinal force, which drives the
+vehicle forward, and the lateral force,
+
+327
+00:16:24,440 --> 00:16:25,200
+which turns the vehicle.
+
+328
+00:16:26,560 --> 00:16:29,900
+During acceleration, the road speed is
+lower than the wheel speed, so we get
+
+329
+00:16:29,900 --> 00:16:32,600
+longitudinal slip, which maps to a
+particular force in this graph.
+
+330
+00:16:33,220 --> 00:16:36,340
+The right-hand side is when the vehicle is
+accelerating, and the left-hand side is
+
+331
+00:16:36,340 --> 00:16:36,780
+when it's braking.
+
+332
+00:16:39,420 --> 00:16:42,940
+This red graph is the lateral force
+applied under a particular slip angle,
+
+333
+00:16:43,160 --> 00:16:45,520
+so it represents the turning force applied
+during cornering.
+
+334
+00:16:46,340 --> 00:16:49,520
+What's interesting about these graphs is
+that each of them has a peak, which is
+
+335
+00:16:49,520 --> 00:16:52,020
+where the most effective acceleration or
+cornering behaviour is found.
+
+336
+00:16:52,820 --> 00:16:56,240
+This is what gives us the effect of
+playing with the limits of grip.
+
+337
+00:16:56,600 --> 00:16:58,960
+This means that the player has to try and
+hit these peaks in order to be as
+
+338
+00:16:58,960 --> 00:17:00,400
+effective as possible during a race.
+
+339
+00:17:00,800 --> 00:17:03,380
+This adds a lot of depth and mastery,
+but let's look at what this actually
+
+340
+00:17:03,380 --> 00:17:03,940
+results in.
+
+341
+00:17:05,800 --> 00:17:08,700
+So let's have a look at how the physical
+simulation ends up looking in the final
+
+342
+00:17:08,700 --> 00:17:08,960
+game.
+
+343
+00:17:09,380 --> 00:17:12,320
+Pay close attention to the way the chassis
+of the vehicle rocks back and forth during
+
+344
+00:17:12,320 --> 00:17:14,440
+gear changes due to the simulation of the
+drivetrain.
+
+345
+00:17:14,840 --> 00:17:18,200
+Watch how the body rolls to the side
+during corners due to the simulation of
+
+346
+00:17:18,200 --> 00:17:19,260
+tyre friction and suspension.
+
+347
+00:17:19,760 --> 00:17:23,460
+The depth of the simulation shows through
+and gives the player precise control and
+
+348
+00:17:23,460 --> 00:17:24,460
+physical play to master.
+
+349
+00:17:49,680 --> 00:17:52,720
+So, now that we have our physical
+simulation sorted and we've got an
+
+350
+00:17:52,720 --> 00:17:56,160
+accurate, deep simulation of the desired
+vehicle, we should look at input and
+
+351
+00:17:56,160 --> 00:17:59,580
+assists in order to give the game the feel
+we want and get the balance between arcade
+
+352
+00:17:59,580 --> 00:18:00,800
+and simulation that we're aiming for.
+
+353
+00:18:01,280 --> 00:18:04,520
+In this section, I'm going to talk through
+drifting, which in case you didn't know,
+
+354
+00:18:04,680 --> 00:18:07,980
+is where we force the rear wheels of a
+tyre to break traction so the vehicle
+
+355
+00:18:07,980 --> 00:18:10,820
+drifts sideways in order to maintain
+momentum whilst in a turn.
+
+356
+00:18:11,360 --> 00:18:13,880
+Drifting is something that is possible but
+tricky to achieve in real life.
+
+357
+00:18:14,040 --> 00:18:17,640
+So in criterion games, we apply several
+assists to help players achieve a long,
+
+358
+00:18:17,820 --> 00:18:18,500
+satisfying drift.
+
+359
+00:18:18,780 --> 00:18:20,900
+So I'll use that as an example in the
+following slides.
+
+360
+00:18:22,980 --> 00:18:24,680
+Let's start by thinking about the input
+layer.
+
+361
+00:18:25,000 --> 00:18:28,300
+This is effectively the control mapping
+and any modifications you might do to
+
+362
+00:18:28,300 --> 00:18:29,140
+those control inputs.
+
+363
+00:18:29,640 --> 00:18:32,960
+These control inputs are then sent across
+to the simulation where it turns the
+
+364
+00:18:32,960 --> 00:18:34,860
+wheels or drives the engine in the
+simulation.
+
+365
+00:18:35,360 --> 00:18:38,520
+However, the important point to take away
+here is that you have assists that might
+
+366
+00:18:38,520 --> 00:18:39,500
+work on either side.
+
+367
+00:18:39,940 --> 00:18:43,820
+For example, the input layer level assist
+might be to detect a particular button
+
+368
+00:18:43,820 --> 00:18:48,100
+combo to trigger drift mode and a
+simulation level assist might be to apply
+
+369
+00:18:48,100 --> 00:18:50,400
+increased physical damping whilst in this
+drift mode.
+
+370
+00:18:53,000 --> 00:18:56,280
+So we know where we might put our assists,
+but what do we want to achieve by adding
+
+371
+00:18:56,280 --> 00:18:56,520
+some?
+
+372
+00:18:57,540 --> 00:18:59,860
+Once you've got your input layer
+communicating with the simulation,
+
+373
+00:19:00,120 --> 00:19:02,740
+you'll have something playable and you can
+then review it and see what needs to
+
+374
+00:19:02,740 --> 00:19:03,060
+change.
+
+375
+00:19:03,520 --> 00:19:07,080
+You might find the input complexity is too
+high and you might want to reduce it.
+
+376
+00:19:07,560 --> 00:19:11,160
+It could also be to reduce the simulation
+feel and move towards more of the arcade
+
+377
+00:19:11,160 --> 00:19:11,840
+side of the spectrum.
+
+378
+00:19:12,360 --> 00:19:16,160
+You might want to take existing forces or
+effects in the simulation and emphasize
+
+379
+00:19:16,160 --> 00:19:18,160
+them, such as making drifts last longer.
+
+380
+00:19:19,340 --> 00:19:23,360
+A detailed simulation can also bring
+unwanted side effects such as extreme
+
+381
+00:19:23,360 --> 00:19:26,440
+slowdown on uneven terrain or even
+collision hitching.
+
+382
+00:19:26,680 --> 00:19:28,620
+This might be something you want to target
+with assists.
+
+383
+00:19:29,460 --> 00:19:32,940
+It could also be something which conveys
+the game state back to the player in a
+
+384
+00:19:32,940 --> 00:19:35,940
+more intuitive or obvious manner so that
+the learning curve is easier.
+
+385
+00:19:37,260 --> 00:19:40,160
+Even though most of these examples are for
+your intended default experience,
+
+386
+00:19:40,600 --> 00:19:44,060
+you could also use the assists as
+accessibility options to make your game
+
+387
+00:19:44,060 --> 00:19:45,740
+playable by a wider range of players.
+
+388
+00:19:48,400 --> 00:19:51,500
+Now that we decided what we want to
+achieve through our assists, let's look at
+
+389
+00:19:51,500 --> 00:19:52,320
+some of the different types.
+
+390
+00:19:52,780 --> 00:19:54,980
+I've divided assists up into five
+categories.
+
+391
+00:19:55,280 --> 00:19:59,500
+Player intention, driver, physical,
+real world, and feedback assists.
+
+392
+00:20:00,040 --> 00:20:02,060
+I'm going to talk through each of these in
+the next few slides.
+
+393
+00:20:02,420 --> 00:20:06,100
+These aren't hard templates, but more a
+thought exercise that might help you think
+
+394
+00:20:06,100 --> 00:20:07,360
+what parts of the game to target.
+
+395
+00:20:07,920 --> 00:20:11,040
+When we were building the drift mechanics
+in Need for Speed, we took our simulation,
+
+396
+00:20:11,120 --> 00:20:14,780
+which had realistic drifting behavior,
+and used assists to make it more stable,
+
+397
+00:20:14,980 --> 00:20:17,940
+easier to sustain, and maintain more of
+your speed than in real life.
+
+398
+00:20:18,500 --> 00:20:22,460
+To get this to feel great, we used
+multiple types of assists to achieve this.
+
+399
+00:20:22,620 --> 00:20:25,300
+And I'll use drifting as an example when
+talking through these categories.
+
+400
+00:20:27,240 --> 00:20:29,560
+The first type of assist is the player
+intention assist.
+
+401
+00:20:30,020 --> 00:20:33,740
+This is an assist at the input level,
+which looks at the player's input and
+
+402
+00:20:33,740 --> 00:20:36,520
+tries to work out whether the player's
+intention is different from the normal
+
+403
+00:20:36,520 --> 00:20:36,840
+mapping.
+
+404
+00:20:37,360 --> 00:20:39,940
+It can look at the current simulation to
+provide context for what the player's
+
+405
+00:20:39,940 --> 00:20:40,660
+intention might be.
+
+406
+00:20:41,420 --> 00:20:43,640
+An example is using a brake tab to enter
+drift.
+
+407
+00:20:44,140 --> 00:20:47,700
+If you're driving straight ahead and tap
+the brake, then you probably want to slow
+
+408
+00:20:47,700 --> 00:20:47,960
+down.
+
+409
+00:20:48,440 --> 00:20:52,560
+If you're turning heavily when you tap the
+brake, you probably want to enter drift in
+
+410
+00:20:52,560 --> 00:20:53,640
+order to turn more aggressively.
+
+411
+00:20:56,180 --> 00:20:59,900
+Next up is the notion of driver assist,
+which can simulate the experience and
+
+412
+00:20:59,900 --> 00:21:01,800
+muscle memory of a professional driver.
+
+413
+00:21:02,300 --> 00:21:05,400
+An example of how this is used in drifts
+is in balancing your torque.
+
+414
+00:21:06,100 --> 00:21:08,960
+When you're drifting in a real car,
+the tires are trying to twist themselves
+
+415
+00:21:08,960 --> 00:21:12,000
+to match the direction the vehicle is
+drifting, and the driver is able to feel
+
+416
+00:21:12,000 --> 00:21:15,080
+this through the steering wheel and adjust
+accordingly to extend the drift.
+
+417
+00:21:15,580 --> 00:21:19,640
+On a console pad, the analog stick doesn't
+really lend itself to this, so we emulate
+
+418
+00:21:19,640 --> 00:21:24,060
+this behavior by re-centering the steering
+input so that zero input equates to keep
+
+419
+00:21:24,060 --> 00:21:27,160
+drifting at this angle rather than meaning
+straighten up the wheels.
+
+420
+00:21:27,500 --> 00:21:30,760
+This is absolutely key for a controllable
+drift and gives the player the level of
+
+421
+00:21:30,760 --> 00:21:32,200
+control an ace driver could achieve.
+
+422
+00:21:34,600 --> 00:21:38,720
+We also apply physical assists,
+which are forces that we apply directly to
+
+423
+00:21:38,720 --> 00:21:39,920
+the vehicle's physics simulation.
+
+424
+00:21:40,460 --> 00:21:43,740
+We take existing qualities of the
+simulation that we want to feel hyper-real
+
+425
+00:21:43,740 --> 00:21:45,120
+and emphasize what's there.
+
+426
+00:21:45,600 --> 00:21:48,240
+We want to look at the forces applied by
+the simulation that are hindering the
+
+427
+00:21:48,240 --> 00:21:49,840
+effect we want and counteract them.
+
+428
+00:21:50,600 --> 00:21:53,660
+For example, if you're in a deep drift,
+a component of the tire friction is
+
+429
+00:21:53,660 --> 00:21:55,680
+opposing motion and slowing the vehicle
+down.
+
+430
+00:21:56,100 --> 00:21:59,280
+We want our drifts to maintain speed
+around corners, so we calculate the
+
+431
+00:21:59,280 --> 00:22:02,460
+magnitude of the frictional force slowing
+us down and reapply that force in the
+
+432
+00:22:02,460 --> 00:22:06,000
+direction of the vehicle's velocity in
+order to minimize the speed loss or allow
+
+433
+00:22:06,000 --> 00:22:07,860
+our designers to tune how much speed loss
+they desire.
+
+434
+00:22:10,640 --> 00:22:13,880
+Real-world assists are where we might
+simulate part of the vehicle which is
+
+435
+00:22:13,880 --> 00:22:16,840
+available in real life and we can
+manipulate it to achieve the desired
+
+436
+00:22:16,840 --> 00:22:17,180
+effect.
+
+437
+00:22:17,700 --> 00:22:21,300
+For example, we might want an anti-lock
+braking system to allow players to brake
+
+438
+00:22:21,300 --> 00:22:23,400
+effectively without having to carefully
+tap the triggers.
+
+439
+00:22:24,160 --> 00:22:28,020
+When we start drifting, we can turn off
+ABS to allow the back wheels to spin and
+
+440
+00:22:28,020 --> 00:22:29,860
+lose traction, entering the drift quickly.
+
+441
+00:22:30,860 --> 00:22:33,940
+When we detect that the player is trying
+to exit the drift, we can then turn ABS
+
+442
+00:22:33,940 --> 00:22:36,800
+back on in order to allow fast
+acceleration out of the drift.
+
+443
+00:22:40,100 --> 00:22:43,260
+Finally, we've got feedback assists,
+which don't actually affect the handling
+
+444
+00:22:43,260 --> 00:22:46,720
+but are assists which help the player
+understand the simulation better and show
+
+445
+00:22:46,720 --> 00:22:47,920
+UI to help guide the player.
+
+446
+00:22:48,620 --> 00:22:52,200
+Wherever possible, we feedback the
+simulation from real-world sources like
+
+447
+00:22:52,200 --> 00:22:55,540
+the strain of the engine or the squeal of
+the tires, but feedback assists are
+
+448
+00:22:55,540 --> 00:22:57,440
+specifically things you wouldn't see in
+real life.
+
+449
+00:22:58,020 --> 00:23:01,560
+An example of this is the Forza braking
+line, which looks at the upcoming turn and
+
+450
+00:23:01,560 --> 00:23:04,220
+highlights the line red if your tires are
+going to lose traction and you want to
+
+451
+00:23:04,220 --> 00:23:04,680
+slow down.
+
+452
+00:23:07,960 --> 00:23:11,240
+Seeing as assists can influence both the
+controls and the physical simulation,
+
+453
+00:23:11,500 --> 00:23:14,080
+getting the feel of them right is just as
+important as tuning your physical
+
+454
+00:23:14,080 --> 00:23:14,900
+simulation itself.
+
+455
+00:23:15,500 --> 00:23:18,380
+Depending on how you engineer and tune
+them, you could end up disguising all that
+
+456
+00:23:18,380 --> 00:23:19,300
+great simulation work.
+
+457
+00:23:19,480 --> 00:23:22,040
+So here are a few tips to bring out the
+physicality when writing assists.
+
+458
+00:23:23,340 --> 00:23:26,320
+Firstly, try to tune them to be as subtle
+as possible while still achieving the
+
+459
+00:23:26,320 --> 00:23:26,840
+desired effect.
+
+460
+00:23:27,280 --> 00:23:30,620
+It's often easy to have very strong
+stabilization forces which help the player
+
+461
+00:23:30,620 --> 00:23:33,260
+effectively and wipe over all your great
+simulation work.
+
+462
+00:23:34,540 --> 00:23:37,280
+Rather than switching your behavior on or
+off based on a binary condition,
+
+463
+00:23:37,680 --> 00:23:40,940
+try to fade them in or out over some
+parameter, even if that parameter is time.
+
+464
+00:23:41,460 --> 00:23:44,360
+This means that it's less obvious to the
+player that they're being assisted and add
+
+465
+00:23:44,360 --> 00:23:45,200
+some nuance to it.
+
+466
+00:23:47,420 --> 00:23:50,740
+Think about where the optimal assist
+strength is and allow the player to
+
+467
+00:23:50,740 --> 00:23:53,660
+gradually learn how to find the perfect
+balance, giving it depth and mastery.
+
+468
+00:23:54,860 --> 00:23:57,780
+The game should feed this back to the
+player in order to allow them to tell if
+
+469
+00:23:57,780 --> 00:23:58,580
+they're doing better or not.
+
+470
+00:23:59,640 --> 00:24:02,880
+Also, as a programmer, try to make sure
+you add in plenty of helpful debug
+
+471
+00:24:02,880 --> 00:24:06,360
+visualizations in order to help your
+designers understand the systems by being
+
+472
+00:24:06,360 --> 00:24:11,880
+able to see what physical effect their
+parameter changes have and tune them as
+
+473
+00:24:11,880 --> 00:24:12,820
+well as they possibly can.
+
+474
+00:24:13,920 --> 00:24:17,700
+If possible, set up auto tests to your
+vehicles and their expected top speeds,
+
+475
+00:24:17,860 --> 00:24:18,780
+accelerations, etc.
+
+476
+00:24:19,420 --> 00:24:23,000
+As this can help catch unexpected changes
+or your physical effects affecting
+
+477
+00:24:23,000 --> 00:24:23,520
+vehicle...
+
+478
+00:24:23,520 --> 00:24:25,520
+physical assist affecting vehicle
+performance.
+
+479
+00:24:26,000 --> 00:24:29,540
+We had an issue on Most Wanted where a
+vehicle artist adjusted the size of a
+
+480
+00:24:29,540 --> 00:24:32,120
+wheel and then this affected the top speed
+of the vehicle.
+
+481
+00:24:32,120 --> 00:24:34,640
+But thankfully this was called by an auto
+test and fixed quickly.
+
+482
+00:24:38,320 --> 00:24:42,360
+So, we've got our physics and our assists
+working nicely together.
+
+483
+00:24:42,680 --> 00:24:47,540
+Now we need to feed this back to the
+player effectively through camera
+
+484
+00:24:47,540 --> 00:24:47,920
+behavior.
+
+485
+00:24:50,280 --> 00:24:52,980
+I wanted to start this section off with a
+phrase that we use a criterion a lot.
+
+486
+00:24:53,160 --> 00:24:54,220
+Camera is handling.
+
+487
+00:24:54,540 --> 00:24:57,600
+It doesn't matter how great your
+simulation and assists are if your camera
+
+488
+00:24:57,600 --> 00:24:59,000
+doesn't feed it back to the player well.
+
+489
+00:24:59,000 --> 00:25:02,960
+A stiff or loose camera can massively
+change the feel of a vehicle, so it should
+
+490
+00:25:02,960 --> 00:25:04,300
+be considered part of the handling.
+
+491
+00:25:04,820 --> 00:25:08,840
+We have the same designers that tune the
+handling parameters on a vehicle also tune
+
+492
+00:25:08,840 --> 00:25:11,160
+the camera parameters because they're so
+intrinsically linked.
+
+493
+00:25:13,920 --> 00:25:16,560
+There are two fundamentally different
+approaches you can take when starting to
+
+494
+00:25:16,560 --> 00:25:17,560
+think about vehicle cameras.
+
+495
+00:25:18,140 --> 00:25:22,080
+One is a camera-led system where the
+player input turns the camera and then
+
+496
+00:25:22,080 --> 00:25:24,920
+there's a layer that interprets the camera
+direction and passes that through to the
+
+497
+00:25:24,920 --> 00:25:25,680
+vehicle controls.
+
+498
+00:25:26,680 --> 00:25:29,900
+Alternatively, a vehicle-led system is
+where the player input controls the
+
+499
+00:25:29,900 --> 00:25:32,840
+vehicle directly and the camera follows
+the vehicle as a separate system.
+
+500
+00:25:36,200 --> 00:25:40,020
+Camera-led systems usually match the
+shooter input paradigm with aim and pitch
+
+501
+00:25:40,020 --> 00:25:41,740
+on the right stick.
+
+502
+00:25:42,600 --> 00:25:45,180
+Generally, it allows the player to point
+the camera accurately or something,
+
+503
+00:25:45,380 --> 00:25:47,160
+but at the loss of handling feel and
+precision.
+
+504
+00:25:47,640 --> 00:25:50,460
+This can be good for games where the
+primary vehicle gameplay is aiming and
+
+505
+00:25:50,460 --> 00:25:52,780
+shooting a weapon and the driving
+component is secondary.
+
+506
+00:25:53,400 --> 00:25:56,460
+An example of this type of camera is the
+Mark V tank in Battlefield 1.
+
+507
+00:25:56,460 --> 00:25:59,900
+This video shows me rotating the camera
+separately to the vehicle using the right
+
+508
+00:25:59,900 --> 00:26:03,380
+stick and holding the left stick forward
+in order to move towards where the camera
+
+509
+00:26:03,380 --> 00:26:03,760
+is pointing.
+
+510
+00:26:04,280 --> 00:26:07,420
+There's an intelligent layer that decides
+how to move the tracks of the tank in
+
+511
+00:26:07,420 --> 00:26:10,100
+order to make it point towards the camera
+rather than direct control.
+
+512
+00:26:11,460 --> 00:26:15,660
+One problem with a layer like this is that
+it can add some ambiguity which means you
+
+513
+00:26:15,660 --> 00:26:18,520
+can get some unexpected motion,
+particularly when trying to reverse a
+
+514
+00:26:18,520 --> 00:26:19,740
+vehicle with camera-led handling.
+
+515
+00:26:23,230 --> 00:26:27,050
+Vehicle-led camera are usually the default
+option for racing games and usually match
+
+516
+00:26:27,050 --> 00:26:30,430
+the driving input paradigm where steering
+is on the left stick and the camera
+
+517
+00:26:30,430 --> 00:26:31,490
+follows the vehicle's motion.
+
+518
+00:26:32,090 --> 00:26:35,670
+This gives a more direct control feel and
+can allow greater driving precision and
+
+519
+00:26:35,670 --> 00:26:38,910
+camera feedback but makes it harder for
+the player to quickly move the camera to
+
+520
+00:26:38,910 --> 00:26:39,570
+look behind them.
+
+521
+00:26:40,390 --> 00:26:43,790
+These types of cameras are often
+accompanied by a look behind camera button
+
+522
+00:26:43,790 --> 00:26:45,230
+in order to compensate for this.
+
+523
+00:26:45,990 --> 00:26:48,970
+Here's an example of one of the transport
+vehicles that Criterion worked on for
+
+524
+00:26:48,970 --> 00:26:52,570
+Battlefield 1, the armored car,
+which is we decided to use a vehicle-led
+
+525
+00:26:52,570 --> 00:26:53,710
+camera for best game feel.
+
+526
+00:26:54,730 --> 00:26:58,130
+At Criterion, we almost always use
+vehicle-led cameras due to the precise
+
+527
+00:26:58,130 --> 00:26:59,990
+handling feel we require from our games.
+
+528
+00:26:59,990 --> 00:27:03,430
+I'm going to continue this section by
+looking at vehicle-led cameras in more
+
+529
+00:27:03,430 --> 00:27:03,750
+detail.
+
+530
+00:27:07,270 --> 00:27:10,470
+So, a good camera should feedback
+important game state to the player,
+
+531
+00:27:10,650 --> 00:27:12,390
+such as camera angle while drifting.
+
+532
+00:27:13,090 --> 00:27:16,070
+It will respond to player needs,
+ensuring that the camera is focused on
+
+533
+00:27:16,070 --> 00:27:18,490
+what the player needs to see and doesn't
+obstruct the line of sight.
+
+534
+00:27:19,490 --> 00:27:23,190
+The camera should sell physicality by
+using the physical simulation to
+
+535
+00:27:23,190 --> 00:27:24,410
+complement the motion of the vehicle.
+
+536
+00:27:27,290 --> 00:27:30,410
+So, let's look at a rigid camera,
+which is locked behind the vehicle and
+
+537
+00:27:30,410 --> 00:27:31,750
+points directly down the front of the
+vehicle.
+
+538
+00:27:31,750 --> 00:27:35,390
+This is a camera with no behavior and this
+is the simplest possible starting point.
+
+539
+00:27:36,690 --> 00:27:41,190
+The vehicle's position is effectively
+locked on screen, which means that any of
+
+540
+00:27:41,190 --> 00:27:44,330
+the physicality from the simulation is
+shown through the background of the scene
+
+541
+00:27:44,330 --> 00:27:47,630
+rolling and pitching as the vehicle
+drives, which can be quite disorientating
+
+542
+00:27:47,630 --> 00:27:49,770
+and makes it difficult to focus on game
+objectives.
+
+543
+00:27:58,530 --> 00:28:01,710
+To improve this, we should start by
+conveying the motion of the vehicle by
+
+544
+00:28:01,710 --> 00:28:03,510
+moving it in relation to the frame of the
+screen.
+
+545
+00:28:03,890 --> 00:28:07,050
+If the vehicle is in a deep right turn,
+we would expect that the camera would lag
+
+546
+00:28:07,050 --> 00:28:09,830
+behind slightly and the vehicle would
+shift to the left of the screen.
+
+547
+00:28:10,430 --> 00:28:14,370
+In order to achieve this, we use a sprung
+camera system, whereby we set a target
+
+548
+00:28:14,370 --> 00:28:17,410
+point for the camera to tend towards,
+but allow some motion in all directions,
+
+549
+00:28:17,750 --> 00:28:22,030
+with a force pulling the camera to the
+target position proportionally to how far
+
+550
+00:28:22,030 --> 00:28:22,950
+away it is from the target.
+
+551
+00:28:23,350 --> 00:28:26,830
+We can tune this per-axis to allow for
+certain behaviors to convey differently on
+
+552
+00:28:26,830 --> 00:28:27,110
+screen.
+
+553
+00:28:27,450 --> 00:28:30,610
+For example, we might want lots of
+sideways motion when turning, but less
+
+554
+00:28:30,610 --> 00:28:32,790
+forward and backward motion when
+accelerating and decelerating.
+
+555
+00:28:34,450 --> 00:28:37,850
+In conjunction with pulling the camera
+towards a target, we also point the camera
+
+556
+00:28:37,850 --> 00:28:41,050
+over the look-ahead target, which is fixed
+in front of the vehicle and shows the
+
+557
+00:28:41,050 --> 00:28:42,090
+player where the vehicle is heading.
+
+558
+00:28:43,590 --> 00:28:46,790
+It's also sometimes worth considering
+using velocity extrapolation on your
+
+559
+00:28:46,790 --> 00:28:50,210
+look-ahead target in order to make your
+camera look into turns and keep the
+
+560
+00:28:50,210 --> 00:28:52,150
+player's focus near the center of the
+screen when turning.
+
+561
+00:28:56,310 --> 00:28:57,810
+Let's take a look at what that looks like.
+
+562
+00:28:57,810 --> 00:29:02,190
+So know throughout all these videos,
+the physical simulation and handling are
+
+563
+00:29:02,190 --> 00:29:02,650
+identical.
+
+564
+00:29:03,250 --> 00:29:04,390
+All we're changing is the camera.
+
+565
+00:29:09,820 --> 00:29:12,780
+So, as you can see, the vehicle is much
+more dynamic on screen.
+
+566
+00:29:12,940 --> 00:29:15,880
+You can actually see the sides of it,
+as well as the motion of the vehicle when
+
+567
+00:29:15,880 --> 00:29:16,920
+traveling over bumpy terrain.
+
+568
+00:29:27,540 --> 00:29:30,280
+There are three key parameters we use when
+tuning this type of camera.
+
+569
+00:29:30,620 --> 00:29:33,960
+The most important one is convergence,
+which is how far we move the camera
+
+570
+00:29:33,960 --> 00:29:35,500
+towards the target each sim frame.
+
+571
+00:29:35,960 --> 00:29:38,720
+The higher the value, the tighter the
+camera is to the back of the vehicle.
+
+572
+00:29:39,520 --> 00:29:43,320
+Then we have momentum, which accelerates
+the camera in the direction it's already
+
+573
+00:29:43,320 --> 00:29:43,720
+traveling.
+
+574
+00:29:44,340 --> 00:29:47,220
+And damping, which is used to stop the
+camera overshooting the target and
+
+575
+00:29:47,220 --> 00:29:47,880
+resulting in oscillations.
+
+576
+00:29:50,880 --> 00:29:53,980
+In order to demonstrate the different
+types of feel that different convergence
+
+577
+00:29:53,980 --> 00:29:56,720
+parameters can get you, here's an example
+of strong convergence.
+
+578
+00:29:58,780 --> 00:30:01,080
+Notice that it's very similar to the rigid
+camera example.
+
+579
+00:30:01,360 --> 00:30:03,000
+The vehicle isn't moving too much on
+screen.
+
+580
+00:30:03,380 --> 00:30:04,280
+It doesn't feel very physical.
+
+581
+00:30:11,680 --> 00:30:14,720
+Switching to a weak convergence,
+we see a lot more motion in the frame.
+
+582
+00:30:14,980 --> 00:30:16,720
+The vehicle feels dynamic and alive.
+
+583
+00:30:17,380 --> 00:30:20,440
+However, because the convergence is so
+weak, the vehicle appears to be pointing
+
+584
+00:30:20,440 --> 00:30:21,880
+off screen during large turns.
+
+585
+00:30:22,240 --> 00:30:24,940
+This can make it tricky to control,
+as you can't see where you're going.
+
+586
+00:30:24,940 --> 00:30:28,460
+In this situation, we could either tighten
+up the camera or add velocity
+
+587
+00:30:28,460 --> 00:30:31,360
+extrapolation to our look-ahead target,
+so that the camera looks towards the
+
+588
+00:30:31,360 --> 00:30:32,500
+vehicle's direction more effectively.
+
+589
+00:30:35,260 --> 00:30:38,800
+The camera also needs to sell the
+physicality of the vehicle and feedback
+
+590
+00:30:38,800 --> 00:30:39,860
+what the simulation is doing.
+
+591
+00:30:40,260 --> 00:30:42,400
+A good example of this is the landing
+camera.
+
+592
+00:30:42,620 --> 00:30:45,720
+When the vehicle comes off a large jump
+and then hits the ground so hard that the
+
+593
+00:30:45,720 --> 00:30:46,680
+suspension bottoms out.
+
+594
+00:30:47,560 --> 00:30:50,860
+We wanted to convey this with a large
+camera movement that doesn't obscure the
+
+595
+00:30:50,860 --> 00:30:52,840
+road ahead for long, but still sells that
+impact.
+
+596
+00:30:53,940 --> 00:30:55,720
+We use some camera shape when we land.
+
+597
+00:30:56,000 --> 00:30:59,700
+Plus, this is a good example of how
+momentum and damping forces affect the
+
+598
+00:30:59,700 --> 00:31:01,880
+camera to give it an exaggerated behaviour
+when landing.
+
+599
+00:31:04,980 --> 00:31:08,200
+So, if we don't do anything special to the
+camera, the sprung camera still gives you
+
+600
+00:31:08,200 --> 00:31:08,740
+some feedback.
+
+601
+00:31:09,360 --> 00:31:12,920
+This isn't too bad, and you could probably
+ship this, but let's go the extra mile and
+
+602
+00:31:12,920 --> 00:31:13,460
+try and improve it.
+
+603
+00:31:18,080 --> 00:31:21,580
+Let's add some camera shake on landing,
+when we detect that all four wheels are on
+
+604
+00:31:21,580 --> 00:31:23,060
+the ground after travelling downwards
+quickly.
+
+605
+00:31:23,560 --> 00:31:27,700
+This camera shake that I'm about to show
+you is 30 Hz in oscillation in pitch and
+
+606
+00:31:27,700 --> 00:31:29,160
+roll for 0.5 seconds.
+
+607
+00:31:30,380 --> 00:31:32,340
+This helps a little bit, but we can do
+better.
+
+608
+00:31:39,810 --> 00:31:43,570
+Let's reduce the damping on our sprung
+camera so that the momentum term carries
+
+609
+00:31:43,570 --> 00:31:46,510
+it further downwards than the target,
+giving us a much better sense of the
+
+610
+00:31:46,510 --> 00:31:46,870
+impact.
+
+611
+00:31:47,190 --> 00:31:49,950
+This should make our impact much more
+impressive, exciting and physical.
+
+612
+00:32:04,100 --> 00:32:07,740
+So, how does our Battlefield 1 work stack
+up to the camera requirements we set
+
+613
+00:32:07,740 --> 00:32:08,480
+ourselves earlier?
+
+614
+00:32:09,260 --> 00:32:12,780
+Well, we feed the simulation back to the
+player by using the camera convergence to
+
+615
+00:32:12,780 --> 00:32:15,980
+affect the vehicle's position on screen,
+allowing the player to tell the turning
+
+616
+00:32:15,980 --> 00:32:16,800
+radius of the vehicle.
+
+617
+00:32:17,500 --> 00:32:21,140
+The camera responds to player needs by
+looking into turns, letting the player see
+
+618
+00:32:21,140 --> 00:32:21,660
+where they're going.
+
+619
+00:32:22,480 --> 00:32:26,080
+We sell physicality by giving special
+attention to the landing camera,
+
+620
+00:32:26,220 --> 00:32:28,060
+making the vehicle feel extra heavy and
+solid.
+
+621
+00:32:30,920 --> 00:32:33,820
+Here's another look at the armored car,
+illustrating all those previous points,
+
+622
+00:32:33,960 --> 00:32:38,720
+but also gives you a chance to hear the
+audio treatment and see the VFX,
+
+623
+00:32:38,800 --> 00:32:40,740
+which adds even more on top of our
+handling work.
+
+624
+00:33:19,900 --> 00:33:23,760
+So, in this final section, I'm going to
+show how we applied these principles when
+
+625
+00:33:23,760 --> 00:33:25,700
+making Starfighters in Star Wars
+Battlefront 2.
+
+626
+00:33:27,400 --> 00:33:30,060
+When we started looking at what we could
+bring to Star Wars Battlefront 2,
+
+627
+00:33:30,320 --> 00:33:33,600
+we decided on the overall direction of
+wanting players to feel like an ace pilot
+
+628
+00:33:33,600 --> 00:33:36,520
+and give them that fantasy when
+controlling the Starfighters.
+
+629
+00:33:37,140 --> 00:33:40,060
+After playing some Battlefront 1,
+we felt like we could help improve the
+
+630
+00:33:40,060 --> 00:33:43,920
+handling significantly, and we wanted this
+to go alongside a game mode that was much
+
+631
+00:33:43,920 --> 00:33:45,040
+larger scale than in that game.
+
+632
+00:33:48,120 --> 00:33:51,700
+This is the original Fighter Squadron mode
+from Battlefront 1, where players fought
+
+633
+00:33:51,700 --> 00:33:53,860
+in X-Wings and TIE Fighters above the
+surface of planets.
+
+634
+00:33:54,500 --> 00:33:57,600
+The main shooting mechanic here was to
+hold left trigger to lock onto anything
+
+635
+00:33:57,600 --> 00:34:00,540
+within a wide cone in the middle of the
+screen, and right trigger to fire.
+
+636
+00:34:00,940 --> 00:34:03,120
+Shots would then be auto-aimed as long as
+you had a lock-on.
+
+637
+00:34:04,040 --> 00:34:07,700
+You may also be able to tell from this
+video that Battlefront 1 used a camera-led
+
+638
+00:34:07,700 --> 00:34:11,160
+handling level, where the camera moves
+first, and then the vehicle catches up.
+
+639
+00:34:25,240 --> 00:34:28,800
+So when we started to look at how we could
+improve over Battlefront 1, we looked at
+
+640
+00:34:28,800 --> 00:34:29,360
+player feedback.
+
+641
+00:34:30,120 --> 00:34:33,480
+Players really enjoyed getting to play out
+their Star Wars fantasies, plus the
+
+642
+00:34:33,480 --> 00:34:35,160
+gameplay was very accessible to a wide
+audience.
+
+643
+00:34:35,900 --> 00:34:38,720
+However, there was a general feeling of
+lack of depth around the auto-aimed
+
+644
+00:34:38,720 --> 00:34:41,580
+shooting, that it was difficult to
+control, and the Starfighters felt too
+
+645
+00:34:41,580 --> 00:34:42,760
+much like toys on a string.
+
+646
+00:34:42,760 --> 00:34:45,400
+Or when players really wanted manual role
+control.
+
+647
+00:34:48,980 --> 00:34:52,020
+So we took each of those points,
+and made sure we focused on fixing them.
+
+648
+00:34:52,380 --> 00:34:55,980
+With aiming closer to that of a shooter,
+handling that felt precise, and a camera
+
+649
+00:34:55,980 --> 00:34:57,480
+that showed off the physicality of the
+vehicles.
+
+650
+00:34:57,840 --> 00:34:58,940
+And of course, role control.
+
+651
+00:34:59,420 --> 00:35:02,940
+This is a great chance for us to apply the
+vehicle design philosophy when designing
+
+652
+00:35:02,940 --> 00:35:03,740
+our Starfighters.
+
+653
+00:35:05,780 --> 00:35:09,220
+Here's some gameplay where we ended up
+with on Battlefront 2's Starfighter
+
+654
+00:35:09,220 --> 00:35:09,720
+Assault Mode.
+
+655
+00:35:42,740 --> 00:35:46,040
+So as for reviews, we got a lot of good
+responses around the Starfighter work we
+
+656
+00:35:46,040 --> 00:35:46,260
+did.
+
+657
+00:35:46,260 --> 00:35:49,700
+With critics highlighting the handling and
+shooting being a huge improvement over the
+
+658
+00:35:49,700 --> 00:35:50,160
+first game.
+
+659
+00:35:54,060 --> 00:35:57,120
+So now we know how it turned out,
+let's see how we used each section of the
+
+660
+00:35:57,120 --> 00:35:58,720
+vehicle design philosophy during
+development.
+
+661
+00:36:01,300 --> 00:36:04,480
+When looking at our balance between arcade
+and simulation, we looked at our target
+
+662
+00:36:04,480 --> 00:36:07,380
+market, which consisted of both fans who
+were casual gamers and wanted an
+
+663
+00:36:07,380 --> 00:36:08,280
+accessible experience.
+
+664
+00:36:08,280 --> 00:36:11,880
+But also hardcore players who expected
+something more like a flight sim to live
+
+665
+00:36:11,880 --> 00:36:12,920
+out their pilot fantasies.
+
+666
+00:36:14,020 --> 00:36:17,340
+We ended up deciding to balance this by
+having intuitive pitch in your controls
+
+667
+00:36:17,340 --> 00:36:19,040
+like you might find in an arcade-style
+game.
+
+668
+00:36:19,140 --> 00:36:22,400
+But give players full role control,
+and allow players to execute their own
+
+669
+00:36:22,400 --> 00:36:25,920
+invasive maneuvers, rather than having
+them triggered as cutscenes on the D-pad,
+
+670
+00:36:26,240 --> 00:36:27,600
+like in Battlefront 1.
+
+671
+00:36:29,220 --> 00:36:32,740
+We also decided to go with a shooter input
+paradigm, with flight and aiming on the
+
+672
+00:36:32,740 --> 00:36:35,400
+right stick, as it would be more intuitive
+to players coming from a shooter
+
+673
+00:36:35,400 --> 00:36:37,440
+background, and also match the rest of the
+game.
+
+674
+00:36:38,280 --> 00:36:41,480
+However, we know that anyone expecting a
+flight sim-style control setup would find
+
+675
+00:36:41,480 --> 00:36:44,860
+this quite jarring, so we made sure there
+was an option to remap the analog sticks
+
+676
+00:36:44,860 --> 00:36:45,140
+fully.
+
+677
+00:36:47,340 --> 00:36:50,360
+When thinking about how we were going to
+simulate our starfighters, we looked at
+
+678
+00:36:50,360 --> 00:36:53,520
+the real-world analog of fighter planes,
+which were the original inspiration for
+
+679
+00:36:53,520 --> 00:36:54,860
+Star Wars' dogfighting scenes.
+
+680
+00:36:55,120 --> 00:36:58,960
+Which is why in Star Wars, X-Wings bank
+into turns like planes, and crashing Star
+
+681
+00:36:58,960 --> 00:37:00,000
+Destroyers fall downwards.
+
+682
+00:37:01,880 --> 00:37:05,160
+Thinking of fighter planes, we looked at
+air foils, which is the thing that keeps
+
+683
+00:37:05,160 --> 00:37:08,340
+planes in the air, but also gives
+secondary effects such as altitude loss
+
+684
+00:37:08,340 --> 00:37:08,820
+when turning.
+
+685
+00:37:09,480 --> 00:37:12,340
+We decided this didn't really match with
+what we expected from a starfighter,
+
+686
+00:37:12,440 --> 00:37:14,560
+so we went with a simple anti-grav
+simulation instead.
+
+687
+00:37:15,800 --> 00:37:19,460
+We did, however, when the banked turns
+from a fighter plane, so we simulated this
+
+688
+00:37:19,460 --> 00:37:22,360
+with a horizon steering setup,
+where the controls remain locked to the
+
+689
+00:37:22,360 --> 00:37:24,520
+horizon, but the starfighter banks on
+screen.
+
+690
+00:37:26,680 --> 00:37:30,020
+We used a simple engine thrust force
+instead of a more complex prop or jet
+
+691
+00:37:30,020 --> 00:37:33,120
+engine, as we didn't feel like we really
+needed the play of air flow in space,
+
+692
+00:37:33,320 --> 00:37:34,560
+where there isn't any air.
+
+693
+00:37:36,580 --> 00:37:40,320
+When in a heavy turn, the aerodynamic drag
+of a plane can affect how aggressively it
+
+694
+00:37:40,320 --> 00:37:40,700
+can turn.
+
+695
+00:37:41,100 --> 00:37:45,420
+We ended up doing something similar with
+an air brake that allowed experienced
+
+696
+00:37:45,420 --> 00:37:49,680
+players to pull the air brake when turning
+to get a temporarily reduced turn radius.
+
+697
+00:37:49,960 --> 00:37:52,820
+Even though there's no physical
+justification for it, it ended up feeling
+
+698
+00:37:52,820 --> 00:37:55,660
+right, and it was something that we
+investigated in a prototype and
+
+699
+00:37:55,660 --> 00:37:57,820
+play-tested it until we were convinced we
+wanted it in production.
+
+700
+00:38:01,150 --> 00:38:04,190
+In order to get the feeling of banked
+turns, we used horizon steering,
+
+701
+00:38:04,390 --> 00:38:08,210
+which is quite a simple concept,
+where we have two separate frames to
+
+702
+00:38:08,210 --> 00:38:09,170
+represent an orientation.
+
+703
+00:38:09,710 --> 00:38:11,730
+In practice, this could be a matrix or a
+quaternion.
+
+704
+00:38:12,770 --> 00:38:16,410
+The control frame stays flat when the
+player yaws, which means that it points in
+
+705
+00:38:16,410 --> 00:38:19,810
+the direction of flight, following the
+pitch of the starfighter, but allows the
+
+706
+00:38:19,810 --> 00:38:22,630
+yaw of the ship to be expressed in the
+direction it appears to the player on
+
+707
+00:38:22,630 --> 00:38:22,930
+screen.
+
+708
+00:38:23,630 --> 00:38:26,890
+When the player turns left and right on
+the stick, the control frame stays flat
+
+709
+00:38:26,890 --> 00:38:30,470
+against the horizon, but the vehicle's
+body frame is rolled into the turn,
+
+710
+00:38:30,670 --> 00:38:32,230
+giving the feeling of banked turns we
+wanted.
+
+711
+00:38:32,930 --> 00:38:35,490
+Looking at the video on the right,
+you can see the starfighter banking,
+
+712
+00:38:35,730 --> 00:38:38,830
+but the camera is staying flat,
+allowing the player to intuitively control
+
+713
+00:38:38,830 --> 00:38:39,630
+the fighter's direction.
+
+714
+00:38:40,010 --> 00:38:43,110
+If the starfighter was pitched up,
+then the starfighter would rotate on this
+
+715
+00:38:43,110 --> 00:38:44,230
+newly-oriented horizon.
+
+716
+00:38:44,230 --> 00:38:47,010
+So if we were pointing directly upwards
+and started turning left or right,
+
+717
+00:38:47,190 --> 00:38:50,770
+we would end up pointing downwards in the
+local pitch horizon, rather than fading to
+
+718
+00:38:50,770 --> 00:38:51,530
+the world's horizon.
+
+719
+00:38:55,090 --> 00:38:56,370
+So let's move on to the camera.
+
+720
+00:38:56,990 --> 00:39:01,370
+Initially, we wanted to work out whether
+we should use a camera-led or vehicle-led
+
+721
+00:39:01,370 --> 00:39:01,770
+system.
+
+722
+00:39:02,530 --> 00:39:05,830
+We initially thought that a camera-led
+system would allow for the precise aiming
+
+723
+00:39:05,830 --> 00:39:06,330
+that we wanted.
+
+724
+00:39:06,770 --> 00:39:09,810
+However, this was the system that
+Battlefront 1 used, and that didn't have
+
+725
+00:39:09,810 --> 00:39:11,170
+the sort of precision that we'd hoped for.
+
+726
+00:39:12,210 --> 00:39:15,490
+Using a vehicle-led camera instead would
+allow us greater flight precision,
+
+727
+00:39:15,690 --> 00:39:18,310
+which was one of our initial goals,
+and improved physicality.
+
+728
+00:39:19,110 --> 00:39:22,250
+For that reason, we opted for a
+vehicle-led camera, which is a sprung
+
+729
+00:39:22,250 --> 00:39:24,810
+camera, in a similar style to what we did
+on Battlefield 1.
+
+730
+00:39:28,920 --> 00:39:32,460
+So thinking about the approaches we learn
+about in the camera section, we've got a
+
+731
+00:39:32,460 --> 00:39:35,600
+vehicle-led camera that looks into the
+direction of travel, and allows the
+
+732
+00:39:35,600 --> 00:39:38,140
+starfighter to move significantly,
+but predictably, on-screen.
+
+733
+00:39:50,940 --> 00:39:54,720
+One problem we encountered while authoring
+camera shake on Battlefront 2 was that it
+
+734
+00:39:54,720 --> 00:39:56,600
+was really hard to aim while the camera
+was shaking.
+
+735
+00:39:57,240 --> 00:40:00,260
+This seems pretty obvious, because you're
+aiming down the camera, so of course
+
+736
+00:40:00,260 --> 00:40:01,340
+shaking it makes things harder.
+
+737
+00:40:01,940 --> 00:40:04,880
+However, we wanted to try and find a way
+to convey the same camera shake feeling,
+
+738
+00:40:05,080 --> 00:40:06,400
+whilst maintaining aim precision.
+
+739
+00:40:07,380 --> 00:40:09,920
+Conventional camera shake works by
+rotating the camera around its center
+
+740
+00:40:09,920 --> 00:40:13,780
+point, pitch ural rolling by x degrees,
+which means that if your focus point is in
+
+741
+00:40:13,780 --> 00:40:15,600
+the distance, it moves a lot on-screen.
+
+742
+00:40:16,420 --> 00:40:20,220
+To combat this, we rode an orbit camera
+shake system, which would shake the camera
+
+743
+00:40:20,220 --> 00:40:23,600
+by moving it laterally as well as rotating
+it, keeping the camera pointed at a
+
+744
+00:40:23,600 --> 00:40:25,500
+particular point far away towards the
+horizon.
+
+745
+00:40:25,500 --> 00:40:28,960
+This meant that things in the foreground,
+such as the vehicle, would move around
+
+746
+00:40:28,960 --> 00:40:32,140
+on-screen, but distant targets we were
+aiming at would remain stable.
+
+747
+00:40:35,150 --> 00:40:37,750
+In this video, keep an eye on the pillar
+in the distance.
+
+748
+00:40:38,190 --> 00:40:41,210
+Notice that the pillar, crosshair,
+and vehicle are all shaking around
+
+749
+00:40:41,210 --> 00:40:41,810
+significantly.
+
+750
+00:40:44,750 --> 00:40:48,130
+When we move over to the orbit camera
+shake, only the vehicle is shaking,
+
+751
+00:40:48,350 --> 00:40:51,390
+meaning that the player feels like they
+are being buffeted around, but can still
+
+752
+00:40:51,390 --> 00:40:52,050
+aim effectively.
+
+753
+00:40:52,950 --> 00:40:56,190
+It's easy to imagine blending these two
+effects together to allow our designers to
+
+754
+00:40:56,190 --> 00:40:59,590
+tune just how much shape they want for
+near and far objects, but in our case,
+
+755
+00:40:59,710 --> 00:41:02,630
+we opted for distant aim stability due to
+our game's focus on shooting.
+
+756
+00:41:06,020 --> 00:41:09,240
+Seeing as we have a strong sense of up in
+our levels, we found that players would
+
+757
+00:41:09,240 --> 00:41:12,220
+end up upside down quite frequently,
+even if they weren't using the roll
+
+758
+00:41:12,220 --> 00:41:12,540
+control.
+
+759
+00:41:13,460 --> 00:41:16,560
+In order to help alleviate this,
+we added some auto-rolling, which would
+
+760
+00:41:16,560 --> 00:41:17,800
+kick in when the sticks are centered.
+
+761
+00:41:18,340 --> 00:41:21,620
+The idea being that return to center is a
+player intention to fly straight.
+
+762
+00:41:21,980 --> 00:41:25,260
+So if that's always accompanied by rolling
+to the horizon, players won't find it too
+
+763
+00:41:25,260 --> 00:41:25,700
+obtrusive.
+
+764
+00:41:26,640 --> 00:41:29,600
+It's also a smaller, more subtle force
+when you're almost level.
+
+765
+00:41:29,920 --> 00:41:31,660
+Again, trying to be as unobtrusive as
+possible.
+
+766
+00:41:32,920 --> 00:41:36,820
+We also have a small 20 degree window when
+the starfighter is inverted, where the
+
+767
+00:41:36,820 --> 00:41:38,060
+auto-roll never kicks in.
+
+768
+00:41:38,340 --> 00:41:40,780
+This is to allow players to fly upside
+down when they intend to.
+
+769
+00:41:40,780 --> 00:41:43,100
+All other angles tend back to the horizon.
+
+770
+00:41:44,780 --> 00:41:48,120
+It's also worth mentioning that we
+anticipated more hardcore players of our
+
+771
+00:41:48,120 --> 00:41:50,460
+audience would prefer to have total
+control over orientation.
+
+772
+00:41:50,840 --> 00:41:53,440
+So we added a toggle to turn auto-roll off
+in the settings.
+
+773
+00:41:56,990 --> 00:42:00,170
+After getting the starfighters to handle
+quite nicely, we looked at shooting.
+
+774
+00:42:00,610 --> 00:42:04,170
+We found that it was incredibly hard to
+hit a moving target by pointing your ship
+
+775
+00:42:04,170 --> 00:42:04,750
+towards another.
+
+776
+00:42:05,470 --> 00:42:08,570
+As an illustration, let's think about
+aiming towards this TIE Interceptor.
+
+777
+00:42:10,230 --> 00:42:14,090
+Firstly, our maximum targeting range was
+around 800 meters, which meant that ships
+
+778
+00:42:14,090 --> 00:42:15,410
+could end up quite small on screen.
+
+779
+00:42:16,170 --> 00:42:20,050
+They were also traveling at up to 120
+meters per second, and also the lasers in
+
+780
+00:42:20,050 --> 00:42:22,510
+Star Wars have a travel time, so you need
+to lead your target.
+
+781
+00:42:23,050 --> 00:42:26,650
+These factors combined to make unassisted
+aiming incredibly difficult for our
+
+782
+00:42:26,650 --> 00:42:28,690
+players, so we needed to add some assists.
+
+783
+00:42:31,210 --> 00:42:35,090
+One of the main assists we added was the
+auto-aim cone, which is a cone in front of
+
+784
+00:42:35,090 --> 00:42:38,410
+the player which retargeted the gun
+barrels to fire the laser shots more
+
+785
+00:42:38,410 --> 00:42:39,790
+towards the correct target position.
+
+786
+00:42:40,390 --> 00:42:43,850
+In theory, it's quite similar to the
+Battlefront 1 approach, except that we
+
+787
+00:42:43,850 --> 00:42:46,630
+gradually fade the effect in and out,
+rather than switching it on and off,
+
+788
+00:42:46,710 --> 00:42:47,550
+like in Battlefront 1.
+
+789
+00:42:48,250 --> 00:42:51,270
+In the case of this diagram, we've got the
+player aiming ahead of the target,
+
+790
+00:42:51,490 --> 00:42:53,890
+and we have a predicted position of the
+target, which is the yellow dot,
+
+791
+00:42:54,190 --> 00:42:56,910
+which is where the ship will be by the
+time a player's shot gets to it.
+
+792
+00:42:57,370 --> 00:43:00,410
+We show a reticle on screen of this
+position, so the player knows where to
+
+793
+00:43:00,410 --> 00:43:00,670
+aim.
+
+794
+00:43:01,090 --> 00:43:04,050
+This is a type of feedback assist,
+because it's providing extra simulation
+
+795
+00:43:04,050 --> 00:43:05,850
+data to the player via UI.
+
+796
+00:43:07,970 --> 00:43:11,830
+If this predicted position is inside the
+aim cone, then we shift the gun barrels
+
+797
+00:43:11,830 --> 00:43:13,310
+towards this perfect predictive position.
+
+798
+00:43:13,710 --> 00:43:17,250
+However, we fade it gradually based on how
+far into the cone the predicted position
+
+799
+00:43:17,250 --> 00:43:17,570
+is.
+
+800
+00:43:17,990 --> 00:43:21,150
+This means that if the player's aim is
+quite far from the target, they only get a
+
+801
+00:43:21,150 --> 00:43:21,750
+little bit of help.
+
+802
+00:43:22,110 --> 00:43:25,330
+But as the crosshair gets closer and
+closer to the target reticle, they get
+
+803
+00:43:25,330 --> 00:43:28,830
+more and more of an assist, until they're
+inside the reticle, which guarantees a
+
+804
+00:43:28,830 --> 00:43:30,270
+hit, because it's fully assisted.
+
+805
+00:43:30,890 --> 00:43:34,230
+This makes the effect subtle enough that
+players don't notice the shots diverging
+
+806
+00:43:34,230 --> 00:43:37,070
+from their crosshair, but they hit a lot
+more hits than they would otherwise.
+
+807
+00:43:37,530 --> 00:43:40,750
+It also gives a nice feedback loop of
+getting gradually more and more hits as
+
+808
+00:43:40,750 --> 00:43:43,570
+your aim improves, rather than the old
+approach that was either hit or miss.
+
+809
+00:43:46,250 --> 00:43:50,030
+The aim cone helped a lot, but the feel of
+putting your crosshair onto the predicted
+
+810
+00:43:50,030 --> 00:43:51,750
+reticle still felt quite fiddly.
+
+811
+00:43:52,190 --> 00:43:55,070
+Players were constantly overshooting,
+making a lot of correctional inputs.
+
+812
+00:43:55,530 --> 00:43:58,230
+The main reason for this is that the
+targets are constantly moving,
+
+813
+00:43:58,590 --> 00:44:02,010
+so instead of the player trying to aim at
+a particular static point, they are
+
+814
+00:44:02,010 --> 00:44:05,990
+actually targeting an ideal angular
+velocity as well as an orientation in
+
+815
+00:44:05,990 --> 00:44:07,250
+order to keep up with the moving target.
+
+816
+00:44:07,970 --> 00:44:11,370
+We decided to reduce this complexity by
+introducing sticky targeting.
+
+817
+00:44:12,370 --> 00:44:15,630
+This was inspired by one of the aim
+assists seen in Destiny where they pull
+
+818
+00:44:15,630 --> 00:44:18,110
+the cursor along with the enemy when the
+enemy strafe is left or right.
+
+819
+00:44:20,030 --> 00:44:22,390
+Effectively, we want to drag the cursor
+along with the target.
+
+820
+00:44:22,390 --> 00:44:26,230
+And to do so, we take the linear velocity
+of the target in world space and then
+
+821
+00:44:26,230 --> 00:44:29,150
+transform it into the player's local space
+angular velocity.
+
+822
+00:44:29,930 --> 00:44:32,950
+This target angular velocity can then be
+mapped into the input layer.
+
+823
+00:44:33,210 --> 00:44:37,050
+We can effectively work out how close the
+player was to achieving this ideal input
+
+824
+00:44:37,050 --> 00:44:41,030
+and then fade the value towards this ideal
+in a similar way to how we did it with the
+
+825
+00:44:41,030 --> 00:44:41,750
+aim cone logic.
+
+826
+00:44:42,670 --> 00:44:46,250
+We use the aim cone to fade the effect in
+and out, and we only apply the sticky
+
+827
+00:44:46,250 --> 00:44:49,850
+targeting when the player has non-zero
+right stick input, which means that we
+
+828
+00:44:49,850 --> 00:44:51,610
+only help them aim when they are trying to
+aim.
+
+829
+00:44:52,550 --> 00:44:55,210
+This ended up working really well,
+as we will show in the next demonstration
+
+830
+00:44:55,210 --> 00:44:55,550
+video.
+
+831
+00:44:59,190 --> 00:45:01,410
+In this first part, sticky targeting is
+off.
+
+832
+00:45:01,690 --> 00:45:05,130
+You can see that the player is making a
+lot of jerky correctional movements to try
+
+833
+00:45:05,130 --> 00:45:05,870
+and aim at the enemy.
+
+834
+00:45:05,870 --> 00:45:09,190
+This resulted in most kills only happening
+when the enemy is travelling in a straight
+
+835
+00:45:09,190 --> 00:45:10,910
+line and makes for an easier target.
+
+836
+00:45:15,630 --> 00:45:18,910
+This next video shows the contrast when we
+turn sticky targeting up to maximum.
+
+837
+00:45:19,330 --> 00:45:22,830
+The aim point is super stable and locked
+onto a target, but the player will be able
+
+838
+00:45:22,830 --> 00:45:25,770
+to feel the cursor being dragged along
+with the target, as in this case where the
+
+839
+00:45:25,770 --> 00:45:28,870
+cursor follows the target flight path
+exactly.
+
+840
+00:45:29,590 --> 00:45:30,890
+Looks like you could use the hands!
+
+841
+00:45:31,150 --> 00:45:34,050
+Then this last part shows the tuning we
+ended up shipping with, where the player
+
+842
+00:45:34,050 --> 00:45:37,590
+has much reduced correctional input,
+but is still subtle enough that the player
+
+843
+00:45:37,590 --> 00:45:38,890
+doesn't notice that they are being
+assisted.
+
+844
+00:45:45,410 --> 00:45:48,670
+So, overall, we ended up with a hybrid
+vehicle-shooter experience that we are
+
+845
+00:45:48,670 --> 00:45:49,430
+really proud of.
+
+846
+00:45:49,750 --> 00:45:52,890
+We used a simplified physical model,
+but with the control options for highly
+
+847
+00:45:52,890 --> 00:45:53,510
+skilled players.
+
+848
+00:45:54,370 --> 00:45:58,170
+We used a vehicle-led camera to allow
+precise handling, and then layered on
+
+849
+00:45:58,170 --> 00:46:00,550
+assists to help our shooting feel precise
+and satisfying.
+
+850
+00:46:02,810 --> 00:46:05,990
+So, we're pretty much at the end of the
+presentation now, so I'll just summarise
+
+851
+00:46:05,990 --> 00:46:07,370
+some of the key points we discussed today.
+
+852
+00:46:08,930 --> 00:46:12,810
+Games should balance simulation depth with
+arcade accessibility in order to achieve
+
+853
+00:46:12,810 --> 00:46:15,290
+intuitive controls with challenge and
+mastery.
+
+854
+00:46:16,550 --> 00:46:20,250
+Build your vehicle for the context it's
+intended for, and retune if the context
+
+855
+00:46:20,250 --> 00:46:20,650
+changes.
+
+856
+00:46:21,830 --> 00:46:23,890
+Think about how deep your simulation
+should go.
+
+857
+00:46:24,130 --> 00:46:27,130
+Look at real-world vehicles for
+inspiration, and decide on what parts
+
+858
+00:46:27,130 --> 00:46:28,910
+would add to the depth to the player
+experience.
+
+859
+00:46:31,050 --> 00:46:33,070
+Build assists to make the game more
+accessible.
+
+860
+00:46:33,390 --> 00:46:36,350
+Balance the amount and strength of the
+assists depending on how many game
+
+861
+00:46:36,350 --> 00:46:39,470
+mechanics the player has to interact with,
+ensuring that the input frequency isn't
+
+862
+00:46:39,470 --> 00:46:39,910
+too high.
+
+863
+00:46:41,190 --> 00:46:43,110
+Consider camera-led and vehicle-led
+cameras.
+
+864
+00:46:43,490 --> 00:46:46,830
+Allow the physicality of the vehicle to be
+conveyed through the camera, and give the
+
+865
+00:46:46,830 --> 00:46:48,210
+player the feedback they need.
+
+866
+00:46:49,950 --> 00:46:50,750
+And that's it.
+
+867
+00:46:50,890 --> 00:46:51,450
+Thank you very much.
+
+868
+00:47:01,980 --> 00:47:02,460
+Whew!
+
+869
+00:47:02,760 --> 00:47:03,340
+Any questions?
+
+870
+00:47:08,060 --> 00:47:08,500
+Hello.
+
+871
+00:47:08,920 --> 00:47:09,280
+Great talk.
+
+872
+00:47:09,480 --> 00:47:10,000
+Thank you very much.
+
+873
+00:47:10,160 --> 00:47:10,340
+Thanks.
+
+874
+00:47:11,620 --> 00:47:15,940
+I've been working on console vehicle
+systems for a very long time, but recently
+
+875
+00:47:15,940 --> 00:47:17,320
+been asked to help out with PC.
+
+876
+00:47:17,700 --> 00:47:21,440
+And I was wondering if you had any input
+or thoughts about digital inputs that are
+
+877
+00:47:21,440 --> 00:47:25,980
+more prevalent on PC controls versus
+analog sticks and joysticks.
+
+878
+00:47:26,620 --> 00:47:28,440
+Yeah, so the question was... Thank you.
+
+879
+00:47:28,640 --> 00:47:33,020
+The question was about digital inputs
+versus analog inputs and console versus
+
+880
+00:47:33,020 --> 00:47:33,360
+PC.
+
+881
+00:47:34,420 --> 00:47:36,580
+So there are a couple of big things there.
+
+882
+00:47:36,760 --> 00:47:41,920
+So firstly, if you're using keyboard to
+input, then you've only got on and off
+
+883
+00:47:41,920 --> 00:47:42,300
+inputs.
+
+884
+00:47:42,760 --> 00:47:47,620
+So one of the things that we do for both
+console and PC is we have steer rates.
+
+885
+00:47:47,620 --> 00:47:51,920
+So it's kind of fading in and out our
+input in terms of you don't just turn to
+
+886
+00:47:51,920 --> 00:47:53,860
+maximum input, you kind of will fade in
+and out.
+
+887
+00:47:54,660 --> 00:47:58,900
+We use that for our console pad inputs,
+but we also use it for our PC input in
+
+888
+00:47:58,900 --> 00:48:03,320
+terms of if you hold down A, then it will
+gradually fade towards that, which helps a
+
+889
+00:48:03,320 --> 00:48:03,680
+little bit.
+
+890
+00:48:04,500 --> 00:48:11,000
+One of the things that we did for Star
+Wars Battlefront 2 is that we had A and D
+
+891
+00:48:11,000 --> 00:48:11,920
+would control the roll.
+
+892
+00:48:12,520 --> 00:48:16,180
+And one of the things you can do on a pad
+is because you have an analog input,
+
+893
+00:48:16,360 --> 00:48:20,900
+you can effectively balance the rolling
+against the auto roll system.
+
+894
+00:48:21,020 --> 00:48:24,440
+So if the auto roll system is trying to
+like level you, then you can kind of
+
+895
+00:48:24,440 --> 00:48:28,820
+balance it like quarter percent left input
+to kind of keep you locked to the
+
+896
+00:48:28,820 --> 00:48:31,800
+particular angle, which is totally
+impossible to do with just A and D.
+
+897
+00:48:31,800 --> 00:48:38,300
+So we had a separate kind of input
+mechanism on PC, which is if you were
+
+898
+00:48:38,300 --> 00:48:42,720
+holding down A and D at the same time,
+then we use that new concept to say,
+
+899
+00:48:42,720 --> 00:48:43,920
+just lock wherever I am.
+
+900
+00:48:44,060 --> 00:48:47,860
+So you could kind of say A to here and
+then both of them to just lock in place.
+
+901
+00:48:48,020 --> 00:48:52,980
+So we tried to come up with new mechanisms
+that would suit the PC better than on pad.
+
+902
+00:48:55,540 --> 00:49:00,020
+Hi, with SimCade racing games that you
+were talking about, how do you approach
+
+903
+00:49:00,020 --> 00:49:01,560
+handling and assist?
+
+904
+00:49:01,560 --> 00:49:05,300
+When you're tuning vehicles to be
+understeery versus oversteery?
+
+905
+00:49:06,260 --> 00:49:07,480
+OK, so thank you.
+
+906
+00:49:07,760 --> 00:49:10,060
+The question was about understeer versus
+oversteer.
+
+907
+00:49:11,800 --> 00:49:16,360
+I think it depends on what you're trying
+to get what you're trying to get out of
+
+908
+00:49:16,360 --> 00:49:17,700
+your key experience.
+
+909
+00:49:17,700 --> 00:49:24,180
+So in terms of, if you want your vehicle
+to feel quite heavy, it's often nice to
+
+910
+00:49:24,180 --> 00:49:30,580
+have a slightly understeery vehicle where
+you'll kind of, even if you're steering at
+
+911
+00:49:30,580 --> 00:49:32,480
+maximum, you might not be able to make
+that corner.
+
+912
+00:49:32,700 --> 00:49:36,920
+And then you encourage your players to
+brake, turn into the corner, drift round.
+
+913
+00:49:36,920 --> 00:49:41,560
+So I think a lot of most wanted's handling
+was a little bit understeery, but then it
+
+914
+00:49:41,560 --> 00:49:44,520
+encourages you to like really kick the
+back out and get into a nice big drift.
+
+915
+00:49:45,460 --> 00:49:49,080
+Whereas if you want, if you don't really
+want your game to be about drifting and
+
+916
+00:49:49,080 --> 00:49:53,240
+you want it to be very much like a little
+bit more along the lines of like F0 or
+
+917
+00:49:53,240 --> 00:49:56,020
+something, where it's pretty much,
+I want complete control over the left
+
+918
+00:49:56,020 --> 00:49:57,760
+stick and I don't need to be drifting at
+all.
+
+919
+00:49:57,880 --> 00:50:02,400
+It's just maximum responsiveness,
+then you'd probably have something that's
+
+920
+00:50:02,400 --> 00:50:05,580
+way more oversteering and it's going to
+like kick into turns really aggressively.
+
+921
+00:50:05,580 --> 00:50:07,260
+So you have full control over there.
+
+922
+00:50:08,280 --> 00:50:09,240
+That's kind of how I do it.
+
+923
+00:50:11,640 --> 00:50:15,740
+In the demo, when you had the landing
+camera, it bottom out and hit the ground
+
+924
+00:50:15,740 --> 00:50:16,420
+on the landing.
+
+925
+00:50:16,760 --> 00:50:20,080
+Was it colliding elastically with the
+ground or was it just zeroing out its
+
+926
+00:50:20,080 --> 00:50:22,620
+velocity and then the spring force was
+putting it back?
+
+927
+00:50:23,780 --> 00:50:27,860
+So the question was about suspension
+bottoming out.
+
+928
+00:50:28,520 --> 00:50:36,740
+So we have on Battlefield 1, we had four
+regular sort of raycast suspension wheels
+
+929
+00:50:36,740 --> 00:50:38,440
+and then we had a rigid body as well.
+
+930
+00:50:38,980 --> 00:50:43,680
+So when you completely bottom out,
+we detect when it goes above a certain
+
+931
+00:50:43,680 --> 00:50:48,440
+threshold in the suspension of like,
+oh, it's more than 80% compressed.
+
+932
+00:50:48,680 --> 00:50:51,380
+And we'd count that as being bottoming
+out.
+
+933
+00:50:52,240 --> 00:50:57,380
+Oftentimes we would find that the actual
+rigid body would collide and we'd need to
+
+934
+00:50:57,380 --> 00:50:58,780
+try and smooth it as much as possible.
+
+935
+00:50:59,420 --> 00:51:01,060
+Sometimes you get a little bit of
+collision hitching.
+
+936
+00:51:01,160 --> 00:51:06,380
+But in general, we want to try and keep
+that maximum 20% of the suspension like
+
+937
+00:51:06,380 --> 00:51:10,360
+very, very rigid in terms of the
+suspension force that it applies back.
+
+938
+00:51:10,360 --> 00:51:16,060
+So you still get the effect of you've
+pretty much bottomed out the suspension,
+
+939
+00:51:16,380 --> 00:51:19,860
+but you still remain in that 20% to try
+and keep it floating off the ground
+
+940
+00:51:19,860 --> 00:51:22,320
+effectively and stopping the rigid body
+from actually colliding.
+
+941
+00:51:22,560 --> 00:51:25,740
+So yes, we did get some collision hitching
+and hitting the ground, but we tried to
+
+942
+00:51:25,740 --> 00:51:29,280
+minimize it through a very small amount of
+very, very strong suspension at the top of
+
+943
+00:51:29,280 --> 00:51:30,820
+the suspension raycast.
+
+944
+00:51:30,820 --> 00:51:33,280
+Does the camera itself hit the ground?
+
+945
+00:51:34,360 --> 00:51:40,840
+So it's not... so technically with the
+stuff that I showed in the presentation,
+
+946
+00:51:41,160 --> 00:51:44,300
+it's possible for you to tune the camera
+so that it would like lurch below.
+
+947
+00:51:44,540 --> 00:51:47,100
+So the momentum would keep it going.
+
+948
+00:51:47,280 --> 00:51:48,380
+So it would keep going down.
+
+949
+00:51:48,500 --> 00:51:51,880
+So if you had a massive momentum term,
+it could potentially go all the way down
+
+950
+00:51:51,880 --> 00:51:52,520
+below the ground.
+
+951
+00:51:53,780 --> 00:51:57,560
+However, even if you did tune it like
+that, we have another separate system,
+
+952
+00:51:57,660 --> 00:52:01,340
+which is a capsule collision system that
+basically says, hey, if you're going to
+
+953
+00:52:01,340 --> 00:52:06,320
+collide with the ground, kind of push
+yourself out and resolve it in a way that
+
+954
+00:52:06,320 --> 00:52:07,880
+won't actually go through the terrain.
+
+955
+00:52:08,040 --> 00:52:11,160
+So we have another system on top of that
+to protect against those sorts of issues.
+
+956
+00:52:15,140 --> 00:52:19,240
+For the auto-aim systems you talked about
+on the starfighters, did you do anything
+
+957
+00:52:19,240 --> 00:52:22,840
+different for projectile convergence on
+something like the X-wing versus the TIE
+
+958
+00:52:22,840 --> 00:52:25,460
+fighter, where the projectiles are
+spawning from different points and
+
+959
+00:52:25,460 --> 00:52:27,160
+colliding, basically coming from different
+angles?
+
+960
+00:52:27,280 --> 00:52:28,380
+The TIE fighters are very straightforward.
+
+961
+00:52:28,500 --> 00:52:29,940
+The X-wings are coming from the outer
+wings.
+
+962
+00:52:30,980 --> 00:52:32,020
+Yeah, really good question.
+
+963
+00:52:32,420 --> 00:52:36,320
+So this is about, you're not actually
+shooting from where you think you're
+
+964
+00:52:36,320 --> 00:52:36,820
+shooting from.
+
+965
+00:52:36,960 --> 00:52:41,960
+You're shooting from, you know,
+like gun barrels at the edges of the
+
+966
+00:52:41,960 --> 00:52:42,280
+wings.
+
+967
+00:52:43,520 --> 00:52:48,520
+It's more complex than just being far away
+from the center of the vehicle.
+
+968
+00:52:48,720 --> 00:52:51,060
+It's also far away from the center of the
+camera.
+
+969
+00:52:51,620 --> 00:52:55,540
+So one of the most difficult vehicles for
+this was Slave 1, which is like a massive
+
+970
+00:52:55,540 --> 00:52:57,740
+vehicle, and the gun barrels are right at
+the bottom.
+
+971
+00:52:57,900 --> 00:52:59,480
+And we needed the camera to be up here.
+
+972
+00:52:59,680 --> 00:53:02,400
+So, if you've got the camera way up here
+and the gun barrel is down here,
+
+973
+00:53:03,060 --> 00:53:05,220
+you'd be trying to aim along where the
+camera's looking.
+
+974
+00:53:05,220 --> 00:53:09,720
+And the camera... the gun barrels would
+effectively be pointing up.
+
+975
+00:53:10,020 --> 00:53:14,580
+So what we found was there was this really
+weird behaviour where if you were trying
+
+976
+00:53:14,580 --> 00:53:17,940
+to aim at something that was quite close,
+your gun barrels would be pointing,
+
+977
+00:53:18,000 --> 00:53:20,000
+like, up 40 degrees or something.
+
+978
+00:53:20,260 --> 00:53:24,980
+So you'd be like, I want to fire here,
+but then all your missed shots are
+
+979
+00:53:24,980 --> 00:53:26,820
+actually going up in the screen and it
+looks really weird.
+
+980
+00:53:27,700 --> 00:53:32,060
+And that's actually a very difficult
+problem to solve because you either say,
+
+981
+00:53:32,160 --> 00:53:36,940
+I want to shoot down the camera,
+centre, or I want to shoot accurately from
+
+982
+00:53:36,940 --> 00:53:38,080
+where the gun barrels actually are.
+
+983
+00:53:38,400 --> 00:53:40,240
+So what we did was we did some...
+
+984
+00:53:41,060 --> 00:53:45,820
+We kind of fudged it a little bit by
+looking at what your target is in terms
+
+985
+00:53:45,820 --> 00:53:50,420
+of, I'm shooting towards this guy over
+here, so I'm going to try and fade it so
+
+986
+00:53:50,420 --> 00:53:58,300
+that my shots will always hit him and try
+and make it so that if he's really,
+
+987
+00:53:58,380 --> 00:54:01,380
+really close to me in terms of,
+like, if he's right up in the camera and
+
+988
+00:54:01,380 --> 00:54:06,080
+the vertical deviation from where the gun
+barrel is actually pointing would be very
+
+989
+00:54:06,080 --> 00:54:10,320
+aggressive and would give me that effect
+of shots going off into the sky,
+
+990
+00:54:11,600 --> 00:54:13,900
+then limit it to a particular set angle.
+
+991
+00:54:15,100 --> 00:54:17,580
+Alright, and did you also have the
+account...
+
+992
+00:54:17,580 --> 00:54:20,600
+Were you using that in combination with
+the prediction points so that if the
+
+993
+00:54:20,600 --> 00:54:22,540
+player was trying to aim in front of a
+moving...
+
+994
+00:54:22,540 --> 00:54:25,920
+a target that's moving laterally,
+that it would have to predict in front of
+
+995
+00:54:25,920 --> 00:54:27,280
+them where the shots could converge to?
+
+996
+00:54:27,800 --> 00:54:31,460
+Yeah, so we did all of our calculations
+based on the predicted position.
+
+997
+00:54:31,680 --> 00:54:36,260
+So we know where you're trying to aim and
+we would aim towards that point.
+
+998
+00:54:36,340 --> 00:54:37,580
+So we'd use that to fade it in and out.
+
+999
+00:54:42,700 --> 00:54:45,800
+Just one more, actually sort of a comment
+and suggestion for people.
+
+1000
+00:54:45,960 --> 00:54:50,280
+If you're working on racing games or
+vehicle dynamic systems, I'm not sure
+
+1001
+00:54:50,280 --> 00:54:55,500
+about the UK, but in the United States we
+have a sport called autocross that people
+
+1002
+00:54:55,500 --> 00:54:58,620
+do in parking lots and you set up cone
+tracks and stuff.
+
+1003
+00:54:58,900 --> 00:55:02,860
+And I would encourage you to take a look
+and see if there's that sort of an
+
+1004
+00:55:02,860 --> 00:55:04,500
+activity in whatever city you live in.
+
+1005
+00:55:04,840 --> 00:55:09,720
+Because driving a real vehicle at the
+edge, you develop a different intuition
+
+1006
+00:55:09,720 --> 00:55:11,400
+for the way a lot of these systems work.
+
+1007
+00:55:11,400 --> 00:55:15,980
+And the vehicle dynamics programmer that I
+worked with, he and I would go out on
+
+1008
+00:55:15,980 --> 00:55:18,960
+weekends and participate in championships
+and stuff.
+
+1009
+00:55:19,160 --> 00:55:24,260
+And it was great fun, but it also really
+gave us a better fundamental just
+
+1010
+00:55:24,260 --> 00:55:27,560
+intuition and understanding of the way the
+vehicles work when they're really at the
+
+1011
+00:55:27,560 --> 00:55:30,880
+edge of the performance envelope,
+which most people never experience.
+
+1012
+00:55:31,320 --> 00:55:33,640
+I mean, even if you're go-karting or
+you're doing other stuff, there's
+
+1013
+00:55:33,640 --> 00:55:35,560
+different ways of weight transfer.
+
+1014
+00:55:35,700 --> 00:55:39,420
+And when you actually lose control,
+what happens when you spin out and those
+
+1015
+00:55:39,420 --> 00:55:39,920
+sorts of things.
+
+1016
+00:55:40,200 --> 00:55:43,640
+So just suggesting if people are working
+on those systems, see if there's like a
+
+1017
+00:55:43,640 --> 00:55:48,560
+SCCA or Porsche club or BMW club or
+anything in your area and participate in
+
+1018
+00:55:48,560 --> 00:55:49,160
+those sorts of things.
+
+1019
+00:55:49,700 --> 00:55:50,380
+Yeah, definitely.
+
+1020
+00:55:50,540 --> 00:55:53,360
+Like actually getting real experience with
+vehicles is super valuable.
+
+1021
+00:55:53,880 --> 00:55:56,580
+I think whenever we were trying to do a
+new type of vehicle, we would try and
+
+1022
+00:55:56,580 --> 00:55:59,180
+actually go and drive something similar.
+
+1023
+00:55:59,700 --> 00:56:02,800
+Unfortunately, we can't get World War One
+vehicles, so we couldn't actually drive
+
+1024
+00:56:02,800 --> 00:56:03,300
+any of those.
+
+1025
+00:56:04,760 --> 00:56:05,980
+But it's super valuable.
+
+1026
+00:56:06,200 --> 00:56:08,340
+And also it works the other way around as
+well.
+
+1027
+00:56:08,480 --> 00:56:11,340
+Like I found that playing a load of racing
+games throughout my life made me really
+
+1028
+00:56:11,340 --> 00:56:12,160
+good at go-karting.
+
+1029
+00:56:12,880 --> 00:56:15,240
+I mean, not that good, but you know,
+quite good.
+
+1030
+00:56:16,600 --> 00:56:20,800
+For the thing you were talking about a
+moment ago with the shooting the guns from
+
+1031
+00:56:20,800 --> 00:56:21,700
+not from the camera.
+
+1032
+00:56:21,920 --> 00:56:22,120
+Yes.
+
+1033
+00:56:22,120 --> 00:56:27,600
+Did you do anything to handle where there
+is an object between the gun and the
+
+1034
+00:56:27,600 --> 00:56:30,960
+target, but that same object is not
+between the camera and the target?
+
+1035
+00:56:32,020 --> 00:56:33,240
+So we didn't do too much.
+
+1036
+00:56:33,380 --> 00:56:33,620
+Oh, sorry.
+
+1037
+00:56:33,820 --> 00:56:38,460
+This was about if there's an object
+between the gun and where the target
+
+1038
+00:56:38,460 --> 00:56:38,940
+actually is.
+
+1039
+00:56:38,980 --> 00:56:39,780
+So it's kind of obstructing.
+
+1040
+00:56:40,640 --> 00:56:46,980
+We didn't do too much of that,
+mainly because, like, the situation of the
+
+1041
+00:56:46,980 --> 00:56:50,060
+game is mainly aiming at, like,
+a Starfighter which is over here.
+
+1042
+00:56:50,300 --> 00:56:53,140
+And I'm kind of going through a tunnel
+maybe is the most geometry we tend to get
+
+1043
+00:56:53,140 --> 00:56:54,080
+in between things.
+
+1044
+00:56:54,080 --> 00:56:59,940
+We didn't find that players had that a lot
+in Battlefront 2.
+
+1045
+00:57:00,640 --> 00:57:03,240
+I'd see if you were doing a first-person
+shooter, then obviously you can just,
+
+1046
+00:57:03,280 --> 00:57:04,660
+like, position the camera right up
+against...
+
+1047
+00:57:04,660 --> 00:57:07,800
+position the gun right up against the wall
+and you get that situation a lot.
+
+1048
+00:57:07,920 --> 00:57:12,320
+In which case, I think you'd probably do
+something along the lines of doing ray
+
+1049
+00:57:12,320 --> 00:57:15,480
+casts from the gun and being like,
+well, if that's obstructed, then fire the
+
+1050
+00:57:15,480 --> 00:57:18,420
+bullet here instead of where I think it
+should go from the camera's point of view
+
+1051
+00:57:18,420 --> 00:57:20,060
+and decide which is most applicable.
+
+1052
+00:57:21,240 --> 00:57:21,600
+Thanks.
+
+1053
+00:57:26,860 --> 00:57:27,220
+Cool.
+
+1054
+00:57:27,500 --> 00:57:30,340
+If there's any more questions or anyone
+wants to catch up afterwards, grab a
+
+1055
+00:57:30,340 --> 00:57:32,860
+business card or something fun,
+then go and grab me afterwards.
+
+1056
+00:57:33,100 --> 00:57:33,580
+Thank you very much.
+

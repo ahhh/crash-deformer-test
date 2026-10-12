@@ -1,0 +1,107 @@
+# Measurements
+
+All node figures from this WSL box (loads noted where they mattered: other sessions' rustc/e2e runs push load to 3–6 and skew absolute ms; interleaved ratios hold up better). Browser figures from the owner's desktop (RTX 4080, 165 Hz) and phone (Mali-G715) unless noted.
+
+## 1. Regression by plan stage (node, city bench config: city track, 16 racers + police, aggression 1, seed 7; ms of sim per sim-second)
+
+| Commit | Stage | ms/sim-s |
+|---|---|---|
+| 1c21fbd1 | pre-plan | 227 |
+| d232d0a7 | Stage 1 (surface store) | 278 |
+| 2160cddf | Stage 2 | 279 |
+| fc1118e2 | Stage 3 | 360 |
+| eb72060a | Stage 4 item 5 (car-car through the kernel) | 352 |
+| c12d2d31 | Stage 5 | 424 |
+| 10550ba0 | Stage 4 item 6 (wreck split: every crashed car runs the rigid step, ~220 cage points per 1/240 s) | 671 |
+| 7cf2c6f9 | 10-12 morning | 601 |
+| ecbc560e | + tops gate (near-tops lists) | ~550 (0.91–0.93 of 7cf2c6f9) |
+
+Harness: `scratch-CostProfile3/drive.mjs` (headless race, arms alternate 1-sim-s chunks in one process).
+
+## 2. Live benches (bench cards, build 7cf2c6f, `fx=minimal`)
+
+| Device | City fps | City sim ms/sim-s | Notes |
+|---|---|---|---|
+| Phone Chrome | 33.5 | 1265 | pacer coarse (1/120 s) |
+| Phone Firefox | 24.2 | 1683 | card shows fine 1779 vs coarse 1395 |
+| Desktop Firefox | 63.4 | 624 | |
+| Desktop Chrome | 159.8 (vsync 165) | 370 | main thread 78 % busy; dam-spine 156 fps |
+
+Desktop Chrome fleet 32 (seed 4242): impact 135 fps, slow-mo 46 fps, aftermath 10 fps (p50 103 ms). Owner's own fleet tab (c9dc4f9): 57 fps, pacer coarse, 16 sim-s dropped.
+
+## 3. Desktop Chrome profile, fleet 32-car aftermath (1 s window 12–13 s, frames 78–103 ms; build 7cf2c6f9 = tree cost-w4, line numbers are that tree's)
+
+Top self time:
+
+| % of s | Function | File |
+|---|---|---|
+| 10.1 | offer | surfaces.ts:1040 |
+| 8.1 | rasterise | car-cage.ts:682 |
+| 6.4 | seek | surfaces.ts:1356 |
+| 5.8 | gridAt | surfaces.ts:946 |
+| 5.3 | transformGrid | car-cage.ts:813 |
+| 4.8 | deepestIn | sat.ts:97 |
+| 4.5 | holds | ragdoll-proxy.ts:139 |
+| 2.6 | Rapier wasm fn 334 | |
+| 2.5 | measure | ragdoll-proxy.ts:165 |
+| 2.4 | sample | ragdoll-proxy.ts:235 |
+| 2.0 | cut | ragdoll-proxy.ts:245 |
+| 2.0 | solveCagesFromShape | streamed-deform.ts:240 |
+| 1.8 | counts | ragdoll-proxy.ts:149 |
+| 1.6 | bil | surfaces.ts:855 |
+| 1.6 | normalOf | surfaces.ts:1200 |
+| 1.4 | refresh | cage-outline.ts:37 |
+| 1.3 | update (three geometry) | three.module.js:4192 |
+| 1.3 / 1.2 | Rapier wasm fn 37 / 3 | |
+| 1.1 | pullSensorsFromMasses | streamed-deform.ts:156 |
+
+Inclusive: tickInner 98 %; fixed-step sim 60 % (integrate 31 %, stepFree 29 %, seek 24.5 %, wheelContact 14.3 %, readPoints 15.6 %, pointContact 11 %, resolveCarPair 12.9 %, satCars 11 %); ragdoll update 23 % (fitProxy 14 %, Rapier step 8 %); three render ~15 %.
+
+`offer` inclusive 189 ms by caller chain: 48 % tread ← wheelContact ← wheelsAt ← stepFree (tyre footprints, 125 points per wheel when a car top is near); 31 % pointContact ← readPoints ← stepFree (cage points); 7.6 % loose parts (loose-step.ts:150); rest belly/edge.
+
+City bench (desktop Chrome): bench-loop 33 %, three 29 %, prefabs 14 %; fixedStep 50 %, render 29 %, integrateWreck 20 %. three self: updateMatrixWorld 3.2 %, WebGLGeometries.update 2.8 %, projectObject 1.8 %, setProgram 1.6 %.
+
+Load trace (Chrome): cage build ≥ 1.87 s at page load (`cost` car-cage.ts:350 1326 ms, `decimate` 286 ms, `buildStyle` 175 ms); shader warm 365 ms (223 ms deliberate JIT warm crash + 142 ms three link checks).
+
+Firefox desktop fleet slow-mo (13.4 fps): surface queries 28 ms/frame, cage refit 12.3, three 7.8, mass solver 5.3, Rapier 4.2.
+
+## 4. Node call counts, fleet 32 (seed 4242, 1500 frames, tree cost-x10 unless noted)
+
+| Counter | Count | Note |
+|---|---|---|
+| seek (point queries) | 45.1 M | |
+| tread points | 31.4 M | 688 k wheelContact calls, 233 k with the full 125-point footprint |
+| pointContact / Near / Held | 3.7 M / 9.0 M / 1.7 M | cage + belly points |
+| offer solids (x9, before the always index) | 541 M | 12 RigSolids patches, 6 enabled lamp poles of 0.2 m, scanned by every query; 280 box passes, 0 accepts |
+| offer solids (x10, always index) | 10.2 M | |
+| offer tops | 166 M | 51 M pass the box; then 22.9 M owner-rejected, 23.9 M off the roof grid (NaN), 2.4 M out of reach, 1.5 M accepted |
+| offer statics | 0 | the disc ground takes the plain path (48.5 M plainOffer) |
+
+
+Node fleet profiles (900 frames, same seed; self ms over the run): `offer` 1859 → 701 (x9 → x10), `seek` 955 → < 293; x10 matches the no-solids upper bound (x9ns `offer` 497). ≈ −2.3 ms per frame of ~16.
+Skipping `find(live.solids)` entirely (not exact in general, exact for this run: 0 accepts): fleet mean 16.25 → 13.94 ms and 16.21 → 14.58 (−10…−14 %).
+
+Earlier (count-c9dc): offer 1.079 B per 1500 frames; gridAt 91.8 M; wreck readPoints 17.3 M points almost all ungated.
+
+Node city32 (aggression 1): 801 ms/sim-s; 27 wrecks; readPoints 17 µs inclusive per call; `measure` (cage-measure) 177 k calls/s; loadPoints ~27 ms/sim-s; rasterise ~25 ms/sim-s; stepLoose ~86 ms/sim-s; AI drive/think ~87 ms/sim-s.
+
+## 5. A/B rows of each cut (ratio = new/old ms per sim-second; `same` = pose digest equal)
+
+| Cut | city16 | a0c16 (clean oval) | a1c32 | fleet 32 mean ms | Exact |
+|---|---|---|---|---|---|
+| ecbc560e tops gate + near-tops lists | 0.914–0.93 | 0.91–0.99 | 0.967 | 2–4 % (pre-deterministic harness; unreliable) | yes (0 rows lost; disagreement counter) |
+| x9 plainChecks (fleet disc on the plain path) | 0.962–0.974 | 1.00 (order noise ±3 %) | 0.958–0.999 | — | yes |
+| x10 always index (solids) | 0.977/0.997 | order noise | 0.948/0.975 | 18.46→18.23, 19.86→17.44 (load 5) | yes (digests equal; disabled/far patches only) |
+| x11 STEPS 12→6 tread arcs (probe) | — | — | — | 16.23→16.11, 18.96→14.36 (noisy) | NO (digest 1822279811) |
+| x8 (plainOffer always testing box+disc) | 0.976–1.009 | 1.02–1.04 | ~1.0 | — | yes, but slower on clean rows → replaced by x9 |
+| fixedTop (solids in every gate) | — | 1.04–1.08 | — | — | dropped |
+
+Pacer: node race rows run with no pacer (fixed 1/240 s floor slices); live phones run coarse 1/120 s. The bench cards compare fine vs coarse.
+
+## 6. Harnesses
+
+- `scratch-CostProfile3/drive.mjs` (+ `rows.sh`, `row1.sh`): headless race, two trees alternating chunks; env ROOTS, CARS, POLICE, AGG, SECS, WARM, TRACK, SEED, MODE=count|alloc, PROF.
+- `fleet-bench/fleet5.mjs`: real CrashEngine headless, fake clock 1/60 s per frame, pacer pinned fine (`PIN=coarse` for 1/120); deterministic (digest 795525135 at x7–x10). **Does not run the ragdoll system** (Rapier never finishes loading: no yields); a variant that preloads Rapier trips a `RuntimeError: unreachable` in `glassTouch` → `torso.contactCollider(pane)` (reverse query does not trap; cause unknown; browser `tick` catches it, `advance` does not).
+- `city-prof/inject*.mjs`: call-counter injection into scratch copies.
+- Profiles: `owner-traces/chrome/cpuprof-map.cjs` (self/inclusive per function), `callers.cjs` (caller chains).
+- All timing/counting on this box goes through `flock ~/crash-wt/ab.lock`.
