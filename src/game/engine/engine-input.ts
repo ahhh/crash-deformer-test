@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import Stats from "three/addons/libs/stats.module.js";
 import { PISTON_DEFAULTS, PISTON_IDS } from "../scenes/piston-rig.ts";
 import { RAM_DEFAULTS } from "../scenes/door-rig.ts";
 import { INITIAL_HUD, KNOB_RANGES } from "../hud/hud-store.ts";
@@ -196,6 +197,21 @@ export abstract class EngineInput extends EngineRigs {
 
   cycleFxTier(): void {
     this.setFxTier(FX_TIERS[(FX_TIERS.indexOf(this.cine.tier) + 1) % FX_TIERS.length]!);
+  }
+
+  /** The frame-time panel over the canvas (`\` or `?stats=1`): three's `Stats`, measured round `tickInner`. */
+  protected stats: Stats | null = null;
+
+  toggleStats(): void {
+    if (this.stats !== null) {
+      this.stats.dom.remove();
+      this.stats = null;
+      return;
+    }
+    this.stats = new Stats();
+    this.stats.showPanel(1);
+    this.stats.dom.style.left = "calc(50% - 40px)";
+    (this.canvas.parentElement ?? document.body).appendChild(this.stats.dom);
   }
 
   setNight(on: boolean): void {
@@ -568,6 +584,8 @@ export abstract class EngineInput extends EngineRigs {
       this.toggleCapture();
     } else if (e.code === "KeyF") {
       this.cycleFxTier();
+    } else if (e.code === "Backslash") {
+      this.toggleStats();
     } else if (e.code === "KeyH") {
       this.setNight(!this.stage.night);
     } else if (e.code === "KeyX") {

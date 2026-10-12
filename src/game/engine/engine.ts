@@ -227,6 +227,7 @@ export class CrashEngine extends EngineGarage {
     // `?fx=off|minimal|low|high|ultra` picks the tier for the session (bench A/B); the auto tier otherwise. Ultra loads after boot (below).
     const fxParam = FX_TIERS.find((t) => t === new URLSearchParams(window.location.search).get(SETTING_KEY.fx));
     this.cine.setTier(fxParam === "ultra" ? "high" : (fxParam ?? INITIAL_HUD.fxTier));
+    if (new URLSearchParams(window.location.search).get("stats") === "1") this.toggleStats();
     const gl = this.renderer.getContext();
     const gpu = gl.getExtension("WEBGL_debug_renderer_info");
     const desktop = hardwareDesktop(gpu ? String(gl.getParameter(gpu.UNMASKED_RENDERER_WEBGL)) : null, window.matchMedia("(pointer: fine)").matches);
@@ -383,6 +384,7 @@ export class CrashEngine extends EngineGarage {
 
   private tick = (now: number): void => {
     if (this.disposed) return;
+    this.stats?.begin();
     try {
       this.tickInner(now);
     } catch (err) {
@@ -391,6 +393,7 @@ export class CrashEngine extends EngineGarage {
       this.renderer.render(this.scene, this.camera);
       this.blend.restore();
     }
+    this.stats?.end();
   };
 
   protected tickInner(now: number): void {
