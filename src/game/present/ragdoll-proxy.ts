@@ -121,8 +121,8 @@ export class ProxyFitter {
   private readonly hi = new Float64Array(PROXY_BOXES);
   private readonly floor = new Float64Array(PROXY_BOXES);
   private readonly ceil = new Float64Array(PROXY_BOXES);
-  /** Per node line of the leaf being cut (`cut`; i lines, then j lines), the moments of its nodes (`MOMENTS`), and the whole leaf's and the left side's. */
-  private readonly line = new Float64Array(2 * LINES * MOMENTS);
+  /** Per leaf, per node line over its rectangle (i lines, then j lines, by absolute index), the moments of the nodes it samples (`MOMENTS`), gathered by `measure` for `cut`. */
+  private readonly mom = new Float64Array(PROXY_BOXES * 2 * LINES * MOMENTS);
   private readonly total = new Float64Array(MOMENTS);
   private readonly left = new Float64Array(MOMENTS);
   private readonly right = new Float64Array(MOMENTS);
@@ -135,10 +135,8 @@ export class ProxyFitter {
   /** The node lines (x min, x max, z min, z max) under the gone panes: the opening a dummy falls through, over which the lower box runs on. */
   private readonly open = new Float64Array(4);
 
-  /** Whether node `n` is one leaf `k` holds: covered by the plan, with a top, under no pane, and on its side of the belt (a roof leaf never takes a hood's nodes). */
-  private holds(k: number, f: CageFields, n: number): boolean {
-    return f.covered[n] === 1 && this.glassNode[n] === 0 && Number.isFinite(f.top[n]!) && f.top[n]! > BELT_Y === (this.roof[k] === 1);
-  }
+  /** Per node (`markSides`), 0 where no leaf holds it (not covered by the plan, no top, or under a pane), else 2 over the belt and 1 under it: a leaf holds the nodes on its side of the belt (a roof leaf never takes a hood's nodes). */
+  private readonly side = new Uint8Array(LINES * LINES);
 
   /**
    * Whether node `n` counts in leaf `k`'s spread: one the leaf holds that is inside the rim, or in it and no more than `RIM_DROP`
@@ -147,7 +145,7 @@ export class ProxyFitter {
    * any it holds when it has none inside the rim (a stray row along an outline, which a cut never splits off a leaf with an inside).
    */
   private counts(k: number, f: CageFields, n: number): boolean {
-    if (!this.holds(k, f, n)) return false;
+    if (this.side[n] !== this.roof[k]! + 1) return false;
     if (this.rim[k] === 1 || this.plan[n]! <= -RIM || (f.top[n]! >= this.floor[k]! && f.top[n]! <= this.ceil[k]!)) return true;
     if (f.covered[n - 1] !== 0 && f.covered[n + 1] !== 0 && f.covered[n - this.nu] !== 0 && f.covered[n + this.nu] !== 0) return false;
     return this.under(k, f, n, n - 1) || this.under(k, f, n, n + 1) || this.under(k, f, n, n - this.nu) || this.under(k, f, n, n + this.nu);
@@ -155,7 +153,7 @@ export class ProxyFitter {
 
   /** Whether node `n` lies more than `CLIFF` under node `m`, which leaf `k` holds. */
   private under(k: number, f: CageFields, n: number, m: number): boolean {
-    return m >= 0 && m < f.top.length && this.holds(k, f, m) && f.top[m]! - f.top[n]! > CLIFF;
+    return m >= 0 && m < f.top.length && this.side[m] === this.roof[k]! + 1 && f.top[m]! - f.top[n]! > CLIFF;
   }
 
   /**
@@ -163,34 +161,42 @@ export class ProxyFitter {
    * when it holds none.
    */
   private measure(k: number, f: CageFields, nu: number): boolean {
+    const { side, plan, mom, glassNode } = this;
+    const { top } = f;
+    const want = this.roof[k]! + 1;
+    const I0 = this.i0[k]!;
+    const I1 = this.i1[k]!;
+    const J0 = this.j0[k]!;
+    const J1 = this.j1[k]!;
     let held = false;
-    let i0 = this.i1[k]!;
-    let i1 = this.i0[k]!;
-    let j0 = this.j1[k]!;
-    let j1 = this.j0[k]!;
-    for (let j = this.j0[k]!; j <= this.j1[k]!; j++) {
-      for (let i = this.i0[k]!; i <= this.i1[k]!; i++) {
-        if (!this.holds(k, f, j * nu + i)) continue;
+    let i0 = I1;
+    let i1 = I0;
+    let j0 = J1;
+    let j1 = J0;
+    let inner = 0;
+    let innerHi = -Infinity;
+    for (let j = J0; j <= J1; j++) {
+      for (let i = I0; i <= I1; i++) {
+        const n = j * nu + i;
+        if (side[n] !== want) continue;
         held = true;
         if (i < i0) i0 = i;
         if (i > i1) i1 = i;
         if (j < j0) j0 = j;
         if (j > j1) j1 = j;
+        if (plan[n]! > -RIM) continue;
+        inner++;
+        innerHi = Math.max(innerHi, top[n]!);
       }
     }
     if (!held) return false;
-    let inner = 0;
-    let innerHi = -Infinity;
-    for (let j = j0; j <= j1; j++) {
-      for (let i = i0; i <= i1; i++) {
-        if (!this.holds(k, f, j * nu + i) || this.plan[j * nu + i]! > -RIM) continue;
-        inner++;
-        innerHi = Math.max(innerHi, f.top[j * nu + i]!);
-      }
-    }
     this.rim[k] = inner === 0 ? 1 : 0;
     this.floor[k] = innerHi - RIM_DROP;
     this.ceil[k] = innerHi + LEAF_RANGE;
+    const floor = this.floor[k]!;
+    const base = k * 2 * LINES * MOMENTS;
+    mom.fill(0, base + I0 * MOMENTS, base + (I1 + 1) * MOMENTS);
+    mom.fill(0, base + (LINES + J0) * MOMENTS, base + (LINES + J1 + 1) * MOMENTS);
     let lo = Infinity;
     let hi = -Infinity;
     let ci0 = i1;
@@ -199,7 +205,8 @@ export class ProxyFitter {
     let cj1 = j0;
     for (let j = j0; j <= j1; j++) {
       for (let i = i0; i <= i1; i++) {
-        const y = this.sample(k, f, j * nu + i);
+        const n = j * nu + i;
+        const y = this.sample(k, f, n);
         if (Number.isNaN(y)) continue;
         if (y < lo) lo = y;
         if (y > hi) hi = y;
@@ -207,6 +214,15 @@ export class ProxyFitter {
         if (i > ci1) ci1 = i;
         if (j < cj0) cj0 = j;
         if (j > cj1) cj1 = j;
+        // A node counted under the floor is a wall's foot (`counts`): a surface of its own, which a cut may split off.
+        const inside = plan[n]! <= -RIM || (glassNode[n] === 0 && y < floor) ? 1 : 0;
+        for (let axis = 0; axis < 2; axis++) {
+          const o = base + (axis * LINES + (axis === 0 ? i : j)) * MOMENTS;
+          mom[o]!++;
+          mom[o + 1]! += y;
+          mom[o + 2]! += y * y;
+          mom[o + 3]! += inside;
+        }
       }
     }
     // A roof leaf is a slab afloat over its rectangle: it takes only the nodes that count, so a ring that holds (over the belt) but
@@ -242,33 +258,19 @@ export class ProxyFitter {
    * spread about their means (the sum of their squared misses, read off moments summed along the lines), so a bump or a step is
    * cut off in one cut and a slope in the middle. Returns the node after which it is cut, and sets `cutAlongI`.
    */
-  private cut(k: number, f: CageFields, nu: number): number {
-    this.line.fill(0);
-    for (let j = this.j0[k]!; j <= this.j1[k]!; j++) {
-      for (let i = this.i0[k]!; i <= this.i1[k]!; i++) {
-        const y = this.sample(k, f, j * nu + i);
-        if (Number.isNaN(y)) continue;
-        // A node counted under the floor is a wall's foot (`counts`): a surface of its own, which a cut may split off.
-        const inside = this.plan[j * nu + i]! <= -RIM || (this.glassNode[j * nu + i] === 0 && y < this.floor[k]!) ? 1 : 0;
-        for (let axis = 0; axis < 2; axis++) {
-          const o = (axis * LINES + (axis === 0 ? i - this.i0[k]! : j - this.j0[k]!)) * MOMENTS;
-          this.line[o]!++;
-          this.line[o + 1]! += y;
-          this.line[o + 2]! += y * y;
-          this.line[o + 3]! += inside;
-        }
-      }
-    }
+  private cut(k: number): number {
+    const base = k * 2 * LINES * MOMENTS;
     let best = Infinity;
     let at = -1;
     for (let axis = 0; axis < 2; axis++) {
+      const first = axis === 0 ? this.i0[k]! : this.j0[k]!;
       const lines = (axis === 0 ? this.i1[k]! - this.i0[k]! : this.j1[k]! - this.j0[k]!) + 1;
       this.total.fill(0);
       this.left.fill(0);
-      for (let m = 0; m < lines; m++) for (let q = 0; q < MOMENTS; q++) this.total[q]! += this.line[(axis * LINES + m) * MOMENTS + q]!;
+      for (let m = 0; m < lines; m++) for (let q = 0; q < MOMENTS; q++) this.total[q]! += this.mom[base + (axis * LINES + first + m) * MOMENTS + q]!;
       for (let m = 0; m < lines - 1; m++) {
         for (let q = 0; q < MOMENTS; q++) {
-          this.left[q]! += this.line[(axis * LINES + m) * MOMENTS + q]!;
+          this.left[q]! += this.mom[base + (axis * LINES + first + m) * MOMENTS + q]!;
           this.right[q] = this.total[q]! - this.left[q]!;
         }
         if (this.left[0]! === 0 || this.right[0]! === 0) continue;
@@ -276,7 +278,7 @@ export class ProxyFitter {
         const miss = misses(this.left) + misses(this.right);
         if (miss < best) {
           best = miss;
-          at = (axis === 0 ? this.i0[k]! : this.j0[k]!) + m;
+          at = first + m;
           this.cutAlongI = axis === 0;
         }
       }
@@ -310,6 +312,8 @@ export class ProxyFitter {
     this.floor[k] = this.floor[n]!;
     this.ceil[k] = this.ceil[n]!;
     this.whole[k] = this.whole[n]!;
+    const block = 2 * LINES * MOMENTS;
+    this.mom.copyWithin(k * block, n * block, (n + 1) * block);
   }
 
   /**
@@ -383,6 +387,14 @@ export class ProxyFitter {
     }
   }
 
+  /** Fills `side` for the `nodes` of the lattice: 0 where no leaf holds the node, else 2 over the belt (`BELT_Y`) and 1 under it. */
+  private markSides(f: CageFields, nodes: number): void {
+    for (let n = 0; n < nodes; n++) {
+      const top = f.top[n]!;
+      this.side[n] = f.covered[n] === 1 && this.glassNode[n] === 0 && Number.isFinite(top) ? (top > BELT_Y ? 2 : 1) : 0;
+    }
+  }
+
   /**
    * Fits the leaves to `f` on `style`'s lattice (the body mesh's frame), `plan` its plan distance field, `glass` its panes' corners
    * and `paneBits` their states (`markGlass`): the plan's covered nodes not under a standing pane are cut into rectangles of the
@@ -397,6 +409,7 @@ export class ProxyFitter {
     this.plan = plan;
     this.nu = nu;
     this.markGlass(f, style, glass, paneBits);
+    this.markSides(f, nu * nv);
     let leaves = 0;
     for (let side = 0; side < 2; side++) {
       this.roof[leaves] = side;
@@ -419,7 +432,7 @@ export class ProxyFitter {
         }
       }
       if (k < 0) break;
-      const at = this.cut(k, f, nu);
+      const at = this.cut(k);
       if (at < 0) {
         this.whole[k] = 1;
         continue;
