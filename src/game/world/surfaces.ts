@@ -643,7 +643,7 @@ export class Surface {
     let small = 0;
     for (let k = 0; k < this.nAlways; k++) {
       const o = this.always[k]! * P_STRIDE;
-      if (!(P[o + P_MINX]! <= P[o + P_MAXX]!) || P[o + P_MAXX]! - P[o + P_MINX]! > WIDE * CELL || P[o + P_MAXZ]! - P[o + P_MINZ]! > WIDE * CELL) continue;
+      if (P[o + P_MINX]! > P[o + P_MAXX]! || !(P[o + P_MAXX]! - P[o + P_MINX]! <= WIDE * CELL) || !(P[o + P_MAXZ]! - P[o + P_MINZ]! <= WIDE * CELL)) continue;
       small++;
       minX = Math.min(minX, P[o + P_MINX]!);
       maxX = Math.max(maxX, P[o + P_MAXX]!);
@@ -660,7 +660,7 @@ export class Surface {
       this.aNWide = 0;
       for (let k = 0; k < this.nAlways; k++) {
         const o = this.always[k]! * P_STRIDE;
-        if (P[o + P_MINX]! <= P[o + P_MAXX]!) this.aWide[this.aNWide++] = this.always[k]!;
+        if (!(P[o + P_MINX]! > P[o + P_MAXX]!)) this.aWide[this.aNWide++] = this.always[k]!;
       }
       return;
     }
@@ -673,8 +673,9 @@ export class Surface {
     const start = this.aStart.length === cells + 1 ? this.aStart.fill(0) : (this.aStart = new Int32Array(cells + 1));
     const bounds = (k: number): number => {
       const o = this.always[k]! * P_STRIDE;
-      if (!(P[o + P_MINX]! <= P[o + P_MAXX]!)) return -1;
-      if (P[o + P_MAXX]! - P[o + P_MINX]! > WIDE * CELL || P[o + P_MAXZ]! - P[o + P_MINZ]! > WIDE * CELL) return cells;
+      if (P[o + P_MINX]! > P[o + P_MAXX]!) return -1;
+      // A NaN box (a grid whose node heights hold NaN) fails `offer`'s box test never: it is wide.
+      if (!(P[o + P_MAXX]! - P[o + P_MINX]! <= WIDE * CELL) || !(P[o + P_MAXZ]! - P[o + P_MINZ]! <= WIDE * CELL)) return cells;
       _ab[0] = Math.floor(P[o + P_MINX]! / CELL) - ax0;
       _ab[1] = Math.floor(P[o + P_MAXX]! / CELL) - ax0;
       _ab[2] = Math.floor(P[o + P_MINZ]! / CELL) - az0;
