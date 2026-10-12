@@ -140,7 +140,7 @@ export function sampleField(field: Float32Array, style: CageStyle, x: number, z:
  * node (i, j): an outline node's own top and bottom are a sliver of the body's edge (a hood's lip, 5 mm thick), the body's height at
  * that place is what the window around it holds. Infinity, -Infinity when none is covered.
  */
-export function bandAround(fields: CageFields, style: CageStyle, i: number, j: number, out: Float64Array): void {
+function bandAround(fields: CageFields, style: CageStyle, i: number, j: number, out: Float64Array): void {
   const { nu, nv } = style;
   const i1 = Math.min(nu - 1, i + VERTICAL_WINDOW);
   const j1 = Math.min(nv - 1, j + VERTICAL_WINDOW);
