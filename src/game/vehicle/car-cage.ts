@@ -840,13 +840,28 @@ function transformLine(n: number, f: Float64Array, d: Float64Array, v: Int32Arra
   }
 }
 
-/** `g` (nu × nv, squared distances in steps, zero at the seeds, `FAR2` elsewhere) transformed in place. */
-function transformGrid(nu: number, nv: number, g: Float64Array, s: typeof scratch): void {
+/**
+ * `g` ← the column pass of the squared-distance transform (in steps) of the binary image whose seeds are the nodes with
+ * `(covered === 1) === inside`: each node's squared distance to the nearest seed in its column, `FAR2` where the column has none.
+ * What `transformLine` gives a 0/`FAR2` column, by two sweeps.
+ */
+function seedColumns(nu: number, nv: number, covered: Uint8Array, inside: boolean, g: Float64Array): void {
   for (let i = 0; i < nu; i++) {
-    for (let j = 0; j < nv; j++) s.f[j] = g[j * nu + i]!;
-    transformLine(nv, s.f, s.d, s.v, s.z);
-    for (let j = 0; j < nv; j++) g[j * nu + i] = s.d[j]!;
+    let last = -1;
+    for (let j = 0, k = i; j < nv; j++, k += nu) {
+      if ((covered[k] === 1) === inside) last = j;
+      g[k] = last < 0 ? FAR2 : (j - last) * (j - last);
+    }
+    last = -1;
+    for (let j = nv - 1, k = j * nu + i; j >= 0; j--, k -= nu) {
+      if ((covered[k] === 1) === inside) last = j;
+      if (last >= 0 && (last - j) * (last - j) < g[k]!) g[k] = (last - j) * (last - j);
+    }
   }
+}
+
+/** `g` (nu × nv, `seedColumns`' column pass) ← the row pass: the squared distance transform done. */
+function transformRows(nu: number, nv: number, g: Float64Array, s: typeof scratch): void {
   for (let j = 0; j < nv; j++) {
     for (let i = 0; i < nu; i++) s.f[i] = g[j * nu + i]!;
     transformLine(nu, s.f, s.d, s.v, s.z);
@@ -875,13 +890,10 @@ function planFieldOf(style: CageStyle, f: CageFields): Float32Array {
   }
   const toCovered = scratch.a;
   const toUncovered = scratch.b;
-  for (let k = 0; k < n; k++) {
-    const inside = f.covered[k]! === 1;
-    toCovered[k] = inside ? 0 : FAR2;
-    toUncovered[k] = inside ? FAR2 : 0;
-  }
-  transformGrid(nu, nv, toCovered, scratch);
-  transformGrid(nu, nv, toUncovered, scratch);
+  seedColumns(nu, nv, f.covered, true, toCovered);
+  seedColumns(nu, nv, f.covered, false, toUncovered);
+  transformRows(nu, nv, toCovered, scratch);
+  transformRows(nu, nv, toUncovered, scratch);
   for (let k = 0; k < n; k++) {
     f.plan[k] = f.covered[k]! === 1 ? -(Math.sqrt(toUncovered[k]!) - 0.5) * step : (Math.sqrt(toCovered[k]!) - 0.5) * step;
   }

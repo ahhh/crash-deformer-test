@@ -27,6 +27,16 @@ class CageOutline {
   lows: Float32Array = new Float32Array(0);
   highs: Float32Array = new Float32Array(0);
   count = 0;
+  /** The outline nodes' frame bounds (m): x min, x max, z min, z max. */
+  xLo = 0;
+  xHi = 0;
+  zLo = 0;
+  zHi = 0;
+  /** `bandAround` per lattice node (low, high), current where `bandStamp` holds `epoch` (one per refresh). */
+  private bands: Float64Array = new Float64Array(0);
+  private bandStamp: Int32Array = new Int32Array(0);
+  private epoch = 0;
+  private cage: CarCage | null = null;
   /** The lowest and the highest height (m) of the cage, in the car's frame without the class lift. */
   low = 0;
   high = 0;
@@ -38,6 +48,8 @@ class CageOutline {
     if (this.fields === cage.fields && this.serial === cage.serial) return this;
     this.fields = cage.fields;
     this.serial = cage.serial;
+    this.cage = cage;
+    this.epoch++;
     const { nu, nv, step, u0, v0 } = cage.style;
     const { covered, top, bottom } = cage.fields;
     if (this.nodes.length < nu * nv) {
@@ -46,6 +58,8 @@ class CageOutline {
       this.zs = new Float64Array(nu * nv);
       this.lows = new Float32Array(nu * nv);
       this.highs = new Float32Array(nu * nv);
+      this.bands = new Float64Array(2 * nu * nv);
+      this.bandStamp = new Int32Array(nu * nv);
     }
     let count = 0;
     let low = Infinity;
@@ -68,9 +82,35 @@ class CageOutline {
       }
     }
     this.count = count;
+    let xLo = Infinity, xHi = -Infinity, zLo = Infinity, zHi = -Infinity;
+    for (let n = 0; n < count; n++) {
+      xLo = Math.min(xLo, this.xs[n]!);
+      xHi = Math.max(xHi, this.xs[n]!);
+      zLo = Math.min(zLo, this.zs[n]!);
+      zHi = Math.max(zHi, this.zs[n]!);
+    }
+    this.xLo = xLo;
+    this.xHi = xHi;
+    this.zLo = zLo;
+    this.zHi = zHi;
     this.low = low;
     this.high = high;
     return this;
+  }
+
+  /** `bandAround` of the cage's fields at node (i, j) into `out`, computed once per fit. */
+  band(i: number, j: number, out: Float64Array): void {
+    const cage = this.cage!;
+    const k = j * cage.style.nu + i;
+    if (this.bandStamp[k] !== this.epoch) {
+      bandAround(cage.fields, cage.style, i, j, out);
+      this.bands[2 * k] = out[0]!;
+      this.bands[2 * k + 1] = out[1]!;
+      this.bandStamp[k] = this.epoch;
+      return;
+    }
+    out[0] = this.bands[2 * k]!;
+    out[1] = this.bands[2 * k + 1]!;
   }
 }
 

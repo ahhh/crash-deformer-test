@@ -4,7 +4,7 @@ import { SAMPLE, sampleAt, type CageStyle } from "../vehicle/car-cage.ts";
 import { CLASSES, carClass } from "../vehicle/vehicle-classes.ts";
 import { hypot2 } from "../deform/physics-util.ts";
 import { detSin, detCos } from "../kernel/physics-core.js";
-import { bandAround, OUTLINE_REACH, outlineOf, VERTICAL_CLEAR } from "./cage-outline.ts";
+import { OUTLINE_REACH, outlineOf, VERTICAL_CLEAR } from "./cage-outline.ts";
 
 export const BARRIER_HALF = { x: 0.38, z: 1.96 };
 /** The slab's top (m): `makeJerseyBarrier`'s profile peak. A car whose every mass clears it flies over (a ramp jump). */
@@ -97,7 +97,7 @@ const _grad = new Float64Array(2);
 function deepestIn(a: DeformableCar, b: DeformableCar, found: Float64Array, look: number): void {
   const outline = outlineOf(a);
   const style = b.cage.style;
-  const plan = b.cage.planField();
+  const outlineB = outlineOf(b);
   const fb = b.cage.fields;
   const box = fb.planBox;
   const reach = OUTLINE_REACH + look;
@@ -117,6 +117,26 @@ function deepestIn(a: DeformableCar, b: DeformableCar, found: Float64Array, look
   const m01 = fwA.x * rb.x + fwA.z * rb.z;
   const m10 = ra.x * fwB.x + ra.z * fwB.z;
   const m11 = fwA.x * fwB.x + fwA.z * fwB.z;
+  // Every node's (bx, bz) below lies between the values the same sums take at the outline's bounds (each sum is monotone in x and z,
+  // and so is its rounding): when those miss the box, so does every node.
+  const bx00 = tx + m00 * outline.xLo + m01 * outline.zLo;
+  const bx01 = tx + m00 * outline.xLo + m01 * outline.zHi;
+  const bx10 = tx + m00 * outline.xHi + m01 * outline.zLo;
+  const bx11 = tx + m00 * outline.xHi + m01 * outline.zHi;
+  const bz00 = tz + m10 * outline.xLo + m11 * outline.zLo;
+  const bz01 = tz + m10 * outline.xLo + m11 * outline.zHi;
+  const bz10 = tz + m10 * outline.xHi + m11 * outline.zLo;
+  const bz11 = tz + m10 * outline.xHi + m11 * outline.zHi;
+  if (
+    Math.max(bx00, bx01, bx10, bx11) < xMin ||
+    Math.min(bx00, bx01, bx10, bx11) > xMax ||
+    Math.max(bz00, bz01, bz10, bz11) < zMin ||
+    Math.min(bz00, bz01, bz10, bz11) > zMax
+  ) {
+    found.fill(0);
+    return;
+  }
+  const plan = b.cage.planField();
   const ea = a.group.matrixWorld.elements;
   const eb = b.group.matrixWorld.elements;
   const liftA = CLASSES[carClass(a)].lift;
@@ -139,7 +159,7 @@ function deepestIn(a: DeformableCar, b: DeformableCar, found: Float64Array, look
     const aHigh = yA + ea[5]! * (outline.highs[n]! + liftA);
     let low = Math.min(aLow, aHigh);
     let high = Math.max(aLow, aHigh);
-    bandAround(fb, style, Math.round((bx - style.u0) / style.step) | 0, Math.round((bz - style.v0) / style.step) | 0, _band);
+    outlineB.band(Math.round((bx - style.u0) / style.step) | 0, Math.round((bz - style.v0) / style.step) | 0, _band);
     if (_band[0]! <= _band[1]!) {
       const yB = eb[13]! + eb[1]! * bx + eb[9]! * bz;
       const bLow = yB + eb[5]! * (_band[0]! + liftB);
