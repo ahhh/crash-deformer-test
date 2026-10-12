@@ -71,7 +71,7 @@ const SHAPE_POINTS = 20;
 
 /** A shape for a body of at most `SHAPE_POINTS` points, empty until `boxShape` or `wheelShape` fills it. */
 export function newLooseShape(): LooseShape {
-  return { points: new Float64Array(3 * SHAPE_POINTS), count: 0, centre: new THREE.Vector3(), invI: new THREE.Vector3(), reach: 0, asleep: false, airborne: false };
+  return { points: new Float64Array(3 * SHAPE_POINTS), count: 0, centre: new THREE.Vector3(), invI: new THREE.Vector3(), reach: 0, asleep: false, sleepX: 0, sleepZ: 0, airborne: false };
 }
 
 /** The thinnest a box's half extent is taken (m): a sheet of no thickness would have no spin about its own length. */
@@ -155,8 +155,7 @@ export function stepLoose(p: LooseBody, dt: number, skip: number, dent?: DentSta
   if (shape.count === 0) boxShape(shape, object);
   if (shape.asleep) {
     // At rest and nothing near that moves or changes: the step would hand it back where it is. A hit gave it speed or something came within its reach: it steps.
-    _c.copy(shape.centre).applyQuaternion(object.quaternion).add(object.position);
-    if (v.x * v.x + v.y * v.y + v.z * v.z + w.x * w.x + w.y * w.y + w.z * w.z === 0 && !stirNear(_c.x, _c.z, shape.reach, skip)) return;
+    if (v.x * v.x + v.y * v.y + v.z * v.z + w.x * w.x + w.y * w.y + w.z * w.z === 0 && !stirNear(shape.sleepX, shape.sleepZ, shape.reach, skip)) return;
     shape.asleep = false;
   }
   useBody(object, v, w, shape.centre, shape.invI, skip, true, dt);
@@ -187,6 +186,9 @@ export function stepLoose(p: LooseBody, dt: number, skip: number, dent?: DentSta
     v.set(0, 0, 0);
     w.set(0, 0, 0);
     shape.asleep = true;
+    _c.copy(shape.centre).applyQuaternion(object.quaternion).add(object.position);
+    shape.sleepX = _c.x;
+    shape.sleepZ = _c.z;
   }
   if (dent) {
     // A settled part's tiny velocity change never reaches recordDent.

@@ -414,9 +414,9 @@ export class DeformableCar extends CarParts {
     if (!this.doorParts[0]!.swing!.latched || !this.doorParts[1]!.swing!.latched) this.swingDoors(dt);
     else this.sampleMotion();
     if (!d.massActive) return;
+    // The wreck's parts (and its popped wheels) are stepped once per slice, by `integrateWreck`.
     this.nudgeWheels(dt);
     this.ride(dt);
-    this.stepLooseParts(dt, this.slot);
   }
 
   /**

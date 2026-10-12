@@ -251,6 +251,9 @@ export interface LooseShape {
   reach: number;
   /** At rest with nothing near that could change what it rests on: `stepLoose` leaves it be until something does. */
   asleep: boolean;
+  /** The middle's ground position (x, z) where it fell asleep: what `stirNear` asks about while it lies there (nothing moves a sleeper's pose). */
+  sleepX: number;
+  sleepZ: number;
   /** The last step found no contact at any point: a box then tests its eight corners first (its twelve edge middles only once a corner touches). */
   airborne: boolean;
 }

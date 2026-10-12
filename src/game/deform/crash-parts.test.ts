@@ -305,6 +305,8 @@ forModes("given a car whose wheel hubs all pop off after a 2 m/s nose knock", (m
     const slide = new THREE.Vector3();
     for (let i = 0; i < 600; i++) {
       if (i === 599) for (const [k, w] of car.wheels.entries()) before[k]!.copy(w.position);
+      // The world's slice for a wreck: `integrate` steps its body, wheels and loose parts (once), `afterContacts` is what follows the contacts.
+      car.integrate(DT);
       car.syncPose(DT);
       car.afterContacts(DT);
       if (i !== 299) continue;
