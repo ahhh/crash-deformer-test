@@ -10,7 +10,7 @@ import { CAR_HALF, WHEEL_POS } from "./car-mesh.ts";
 import { droop, PAN, SPRINGS, UNDERSIDE } from "./car-suspension.ts";
 import { carClass } from "./vehicle-classes.ts";
 import { CarSurfaces, REACH } from "./car-surfaces.ts";
-import { CAGE_VERTICES, SAMPLE, sampleAt } from "./car-cage.ts";
+import { CAGE_VERTICES, SAMPLE, sampleAt, type CageFields } from "./car-cage.ts";
 import { cageLift } from "./car-cage-rig.ts";
 
 /**
@@ -624,15 +624,42 @@ function hullPoint(i: number, q: THREE.Quaternion, dy: number, out: THREE.Vector
   return out.set(POINT_X[i]!, POINT_Y[i]! + dy, POINT_Z[i]!).applyQuaternion(q);
 }
 
+/** What `loadPoints` loaded for a car and what it stood on: the tables are a function of the cage's fields (`serial` counts their fits), the lift and whether the car is a wreck. */
+interface LoadedPoints {
+  serial: number;
+  fields: CageFields;
+  lift: number;
+  wreck: boolean;
+  bellyFrom: number;
+  reach: number;
+  x: Float64Array;
+  y: Float64Array;
+  z: Float64Array;
+  absent: Uint8Array;
+}
+
+const LOADED = new WeakMap<DeformableCar, LoadedPoints>();
+
 /**
  * Loads `car`'s body points into the point table: the four hubs (their tyres meet the ground through `wheelContact`), then the cage's
  * vertices (the drawn body as it is crushed and lifted by its class: the points a hit crushes), then the belly. A torn-off or shattered
  * panel is no part of the drawn body: its vertices (left at rest in `pos`) are no points. Returns the index of the first belly point; the
- * cage's fit is current (`refitCage`).
+ * cage's fit is current (`refitCage`). The tables come from the car's last load (copied back) while nothing they are a function of has changed:
+ * the point loop and the belly samples run only for a car whose cage was fitted, lifted or wrecked since.
  */
 function loadPoints(car: DeformableCar): number {
   car.refitCage();
   const lift = cageLift(car);
+  const wreck = car.deform.massActive;
+  let memo = LOADED.get(car);
+  if (memo !== undefined && memo.serial === car.cage.serial && memo.fields === car.cage.fields && Object.is(memo.lift, lift) && memo.wreck === wreck) {
+    POINT_X.set(memo.x);
+    POINT_Y.set(memo.y);
+    POINT_Z.set(memo.z);
+    BELLY_ABSENT.set(memo.absent);
+    _s[S_POINT_REACH] = memo.reach;
+    return memo.bellyFrom;
+  }
   const { pos, panelOn } = car.cage.fields;
   const { vertexCount, vertexGroup } = car.cage.style;
   let reach2 = 0;
@@ -650,7 +677,6 @@ function loadPoints(car: DeformableCar): number {
     reach2 = Math.max(reach2, x * x + (y - COM_Y) * (y - COM_Y) + z * z);
   }
   const bellyFrom = n;
-  const wreck = car.deform.massActive;
   const { bottom } = car.cage.fields;
   for (let k = 0; k < BELLY.length; k++) {
     const [x, y, z] = BELLY[k]!;
@@ -666,6 +692,29 @@ function loadPoints(car: DeformableCar): number {
     reach2 = Math.max(reach2, x * x + (h - COM_Y) * (h - COM_Y) + z * z);
   }
   _s[S_POINT_REACH] = Math.sqrt(reach2);
+  memo ??= {
+    serial: 0,
+    fields: car.cage.fields,
+    lift: 0,
+    wreck: false,
+    bellyFrom: 0,
+    reach: 0,
+    x: new Float64Array(POINT_CAPACITY),
+    y: new Float64Array(POINT_CAPACITY),
+    z: new Float64Array(POINT_CAPACITY),
+    absent: new Uint8Array(BELLY.length),
+  };
+  memo.serial = car.cage.serial;
+  memo.fields = car.cage.fields;
+  memo.lift = lift;
+  memo.wreck = wreck;
+  memo.bellyFrom = bellyFrom;
+  memo.reach = _s[S_POINT_REACH]!;
+  memo.x.set(POINT_X);
+  memo.y.set(POINT_Y);
+  memo.z.set(POINT_Z);
+  memo.absent.set(BELLY_ABSENT);
+  LOADED.set(car, memo);
   return bellyFrom;
 }
 
