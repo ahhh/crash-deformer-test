@@ -94,7 +94,7 @@ Deploy (`deploy/`, `server/`, `scripts/` build helpers) sits outside `src/` and 
 ## 4. Hot path
 
 - **H1.** The per-frame entry points and the per-pair/per-slice queries they call (`HOT` in the script: `tickInner`,
-  `fixedStep`, `stepWorld`, `syncPose`, `updateSkin`, `stepStructure`, `collideWith`, `physicsSlice`, `resolveCarPair`,
+  `fixedStep`, `stepWorld`, `syncPose`, `updateSkin`, `stepStructure`, `physicsSlice`, `resolveCarPair`,
   `applyDrive`, the AI `think`s, `DerbyMatch.step`, …) allocate nothing: no `new`, no `.clone()`, no array or object literal,
   no closure, no `.push`. Results go into caller-owned `out` objects. *Check C6.*
 - **H2.** Per-particle, per-vertex and per-hull data live in typed arrays or preallocated objects sized at construction;

@@ -7,8 +7,8 @@ import { newWorld, stepWorld } from "./world-step.ts";
 const COARSE = 1 / 120;
 const FINE = 1 / 240;
 
-/** Steps counted as cut short for a coming hit, of `steps`, when a car starts `startX` m out and drives at 10 m/s into a resting car for 1.5 s. */
-function countedCuts(startX: number, fine: number, step: number): { cuts: number; steps: number } {
+/** Steps counted as cut short for contact, of `steps`, and the steps that actually ran in more than one slice (`World.shape`, the slices of the last step less one), when a car starts `startX` m out and drives at 10 m/s into a resting car for 1.5 s. */
+function countedCuts(startX: number, fine: number, step: number): { cuts: number; sliced: number; widest: number; steps: number } {
   const mover = makeCar("shape");
   const rest = makeCar("shape");
   launch(rest, 0, 0, 0, 0, 0);
@@ -16,10 +16,16 @@ function countedCuts(startX: number, fine: number, step: number): { cuts: number
   const world = newWorld([mover, rest]);
   world.fine = fine;
   const steps = Math.round(1.5 / step);
-  for (let i = 0; i < steps; i++) stepWorld(world, step);
+  let sliced = 0;
+  let widest = 1;
+  for (let i = 0; i < steps; i++) {
+    stepWorld(world, step);
+    if (world.shape > 0) sliced++;
+    widest = Math.max(widest, world.shape + 1);
+  }
   mover.dispose();
   rest.dispose();
-  return { cuts: world.fineCuts, steps };
+  return { cuts: world.fineCuts, sliced, widest, steps };
 }
 
 const uncutCases = [
@@ -29,9 +35,19 @@ const uncutCases = [
 ] as const;
 
 describe("given a car driven at 10 m/s at a resting car on open ground for 1.5 s", () => {
-  it("when it starts 6 m out and is stepped at the pacer's coarse 1/120 s step with its 1/240 s floor set, then some steps but not all are counted as cut short for the coming hit", () => {
-    const { cuts, steps } = countedCuts(-6, FINE, COARSE);
+  it("when it starts 6 m out and is stepped at the pacer's coarse 1/120 s step with its 1/240 s floor set, then the steps counted as cut short are exactly those that ran in two slices of 1/240 s, some steps but not all", () => {
+    const { cuts, sliced, widest, steps } = countedCuts(-6, FINE, COARSE);
     assert.ok(cuts > 0 && cuts < steps, `${cuts} of ${steps} steps counted`);
+    assert.equal(cuts, sliced);
+    assert.equal(widest, 2);
+  });
+  it("when it hits the other with no pacer floor set, then its contact steps are cut to 1/240 s slices all the same", () => {
+    const { sliced, widest } = countedCuts(-6, 0, COARSE);
+    assert.ok(sliced > 0);
+    assert.equal(widest, 2);
+  });
+  it("when it hits the other at every step as short as the 1/240 s floor, then no step runs in more than one slice", () => {
+    assert.equal(countedCuts(-6, FINE, FINE).widest, 1);
   });
   for (const testCase of uncutCases) {
     it(testCase.it, () => {

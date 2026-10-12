@@ -196,10 +196,10 @@ export class CageRig {
     };
   }
 
-  /** Fits the cage to the car as its skin last solved (true when the fields changed: `CarCage.refit`). */
-  refit(): boolean {
+  /** Fits the cage to the car as its skin last solved (true when the fields changed: `CarCage.refit`); `exact` refits even under the move threshold. */
+  refit(exact = false): boolean {
     readCageLive(this.car, this.panels, this.live);
-    return this.cage.refit(this.live);
+    return this.cage.refit(this.live, exact);
   }
 }
 

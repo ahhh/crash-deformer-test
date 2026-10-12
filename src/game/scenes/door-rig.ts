@@ -183,7 +183,7 @@ export class DoorRig {
     }
     // A dented body runs the same structure step as every other crash.
     if (car.deform.massActive) {
-      car.deform.stepStructure(dt);
+      car.deform.stepStructure(dt, car.group.quaternion);
       car.syncPose(dt);
     }
   }

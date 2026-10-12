@@ -1,5 +1,4 @@
 import * as THREE from "three";
-import { activeGround, NO_FLOOR } from "../world/ground.ts";
 import {
   leftoverCrumple,
   clampSpeed,
@@ -7,31 +6,24 @@ import {
   crushGate,
   closingKeScale,
   crushStroke,
-  forceTransfer,
   hypot2,
 } from "./physics-util.ts";
-import { DeformState, ENGINE_PACK_GAP, HUB_FLOOR, PLANT_QUIET, TYRE_R } from "./deform-state.ts";
-import { HubPlane } from "./hub-plane.ts";
+import { DeformState, ENGINE_PACK_GAP, PLANT_QUIET, TYRE_R } from "./deform-state.ts";
 import { BodyFit } from "./body-fit.ts";
-import type { MassNode } from "./deform-rig.ts";
-import type { StreamedDeformation } from "./streamed-deform.ts";
 import { detSin, detCos, sinCosAt } from "../kernel/physics-core.js";
-import { MIN_IMPACT_ZONE, MIN_INV_MASS, MIN_SLIDE, SQUASH_REACH } from "./constants.ts";
+import { MIN_IMPACT_ZONE, MIN_INERTIA, MIN_MASS_SUM, SQUASH_REACH } from "./constants.ts";
 
 /** Engine slack (m) a hit too slow to pack the nose still allows (mounts, not crush).
  *  This replaces the old first-hit ENGINE_LIGHT_CAP: the block's reach now
  *  follows the hit's own stroke, so car-car at 25 km/h each cannot grind it. */
 export const ENGINE_SLACK = 0.04;
+/** `stepStructure`'s frame when its caller gives none: level. */
+const LEVEL = new THREE.Quaternion();
 /** Physics slice (s) the per-call contact shares (feedOverlap nibble and inbound-speed kill) are tuned at. */
 const CONTACT_REF_SLICE = 1 / 240;
 export const TYRE_HALF_W = 0.11;
-/** Steel-on-steel sliding friction for car-car mass contacts (same μ as the hull contact in pair-contact). */
-const SHEET_MU = 0.45;
-/** Largest overlap (m) one car-car mass pair resolves per CONTACT_REF_SLICE (sphereHit). */
-const SPHERE_STEP = 0.06;
-/** Shortest sim time (s) a wreck's vertical-speed sample spans: just under the 1/240 s shortest slice (followGroup). */
-const VY_SPAN = 0.004;
-const DRIVE_TURN_HOLD = 1 / 30; // sim s a driven wreck's turn rate stays reported after `applyDrive` set it (followGroup)
+/** Fastest (m/s) a wreck's body follows its cell's drift off its seat (`followGroup`): the nose's springback against a wall in 0.4 s, no faster than the pair pass's pushes. */
+const SEAT_SPEED = 1;
 /** A mass this close (m) to a rigid face still counts as resting on it. */
 const FACE_SKIN = 0.02;
 /** A rear hit's stroke over the front's, beyond the cages' chassisRear / chassisFront ratio: 50 km/h reverse into the wall crushes the tail 0.6–1.0× the nose's 50 km/h front hit (barrier.test.ts), 0.57× at the bare 0.69 ratio. */
@@ -42,186 +34,36 @@ export const FACE_ROW = 5;
 const TILT_SPIN_GAIN = 0.4;
 
 const _a = new THREE.Vector3();
-const _b = new THREE.Vector3();
-const _n = new THREE.Vector3();
-/** sphereHit's sliding (tangential) relative velocity. */
-const _t = new THREE.Vector3();
-/** `sphereHit`'s mass-weighted shift (mass × m, x then z) of the pair's `a` side, then its `b` side: what `collideWith` debits from each car's `PushBudget`. */
-const _shift = new Float64Array(4);
 /** followGroup's world→local: one invert per call, not one per mass (Object3D.worldToLocal). */
 const _toLocal = new THREE.Matrix4();
 /** Sim seconds the frame's tilt takes to level out on planting, or to come back on a new hit (followGroup):
  *  0.1 s, CR8's eased level-out (64 km/h head-on roof 0.61× its per-slice 3·v·h + 5 cm limit). */
 const LEVEL_TIME = 0.1;
-const _plane = new HubPlane();
 /** The masses' spin sums (`followGroup` resets and fills them). */
 const _fit = new BodyFit();
 /** `measurePose`'s angles in [pitch, _, roll, _, yaw, _], their [sin, cos] pairs out (`sinCosAt`: no boxed argument or result). */
 const _sc = new Float64Array(6);
-/** The ground plane holds a wreck's tilt while its lowest hub is within this (m) of its `HUB_FLOOR`, and fades out over `PLANE_FADE` more: a wreck in flight has no ground under it to lie on. */
-const PLANE_FADE_FROM = 0.05;
-const PLANE_FADE = 0.25;
-/** A wreck's middle this far (m) over its ground band, with a wheel off its ground, takes off (followGroup's `aloft`); one in flight lands on a wall's top only from within this far (plus its fall) under it. */
-export const LIFT_OFF = 0.1;
-
-const _boxA = new THREE.Box3();
-const _boxB = new THREE.Box3();
-/** `box` round `masses`, grown by their largest radius and a hair: masses of two cars whose boxes are apart cannot touch. */
-function massBox(masses: readonly MassNode[], box: THREE.Box3): THREE.Box3 {
-  box.makeEmpty();
-  let r = 0;
-  for (let i = 0; i < masses.length; i++) {
-    box.expandByPoint(masses[i]!.world);
-    r = Math.max(r, masses[i]!.radius);
-  }
-  return box.expandByScalar(r + 5e-10);
-}
-
-/** `slice` is the call's slice over CONTACT_REF_SLICE: the overlap and inbound shares are per-slice rates. */
-function sphereHit(a: MassNode, b: MassNode, slice: number): void {
-  _n.copy(b.world).sub(a.world);
-  const dist = _n.length();
-  const minD = a.radius + b.radius;
-  if (dist >= minD || dist < 1e-6) return;
-  _n.y *= 0.18;
-  const nl = _n.length();
-  if (nl < 1e-6) return;
-  _n.multiplyScalar(1 / nl);
-  const ima = a.dynamic ? 1 / a.mass : 0;
-  const imb = b.dynamic ? 1 / b.mass : 0;
-  const inv = ima + imb;
-  if (inv < MIN_INV_MASS) return;
-  const crumple = a.crumple || b.crumple;
-  const travelA = a.local.distanceTo(a.rest);
-  const travelB = b.local.distanceTo(b.rest);
-  const tA = forceTransfer(travelA, a.bands, travelA >= a.bands.max * 0.97);
-  const tB = forceTransfer(travelB, b.bands, travelB >= b.bands.max * 0.97);
-  const t = Math.min(tA, tB);
-  // A rigid pair (cell on cell) resolves at most SPHERE_STEP per reference slice: in one call it resolved
-  // a 0.15 m overlap and jumped the struck cell 0.15 m in 4.5 ms (a derby zip); the rest goes over the
-  // next slices. Crumple pairs already take a per-slice share.
-  const overlap = crumple ? (minD - dist) * (1 - Math.pow(1 - Math.max(0.28, t), slice)) : Math.min(minD - dist, SPHERE_STEP * slice);
-  // Field arithmetic, not addScaledVector (the same sums): in a pile-up these calls ran out of line and boxed
-  // their scale per call.
-  if (a.dynamic) {
-    const s = -overlap * (ima / inv);
-    a.world.x += _n.x * s;
-    a.world.y += _n.y * s;
-    a.world.z += _n.z * s;
-    _shift[0] += a.mass * _n.x * s;
-    _shift[1] += a.mass * _n.z * s;
-  }
-  if (b.dynamic) {
-    const s = overlap * (imb / inv);
-    b.world.x += _n.x * s;
-    b.world.y += _n.y * s;
-    b.world.z += _n.z * s;
-    _shift[2] += b.mass * _n.x * s;
-    _shift[3] += b.mass * _n.z * s;
-  }
-  const rel = b.vel.dot(_n) - a.vel.dot(_n);
-  if (rel < 0) {
-    const e = crumple ? (t >= 0.97 ? 0.08 : 0) : 0.18;
-    const absorb = 1 - Math.pow(1 - (crumple ? Math.max(0.12, t) : 0.55), slice);
-    const j = (-(1 + e) * rel * absorb) / inv;
-    // Coulomb friction: sheet metal scraping past sheet metal takes at most μ·j off the sliding velocity.
-    _t.x = b.vel.x - a.vel.x + _n.x * -rel;
-    _t.y = b.vel.y - a.vel.y + _n.y * -rel;
-    _t.z = b.vel.z - a.vel.z + _n.z * -rel;
-    const slide = _t.length();
-    const jt = slide > MIN_SLIDE ? Math.min(slide / inv, SHEET_MU * j) / slide : 0;
-    if (a.dynamic) {
-      const sn = -j * ima;
-      const st = jt * ima;
-      a.vel.x = a.vel.x + _n.x * sn + _t.x * st;
-      a.vel.y = a.vel.y + _n.y * sn + _t.y * st;
-      a.vel.z = a.vel.z + _n.z * sn + _t.z * st;
-    }
-    if (b.dynamic) {
-      const sn = j * imb;
-      const st = -jt * imb;
-      b.vel.x = b.vel.x + _n.x * sn + _t.x * st;
-      b.vel.y = b.vel.y + _n.y * sn + _t.y * st;
-      b.vel.z = b.vel.z + _n.z * sn + _t.z * st;
-    }
-  }
-}
+/** `moveRelative`'s per-mass mark: 1 for a mass that is not moving relative to the body this step (static, or settled to rest). */
+const _settled = { mark: new Uint8Array(64) };
+/** `markMotion`'s mass motion (x, y, z, spin) and `takeMotion`'s: a mark is always taken on the same car before another car's mark. */
+const _marked = new Float64Array(4);
+const _motionNow = new Float64Array(4);
 
 /**
  * Contact: pair collision, the structure step, following the group, pose measurement, stroke, pushes and the impact entry.
  */
 export abstract class DeformContact extends DeformState {
-  /** Defined by a later layer (the turn guards are public: `collideWith` calls them on the other car too). */
+  /** Defined by a later layer. */
   protected abstract clampLocal(group: THREE.Object3D): void;
   abstract holdTurn(): void;
   protected abstract stepMassSlice(dt: number): void;
   abstract undoTurn(): void;
   protected abstract yawMomentum(slot: number, restore: boolean): void;
 
-  /**
-   * Sphere contact between two cars' masses for one physics slice of `dt` seconds; whether any mass of one met a mass of the other.
-   * Stage 4 item 6 (wreck split) deletes it (the lattice's crush comes from the contact impulses only); until then it carries the crush through a car pair
-   * to the engine block: dropped (Stage 4 item 5 (car-car through the kernel)), a car hitting a car at 20 and 40 km/h crushes the engine 8 mm to the piston's 50
-   * (contact-parity 'piston and a car of the same mass', bumperFL 46 / 29 mm) and engine-replay seed 9's race keeps no clip.
-   */
-  collideWith(other: StreamedDeformation, dt: number): boolean {
-    if (this.quietTime() > 0.22 && other.quietTime() > 0.22) return false;
-    const massesA = this.masses;
-    const massesB = other.masses;
-    const nA = massesA.length;
-    const nB = massesB.length;
-    const slice = dt / CONTACT_REF_SLICE;
-    for (let i = 0; i < nA; i++) massesA[i]!.clipping = false;
-    for (let j = 0; j < nB; j++) massesB[j]!.clipping = false;
-    if (!massBox(massesA, _boxA).intersectsBox(massBox(massesB, _boxB))) return false;
-    _shift.fill(0);
-    let hit = false;
-    // The pairs are solved one after another (each moves its masses before the next reads them), so their order is
-    // part of the answer. Taken i-major (every pair of car A's mass 0, then 1, ...) two identical cars in a mirror
-    // head-on did not crush alike: A's mass i met B's j before B's i met A's j, so the car first in the world's list
-    // took the other's hits ahead of its own (180 km/h: noses 0.800 / 0.779 m, engine blocks 0.481 / 0.498 m). The
-    // pairs go by their lower mass index first, (i, j) then (j, i): those two touch four different masses, so their
-    // order changes nothing, and a mirror pair is visited at the same place whichever car is `this`.
-    const n = Math.max(nA, nB);
-    for (let lo = 0; lo < n; lo++) {
-      for (let hi = lo; hi < n; hi++) {
-        for (let side = 0; side < (lo === hi ? 1 : 2); side++) {
-          const i = side === 0 ? lo : hi;
-          const j = side === 0 ? hi : lo;
-          if (i >= nA || j >= nB) continue;
-          const a = massesA[i]!;
-          const b = massesB[j]!;
-          const dx = b.world.x - a.world.x;
-          const dy = b.world.y - a.world.y;
-          const dz = b.world.z - a.world.z;
-          const minD = a.radius + b.radius;
-          const d2 = dx * dx + dy * dy + dz * dz;
-          if (d2 >= minD * minD) continue;
-          if (!hit) {
-            this.holdTurn();
-            other.holdTurn();
-            hit = true;
-          }
-          a.clipping = true;
-          b.clipping = true;
-          sphereHit(a, b, slice);
-        }
-      }
-    }
-    // The overlap push is positional: off the centroid it turned the car with no torque (derby seed 4
-    // c9: 0.256 rad in 0.15 s). Its impulse already carries the turn a real contact gives.
-    if (hit) {
-      this.undoTurn();
-      other.undoTurn();
-      this.push.debit(this.budgetAt(), _shift[0]! / this.totalMass, _shift[1]! / this.totalMass);
-      other.push.debit(other.budgetAt(), _shift[2]! / other.totalMass, _shift[3]! / other.totalMass);
-      this.noteTouch(other);
-    }
-    return hit;
-  }
-
-  stepStructure(dt: number): void {
+  /** One structure step of `dt`; `frame` is the car body's turn (its group's quaternion), level when not given. */
+  stepStructure(dt: number, frame: THREE.Quaternion = LEVEL): void {
     if (!this.massActive) return;
+    this.frameUp.set(0, 1, 0).applyQuaternion(frame);
     // Contact fed since the last call: latched in sim time so every slice of this call, and
     // every sub-call of a split frame, solves the same contact.
     if (this.overlapFrame) {
@@ -244,123 +86,231 @@ export abstract class DeformContact extends DeformState {
     // 45 mm under the piston, whose contact (and so window) ran 0.12 s longer. The body moves as one.
     if (this.shapeWasLive && !this.shapeRan) {
       this.rebaseShapeRest();
-      let vy = 0;
-      let mass = 0;
-      for (let i = 0; i < this.masses.length; i++) {
-        const m = this.masses[i]!;
-        if (m.dynamic && !m.hub) { vy += m.vel.y * m.mass; mass += m.mass; }
-      }
-      if (mass > 0) for (let i = 0; i < this.masses.length; i++) { const m = this.masses[i]!; if (m.dynamic && !m.hub) m.vel.y = vy / mass; }
+      this.levelBounce();
     }
     this.shapeWasLive = this.shapeRan;
     this.updateDrivetrain();
-    this.settleDrift(dt, at);
+    this.settleDrift(0, at);
   }
 
-  followGroup(group: THREE.Object3D, velocityOut: THREE.Vector3, angularOut: THREE.Vector3, dt: number): void {
-    const cell = this.at.cell;
-    const y0 = group.position.y;
-    // leanAt is unset from arming to the first read: that read re-poses the frame from the masses.
-    const first = this.leanAt === -Infinity;
-    _fit.reset();
-    this.measurePose();
-    const pose = this.pose;
-    const pitch = pose[0]!;
-    const yawSafe = pose[1]!;
-    const roll = pose[2]!;
-    const wx = pose[3]!;
-    const wy = pose[4]!;
-    const wz = pose[5]!;
-    const floor = pose[8]!;
-    if (Number.isFinite(pitch + roll)) group.rotation.set(pitch, yawSafe, roll, "YXZ");
-    else group.rotation.set(0, yawSafe, 0, "YXZ");
-    // The cell's height over the frame's origin under the frame's own tilt. A wreck planted on level ground keeps the
-    // rest height level (`pose[14]`); planted on a slope that read jumped the frame 3 cm at the plant switch of a wreck
-    // pitched 12° on a ramp's top.
-    let gy = pose[14] !== 0 ? cell.world.y - cell.rest.y : cell.world.y - _a.set(cell.local.x, cell.rest.y, cell.local.z).applyQuaternion(group.quaternion).y;
-    // On its ground the frame keeps the body's middle in a band over the ground under the anchor (the body masses
-    // carry no weight of their own: the hubs and that band hold the body up). Above the band nothing under the
-    // middle holds it (in flight, or over a ramp's lip on its rear wheels): the frame follows the masses, which
-    // fly (`aloft`: gravity on every mass, `stepMassSlice`). Clamping it there dropped a struck flying car, or a
-    // wreck sliding off a lip, onto the ground in one call (1.85 → 0.08 m). It takes off only where its support fell
-    // away: `LIFT_OFF` clear of the band with a wheel off its ground, the band's top that far under the frame's last
-    // measured height (a crushed cell pushed up over four planted hubs stays clamped: switching there flipped road
-    // wrecks between the rules, 2.3 m off a replay's record; a frontal hit or the compactor pushing the masses up off
-    // a level road lofted the body 0.21–0.25 m). It lands back into the band; from inside a prism's side the ground reads no floor (`pointContact`), so it never lands there.
-    const was = this.aloft;
-    this.aloft = false;
-    let lift = 0;
-    if (floor !== NO_FLOOR) {
-      // The band's top over what holds the body up (`pose[11]`); its bottom (`pose[8]`) is never above the ground under the
-      // anchor, so a hub on a higher edge (a ramp's side) never lifts the frame.
-      const band = pose[11]! + (pose[9]! - floor > 0.5 ? 0.12 : 0.08);
-      this.aloft = gy > band && (was || (gy > band + LIFT_OFF && pose[10] === 0 && band < this.frameY - LIFT_OFF));
-      if (!this.aloft) gy = Math.max(floor, Math.min(band, gy));
-      else if (!was) {
-        // Leaving the ground: the masses sat off the frame the ground held, and the ground's lift never fed their
-        // speed. They take the frame's height and its measured climb, so the body leaves on its path (off a
-        // ramp's lip it dipped 4–7 cm and flew on 2.6 m/s off a 3.9 m/s face).
-        lift = group.position.y - gy;
-        gy += lift;
-        for (let mi = 0; mi < this.masses.length; mi++) {
-          const m = this.masses[mi]!;
-          m.world.y += lift;
-          if (m.vel.y < this.frameVy) m.vel.y = this.frameVy;
-        }
+  /**
+   * The body masses' vertical speeds on one plane over (x, z): the body's own motion, a roll or pitch included (its spin carries
+   * `Car.integrateWreck` into every mass), is a plane; what the plane leaves is the masses' bounce against each other.
+   */
+  private levelBounce(): void {
+    let cx = 0;
+    let cz = 0;
+    let vy = 0;
+    let mass = 0;
+    for (let i = 0; i < this.masses.length; i++) {
+      const m = this.masses[i]!;
+      if (!m.dynamic || m.hub) continue;
+      cx += m.world.x * m.mass;
+      cz += m.world.z * m.mass;
+      vy += m.vel.y * m.mass;
+      mass += m.mass;
+    }
+    if (mass <= 0) return;
+    cx /= mass;
+    cz /= mass;
+    vy /= mass;
+    let sxx = 0;
+    let sxz = 0;
+    let szz = 0;
+    let sxy = 0;
+    let szy = 0;
+    for (let i = 0; i < this.masses.length; i++) {
+      const m = this.masses[i]!;
+      if (!m.dynamic || m.hub) continue;
+      const dx = m.world.x - cx;
+      const dz = m.world.z - cz;
+      const dy = m.vel.y - vy;
+      sxx += m.mass * dx * dx;
+      sxz += m.mass * dx * dz;
+      szz += m.mass * dz * dz;
+      sxy += m.mass * dx * dy;
+      szy += m.mass * dz * dy;
+    }
+    const det = sxx * szz - sxz * sxz;
+    const slopeX = det > 1e-12 ? (sxy * szz - szy * sxz) / det : 0;
+    const slopeZ = det > 1e-12 ? (szy * sxx - sxy * sxz) / det : 0;
+    for (let i = 0; i < this.masses.length; i++) {
+      const m = this.masses[i]!;
+      if (m.dynamic && !m.hub) m.vel.y = vy + slopeX * (m.world.x - cx) + slopeZ * (m.world.z - cz);
+    }
+  }
+
+  /**
+   * The masses' motion relative to the body (its velocity `v`, spin `w` about the world point `centre`) is the crush: it takes the
+   * wreck's damping and moves them; the body's own motion is the rigid step's. The carry (`Car.integrateWreck`) turns each moved mass
+   * by the body's turn `w`·`dt` with the body, so the move is turned back by it first: the mass lands where its relative velocity
+   * took it, and a spinning wreck's angular momentum is not eaten by `|w|`·`dt`·Σ m|u|² a step.
+   */
+  moveRelative(dt: number, v: THREE.Vector3, w: THREE.Vector3, centre: THREE.Vector3): void {
+    const quiet = this.quietTime();
+    const powered = this.elapsed - this.lastPower < 0.1;
+    let rate = 0.988;
+    if (!this.drivetrainAlive && quiet > 0.12) {
+      const t = Math.max(0, Math.min(1, (quiet - 0.12) / 1.8));
+      const s = t * t * (3 - 2 * t);
+      rate = (1 - s) * 0.96 + s * 0.18;
+    }
+    const damp = Math.pow(rate, dt);
+    const fall = Math.pow(0.12, dt);
+    const spin = Math.sqrt(w.x * w.x + w.y * w.y + w.z * w.z);
+    const turn = spin * dt;
+    const kx = spin > 1e-12 ? w.x / spin : 0;
+    const ky = spin > 1e-12 ? w.y / spin : 0;
+    const kz = spin > 1e-12 ? w.z / spin : 0;
+    const c = detCos(turn);
+    const s = detSin(turn);
+    const ms = this.masses;
+    if (_settled.mark.length < ms.length) _settled.mark = new Uint8Array(ms.length);
+    const settledMark = _settled.mark;
+    let free = 0;
+    let lx = 0;
+    let ly = 0;
+    let lz = 0;
+    for (let i = 0; i < ms.length; i++) {
+      const m = ms[i]!;
+      settledMark[i] = 1;
+      if (!m.dynamic) continue;
+      const rx = m.world.x - centre.x;
+      const ry = m.world.y - centre.y;
+      const rz = m.world.z - centre.z;
+      const bx = v.x + w.y * rz - w.z * ry;
+      const by = v.y + w.z * rx - w.x * rz;
+      const bz = v.z + w.x * ry - w.y * rx;
+      const x0 = m.vel.x - bx;
+      const y0 = m.vel.y - by;
+      const z0 = m.vel.z - bz;
+      let ux = x0;
+      let uy = y0;
+      let uz = z0;
+      if (uy < 0 && !m.hub) uy *= fall;
+      ux *= damp;
+      uy *= damp;
+      uz *= damp;
+      const settled = quiet > 2.4 && !powered && ux * ux + uy * uy + uz * uz < 0.08;
+      if (settled) {
+        ux = 0;
+        uy = 0;
+        uz = 0;
+      }
+      m.vel.set(ux, uy, uz);
+      clampSpeed(m.vel);
+      m.vel.x += bx;
+      m.vel.y += by;
+      m.vel.z += bz;
+      const kd = kx * ux + ky * uy + kz * uz;
+      // A planted hub in a squeeze stands at its pin in plan (`clampLocal`: rest + shove): the faces move it there only by the push it records
+      // as shove (`pushMass`), so its own motion here would be undone by the clamp, a slice behind the face.
+      const pinned = m.hub && !m.popped && !this.deepCrush && this.bidirectional;
+      if (!pinned) m.world.x += (ux * c - (ky * uz - kz * uy) * s + kx * kd * (1 - c)) * dt;
+      m.world.y += (uy * c - (kz * ux - kx * uz) * s + ky * kd * (1 - c)) * dt;
+      if (!pinned) m.world.z += (uz * c - (kx * uy - ky * ux) * s + kz * kd * (1 - c)) * dt;
+      if (!settled) {
+        free += m.mass;
+        settledMark[i] = 0;
+      }
+      lx += (ux - x0) * m.mass;
+      ly += (uy - y0) * m.mass;
+      lz += (uz - z0) * m.mass;
+    }
+    // The damping is internal: the mean of its change goes back to the masses still moving (a settled one stays at rest on the body), so
+    // it never moves the body (`followGroup` reads its velocity off their mean).
+    if (free > 0) {
+      lx /= free;
+      ly /= free;
+      lz /= free;
+      for (let i = 0; i < ms.length; i++) {
+        const m = ms[i]!;
+        if (settledMark[i] === 1) continue;
+        m.vel.x -= lx;
+        m.vel.y -= ly;
+        m.vel.z -= lz;
+        m.world.x -= lx * dt;
+        m.world.y -= ly * dt;
+        m.world.z -= lz * dt;
       }
     }
-    // The group's height clamp must not leak into the anchor's held x/z through the tilt (a ratchet):
-    // solve the anchor's local y for that height so its x/z stay exactly held.
-    _a.set(pose[6]!, 0, pose[7]!).applyQuaternion(group.quaternion);
-    _b.set(0, 1, 0).applyQuaternion(group.quaternion);
-    _a.addScaledVector(_b, (wy + lift - gy - _a.y) / _b.y);
-    // A squeeze anchors on the cell too. Pinning the group at the world origin read a free car's travel
-    // as crush: the caps (cell 0.12–0.72 m) held the cell near the origin while the shoved car moved on,
-    // and fire("all")'s bumperFR sprang 0.50 → 0.02 m in the 0.25 s after the heads left.
-    group.position.set(wx - _a.x, gy, wz - _a.z);
+  }
+
+  /**
+   * The wreck's pose is its rigid body's (`Car.integrate`: `stepFree` on the cage) and the masses are carried by it (`moveRelative`,
+   * `Car.integrateWreck`), and its velocity and spin are the body's own: contact impulses land on it (`shiftBody`, `markMotion`/`takeMotion`),
+   * never read back off the masses. The masses are re-read into the group's frame (the crush state) and the clamp run. The body seats on
+   * its cell no faster than `SEAT_SPEED` (still needed: without it the struck cell's springback leaves the frame off by the cabin's offset,
+   * which reds the wall-bump, police-side and IIHS door rows): what the cell drifts from its seat the body follows, slowly.
+   */
+  followGroup(group: THREE.Object3D, velocityOut: THREE.Vector3, angularOut: THREE.Vector3, dt: number): void {
+    this.bodyV = velocityOut;
+    this.bodyW = angularOut;
+    const cell = this.at.cell;
+    this.measurePose();
     group.updateWorldMatrix(false, false);
     _toLocal.copy(group.matrixWorld).invert();
-
-    let mx = 0,
-      mz = 0,
-      mass = 0;
+    _a.copy(cell.world).applyMatrix4(_toLocal);
+    _a.set(_a.x - cell.rest.x, 0, _a.z - cell.rest.z);
+    const off = _a.length();
+    if (dt > 0 && off > 1e-9) {
+      _a.multiplyScalar(Math.min(1, (dt * SEAT_SPEED) / off)).applyQuaternion(group.quaternion);
+      group.position.add(_a);
+      group.updateWorldMatrix(false, false);
+      _toLocal.copy(group.matrixWorld).invert();
+    }
     for (let mi = 0; mi < this.masses.length; mi++) {
       const m = this.masses[mi]!;
       m.local.copy(m.world).applyMatrix4(_toLocal);
       this.hubStand[mi * 2] = m.local.x;
       this.hubStand[mi * 2 + 1] = m.local.z;
-      mx += m.vel.x * m.mass;
-      mz += m.vel.z * m.mass;
-      mass += m.mass;
-      _fit.addSpin(m.mass, m.world.x - cell.world.x, m.world.z - cell.world.z, m.vel.x, m.vel.z);
     }
     this.driftFrom();
     this.clampLocal(group);
     this.settleDrift(0, this.budgetAt());
-    // Vertical speed, measured: the frame's rise over at least `VY_SPAN` of sim time (the SAT passes in between move it
-    // too). The masses' own would not do: on the ground the band, not they, sets the frame's height, and a mass the
-    // ground lifts keeps its old speed (a wreck at rest on the level read up to 4 m/s, one sliding up a ramp's face
-    // 1.9 m/s against the face's 3.9). Over the 24 µs remainder of a frame it is noise: 0.2 mm of band jitter read
-    // −9.9 m/s (a derby heat: 7 frames flagged by the 2 cm rule, vy down to −29 m/s). A slice is never shorter than
-    // 1/240 s, so a span that short folds into the next call's.
-    // A re-measure (a call that took no time: the SAT passes, a pair push; or the first read since arming) re-poses the
-    // frame without the body moving: its shift is taken off the sample, not read as a speed (a tilted car pushed 0.15 m
-    // moved its frame 0.35 m in one dt = 0 call, then read −55 m/s).
-    const vySpan = this.elapsed - this.frameAt;
-    if (dt > 0 && !first && vySpan >= VY_SPAN) {
-      this.frameVy = (gy - this.frameY) / vySpan;
-      this.frameY = gy;
-      this.frameAt = this.elapsed;
-    } else if (dt === 0 || first) this.frameY += gy - y0;
-    velocityOut.set(mx / mass, this.frameVy, mz / mass);
-    clampSpeed(velocityOut, CRASH.maxMassMps);
-    // Spin: what the masses carry (L/I) plus a driven wreck's steer (`driveTurn`); the write-back's kept turn is a position
-    // correction, so only `keptSpin` shows it. Never the frame's own turn. Field writes: set() boxed all three.
-    angularOut.x = Math.max(-2, Math.min(2, pitch * TILT_SPIN_GAIN));
-    angularOut.y = _fit.spin() + (this.drivetrainAlive && this.elapsed - this.keptTurn[2]! < DRIVE_TURN_HOLD ? this.keptTurn[1]! : 0);
     if (dt > 0) { this.keptTurn[3] = this.keptTurn[0]! / dt; this.keptTurn[0] = 0; } // prettier-ignore
-    angularOut.z = Math.max(-2, Math.min(2, roll * TILT_SPIN_GAIN));
-    this.prevYaw = yawSafe;
+    this.prevYaw = group.rotation.y;
+  }
+
+  /** The dynamic masses' mean velocity (`out` x, y, z) and the yaw spin their motion carries about their centroid (`out[3]`). */
+  motion(out: Float64Array): void {
+    const cell = this.at.cell;
+    _fit.reset();
+    let mx = 0;
+    let my = 0;
+    let mz = 0;
+    let mass = 0;
+    for (let mi = 0; mi < this.masses.length; mi++) {
+      const m = this.masses[mi]!;
+      if (!m.dynamic) continue;
+      mx += m.vel.x * m.mass;
+      my += m.vel.y * m.mass;
+      mz += m.vel.z * m.mass;
+      mass += m.mass;
+      _fit.addSpin(m.mass, m.world.x - cell.world.x, m.world.z - cell.world.z, m.vel.x, m.vel.z);
+    }
+    if (mass < MIN_MASS_SUM) {
+      out.fill(0);
+      return;
+    }
+    out[0] = mx / mass;
+    out[1] = my / mass;
+    out[2] = mz / mass;
+    out[3] = _fit.spin();
+  }
+
+  /** Marks the masses' mean motion: `takeMotion` hands the body what contact work on them changed since. */
+  markMotion(): void {
+    this.motion(_marked);
+  }
+
+  /** The change of the masses' mean velocity and yaw spin since `markMotion`, added to the rigid body's `velocity` and `angular`. */
+  takeMotion(velocity: THREE.Vector3, angular: THREE.Vector3): void {
+    this.motion(_motionNow);
+    velocity.x += _motionNow[0]! - _marked[0]!;
+    velocity.y += _motionNow[1]! - _marked[1]!;
+    velocity.z += _motionNow[2]! - _marked[2]!;
+    angular.y += _motionNow[3]! - _marked[3]!;
   }
 
   /** followGroup's measurements into `pose`: pitch, yaw, roll, the anchor's world x/y/z and body x/z, the
@@ -383,36 +333,6 @@ export abstract class DeformContact extends DeformState {
     const fy = (engL.world.y + engR.world.y) * 0.5 - axle.world.y;
     const fz = (engL.world.z + engR.world.z) * 0.5 - axle.world.z;
     const yawLen = hypot2(fx, fz);
-    let minHub = Infinity;
-    // The attached hubs' ground (last slice's floors, once sampled since the masses armed): their mean, whether
-    // every one is on it (within 3 cm of its `HUB_FLOOR` `groundMasses` holds it at), and the plane under the hubs: through
-    // each one's floor where it stands on it, through its seat (`HUB_FLOOR` under it) where it is over its floor. Through
-    // the floors alone, a wreck's front tyres rolling off the disc's rim (floors 0 → −0.13 → none in two frames, the hubs
-    // still on 0.28) pitched the frame 2.7° nose-down for one frame and back to level when those hubs left the fit, a 6 mm
-    // hop. A hub over no ground is not in the plane: it hangs from the body, which its other hubs and the band hold.
-    let held = 1;
-    let hubFloor = 0;
-    let hubs = 0;
-    let low = Infinity;
-    const plane = _plane;
-    plane.reset();
-    for (let mi = 0; mi < this.masses.length; mi++) {
-      const m = this.masses[mi]!;
-      if (!m.hub) continue;
-      if (m.world.y < minHub) minHub = m.world.y;
-      const f = this.floorPost[mi]!;
-      if (m.popped || !this.floorsFresh || f === NO_FLOOR) continue;
-      hubFloor += f;
-      hubs++;
-      if (m.world.y - f > HUB_FLOOR + 0.03) held = 0;
-      low = Math.min(low, m.world.y - f);
-      const seat = m.world.y - HUB_FLOOR;
-      plane.add(m.world.x - cell.world.x, m.world.z - cell.world.z, seat > f ? seat : f);
-    }
-    if (hubs === 0) held = 0;
-    plane.fit(this.prevYaw, 1 - Math.max(0, Math.min(1, (low - HUB_FLOOR - PLANE_FADE_FROM) / PLANE_FADE)));
-    const planePitch = plane.pitch;
-    const planeRoll = plane.roll;
     // Pitch and roll stay absolute and clamped: they are re-read each call, never accumulated.
     const plant = !this.bidirectional && this.quietTime() > PLANT_QUIET;
     // A planted wreck levels out from 0.35 s quiet, to the ground plane under its hubs (the world's level on the
@@ -423,8 +343,8 @@ export abstract class DeformContact extends DeformState {
     const ease = (this.elapsed - this.leanAt) / LEVEL_TIME;
     this.leanAt = this.elapsed;
     this.lean += Math.max(-ease, Math.min(ease, (plant && this.quietTime() >= 0.35 ? 0 : 1) - this.lean));
-    const pitch = Math.max(-0.2, Math.min(0.22, Math.atan2(-fy, Math.max(yawLen, 0.15)))) * this.lean + planePitch * (1 - this.lean);
-    const roll = Math.max(-0.5, Math.min(0.5, (engR.world.y - engL.world.y) * 0.55)) * this.lean + planeRoll * (1 - this.lean);
+    const pitch = Math.max(-0.2, Math.min(0.22, Math.atan2(-fy, Math.max(yawLen, 0.15)))) * this.lean;
+    const roll = Math.max(-0.5, Math.min(0.5, (engR.world.y - engL.world.y) * 0.55)) * this.lean;
     const tilt = Number.isFinite(pitch + roll);
     _sc[0] = tilt ? pitch : 0;
     _sc[2] = tilt ? roll : 0;
@@ -489,26 +409,6 @@ export abstract class DeformContact extends DeformState {
     p[5] = wz;
     p[6] = lx;
     p[7] = lz;
-    // The ground under the anchor (a course's hill or bridge deck; 0 on the flat pad; past the fleet disc's rim
-    // none: the group follows the anchor down), and what holds the body up: that ground, or the hubs' mean ground
-    // where that is higher, as a driven car stands on the plane through its wheels' contacts (`stepPlane`). A wreck whose middle is over a gap or a
-    // drop while its wheels are still on the deck (a stunt course's edge, a ramp's lip) stands there, not on the
-    // ground below (it was clamped onto that ground, 1.2 m down in one call). The band's bottom is that ground, or the plane
-    // through what its tyres stand on (`sampleGround`) under the anchor where that is lower: straddling a wedge's high end on its
-    // front tyres and its rear ones on the edge, a wreck's origin sits under the face below its middle, as a driven car's does on
-    // its wheels' plane, and the ground under the anchor lifted the frame 0.077 m in the slice the masses took it from the rigid step.
-    const under = activeGround().heightAt(wx, wz, wy);
-    const wheels = plane.height + plane.gx * (wx - cell.world.x) + plane.gz * (wz - cell.world.z);
-    p[8] = wheels < under ? wheels : under;
-    p[9] = minHub;
-    p[10] = held;
-    p[11] = under === NO_FLOOR || hubs === 0 ? under : Math.max(under, hubFloor / hubs);
-    // The suspension hangs from the plane under the hubs at any lean: world-vertical rest offsets left a live car's
-    // hubs on a side slope 0.16 m over the road on its high side while the low side sat on it, so after a 52 km/h
-    // T-bone the cell sank 0.014 m (flat pad 0.106) and the nose sprang back 0.012 m (0.052).
-    p[12] = planePitch;
-    p[13] = planeRoll;
-    p[14] = plant && planePitch === 0 && planeRoll === 0 ? 1 : 0;
   }
 
   /** Move the whole wreck, including planted hubs, so a bowl clip is not undone next frame. */
@@ -550,16 +450,25 @@ export abstract class DeformContact extends DeformState {
    * change `dw` about (`cx`, `cz`) go onto every dynamic mass as one rigid body (v += dv + dw × r). The part along the face's normal
    * (`nx`, `nz`) is carried by the masses still driving into the face, those moving along it slower than the face (`refVn`): a mass
    * held on the face is at rest on it and the face's impulse cannot reach it, so the driving masses carry the whole normal momentum
-   * (dv scaled by the mass over their mass) and none is taken past the face's speed. Returns the normal momentum taken (N·s).
+   * (dv scaled by the mass over their mass) and none is taken past the face's speed. The rigid body (`velocity`, `angular`) takes the
+   * momentum and spin the masses took; what is left of them in the masses against it is the crush. Returns the normal momentum taken (N·s).
    */
-  shiftBody(dvx: number, dvz: number, dw: number, cx: number, cz: number, nx: number, nz: number, refVn: number): number {
+  shiftBody(velocity: THREE.Vector3, angular: THREE.Vector3, dvx: number, dvz: number, dw: number, cx: number, cz: number, nx: number, nz: number, refVn: number): number {
     if (!this.massActive) return 0;
     let all = 0;
     let driving = 0;
+    let inertia = 0;
+    let sx = 0;
+    let sz = 0;
     for (let mi = 0; mi < this.masses.length; mi++) {
       const m = this.masses[mi]!;
       if (!m.dynamic) continue;
       all += m.mass;
+      const rx = m.world.x - cx;
+      const rz = m.world.z - cz;
+      sx += m.mass * rx;
+      sz += m.mass * rz;
+      inertia += m.mass * (rx * rx + rz * rz);
       if (m.vel.x * nx + m.vel.z * nz < refVn) driving += m.mass;
     }
     const dvn = dvx * nx + dvz * nz;
@@ -567,15 +476,32 @@ export abstract class DeformContact extends DeformState {
     const tx = dvx - dvn * nx;
     const tz = dvz - dvn * nz;
     let taken = 0;
+    let px = 0;
+    let pz = 0;
+    let spin = 0;
     for (let mi = 0; mi < this.masses.length; mi++) {
       const m = this.masses[mi]!;
       if (!m.dynamic) continue;
       const vn = m.vel.x * nx + m.vel.z * nz;
       const cut = vn >= refVn ? 0 : Math.min(refVn - vn, push);
-      m.vel.x += tx + nx * cut + dw * (m.world.z - cz);
-      m.vel.z += tz + nz * cut - dw * (m.world.x - cx);
+      const rx = m.world.x - cx;
+      const rz = m.world.z - cz;
+      const ux = tx + nx * cut + dw * rz;
+      const uz = tz + nz * cut - dw * rx;
+      m.vel.x += ux;
+      m.vel.z += uz;
       taken += cut * m.mass;
+      px += ux * m.mass;
+      pz += uz * m.mass;
+      spin += m.mass * (rz * ux - rx * uz);
     }
+    if (all > 1e-6) {
+      velocity.x += px / all;
+      velocity.z += pz / all;
+      inertia -= (sx * sx + sz * sz) / all;
+      spin -= (sz * px - sx * pz) / all;
+    }
+    if (inertia > MIN_INERTIA) angular.y += spin / inertia;
     return taken;
   }
 
@@ -689,6 +615,11 @@ export abstract class DeformContact extends DeformState {
     return this.push.take(this.budgetAt(), nx, nz, amount, dt, touchSpeed);
   }
 
+  /** The net translation (m) this slice's position corrections moved the wreck along the unit (nx, nz) so far (`PushBudget`). */
+  pushedAlong(nx: number, nz: number): number {
+    return this.push.along(this.budgetAt(), nx, nz);
+  }
+
   /**
    * Push the passenger cell out of overlap. Crumple-zone masses stay on the contact plane so the leftover penetration
    * becomes plastic crush — only as far as the push runs into the struck end (impactInward). Across it, e.g. a derby
@@ -792,9 +723,10 @@ export abstract class DeformContact extends DeformState {
   /**
    * Contact crush from a face pressing in along `inward`. `refVn` is the face's speed along `inward`: a
    * fixed slab's 0, or a car-car pair's common velocity, so the struck car's contact masses are driven
-   * to it (its side crushes) rather than the bullet's nose stopping dead against a car that gets no momentum.
+   * to it (its side crushes) rather than the bullet's nose stopping dead against a car that gets no momentum. `whole`: the overlap is
+   * all of the crush (a fixed solid no particle reaches, so no particle held on its face takes the rest), not the 0.4 + 0.35·squash share.
    */
-  feedOverlap(worldPoint: THREE.Vector3, inward: THREE.Vector3, overlap: number, closing: number, dt = 1 / 60, refVn = 0): number {
+  feedOverlap(worldPoint: THREE.Vector3, inward: THREE.Vector3, overlap: number, closing: number, dt = 1 / 60, refVn = 0, whole = false): number {
     if (!this.massActive) return closing;
     this.overlapFrame = true;
     const leftover = leftoverCrumple(this.crumpleTravel());
@@ -807,7 +739,7 @@ export abstract class DeformContact extends DeformState {
     // taken so slow motion (1/1875 s slices, 8× the calls per sim second) crushes the same.
     const slice = dt / CONTACT_REF_SLICE;
     // Overlap becomes local crush. Amount tracks ½mv², never (overlap/dt) velocity.
-    const crush = Math.min(Math.max(0, overlap) * (0.4 + s * 0.35) * ke, 0.06 + ke * 0.2) * Math.min(1, 0.35 * slice) * live;
+    const crush = Math.min(Math.max(0, overlap) * (whole ? 1 : 0.4 + s * 0.35) * ke, 0.06 + ke * 0.2) * Math.min(1, 0.35 * slice) * live;
     if (crush < 1e-5 && eaten < 1e-5) return closing;
     this.impulse = Math.max(this.impulse, THREE.MathUtils.clamp(closing, 0, 70));
 

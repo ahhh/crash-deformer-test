@@ -182,7 +182,7 @@ crash it recorded. What it takes, each found by the replay straying from the liv
   prop before that step runs (the clip's own cars knock theirs themselves). Seeds 18, 31 and 64 of the city sweep replayed a wreck 0.1 mm to 0.7 m off without it.
 - **The world's step schedule** (23). A step runs 1 to 3 slices of 1 to 3 SAT passes, decided by every car in the world
   (`World.shape`), and a replay of a few cars cannot work them out: the clip carries it (`World.plan`).
-- **Masses touching** (23). A car that only pressed its masses or a door on a clip car is in the clip (`touch`, `collideWith`).
+- **Masses touching** (23). A car that only pressed its masses or a door on a clip car is in the clip (`touch`, `partContactPair`).
 - **The engine's step is a float32** (`Math.fround`), which the recorder stores whole, in the engine and the recording harnesses
   alike. Part tearing runs in the fixed step (`Car.stepBreakage`), never per rendered frame, so a replay drawn at another
   rate than the live sim ran does not diverge (`vehicle/render-cadence.test.ts`).

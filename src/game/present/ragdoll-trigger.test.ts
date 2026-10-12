@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import * as THREE from "three";
 import "../kernel/rapier-node.test-util.ts";
 import type { DeformableCar } from "../vehicle/car.ts";
-import { type CrashWorld, launch, makeCar, makeWorld, tickWorld } from "../contact/crash-scenarios.test-util.ts";
+import { type CrashWorld, FREEWHEEL, launch, makeCar, makeWorld, tickWorld } from "../contact/crash-scenarios.test-util.ts";
 import { assertSameDigest } from "../vehicle/test-support.ts";
 import { headOn } from "../vehicle/ejection.test-util.ts";
 import type { GlassName } from "../vehicle/car-core.ts";
@@ -45,9 +45,9 @@ describe("given thrown drivers (dummies that are cosmetic: the cars move the sam
         const rideAlong: number[] = [];
         const ragdolls = new RagdollSystem(scene, (i) => rideAlong.push(i), () => {});
         await ragdolls.preload();
-        const w = makeWorld(cars, false, false);
+        const w = makeWorld(cars, false, false, FREEWHEEL);
         w.onEject = (e) => ragdolls.launch(e, cars);
-        const wPlain = makeWorld(plain, false, false);
+        const wPlain = makeWorld(plain, false, false, FREEWHEEL);
         for (let f = 0; f < 240; f++) {
           tickWorld(w);
           tickWorld(wPlain);
@@ -66,8 +66,8 @@ describe("given a fleet 2×36 km/h head-on that crashes both cars, cracks their 
   it("when every pane of both cars is struck twice in the second after the hit, then every pane ends shattered and the cars move exactly as they do with the glass left to the crash", () => {
     const cars = headOn(10);
     const plain = headOn(10);
-    const w = makeWorld(cars, false, false);
-    const wPlain = makeWorld(plain, false, false);
+    const w = makeWorld(cars, false, false, FREEWHEEL);
+    const wPlain = makeWorld(plain, false, false, FREEWHEEL);
     const panes = ["windshield", "rear", "doorL", "doorR", "quarterL", "quarterR"] as const;
     const first = 24;
     for (let f = 0; f < 240; f++) {
@@ -92,7 +92,7 @@ describe("given a head-on crash between two fleet cars whose physics engine for 
     const cars = headOn(20);
     const scene = new THREE.Scene();
     const ragdolls = new RagdollSystem(scene, () => {}, () => {});
-    const w = makeWorld(cars, false, false);
+    const w = makeWorld(cars, false, false, FREEWHEEL);
     w.onEject = (e) => ragdolls.launch(e, cars);
     for (let f = 0; f < 150; f++) {
       if (f === late) await ragdolls.preload();
@@ -178,7 +178,7 @@ describe("given a fleet head-on crash that throws both drivers", () => {
     const cars = headOn(20);
     const ragdolls = new RagdollSystem(new THREE.Scene(), () => {}, () => {});
     await ragdolls.preload();
-    const w = makeWorld(cars, false, false);
+    const w = makeWorld(cars, false, false, FREEWHEEL);
     w.onEject = (e) => ragdolls.launch(e, cars);
     // Slots fill in car order: car 0's driver first, and each flies at the other car.
     assert.deepEqual(wrongCabinEntries(w, ragdolls, (slot) => cars[1 - slot]!), [], "a torso entered the other car's cabin where no pane is gone");
@@ -190,7 +190,7 @@ describe("given a parked car with its glass whole", () => {
     const car = makeCar();
     const ragdolls = new RagdollSystem(new THREE.Scene(), () => {}, () => {});
     await ragdolls.preload();
-    const w = makeWorld([car], false, false);
+    const w = makeWorld([car], false, false, FREEWHEEL);
     const over = new THREE.Vector3(0, CABIN.max.y + 1, (CABIN.min.z + CABIN.max.z) / 2);
     ragdolls.place(over, new THREE.Quaternion(), new THREE.Vector3(), new THREE.Vector3(), 2, -1);
     assert.deepEqual(wrongCabinEntries(w, ragdolls, () => car), [], "a torso entered the cabin of a car with no pane gone");

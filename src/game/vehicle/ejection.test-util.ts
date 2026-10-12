@@ -63,7 +63,7 @@ export function collide(hit: Hit, striker: VehicleClassId, struck: VehicleClassI
     launch(t, 0, 0, Math.PI / 2, 0, 0);
     launch(s, -6, 0, Math.PI / 2, mps, 0);
   }
-  const w = makeWorld([s, t], false, false);
+  const w = makeWorld([s, t], false, false, null);
   for (let f = 0; f < 60 * SECONDS; f++) tickWorld(w);
   const out = (car: DeformableCar, i: number): Outcome => ({
     alive: car.deform.drivetrainAlive,

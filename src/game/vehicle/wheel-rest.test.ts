@@ -20,7 +20,7 @@ const NAMES = ["FL", "FR", "RL", "RR"];
 const SETS: readonly (readonly number[])[] = [[0], [3], [0, 1], [2, 3], [0, 2], [1, 3], [0, 3], [1, 2]];
 const _v = new THREE.Vector3();
 
-type Rest = { low: number; corners: number[]; speed: number; drift: number };
+type Rest = { low: number; corners: number[]; fresh: number[]; all: number[]; speed: number; drift: number };
 
 /** A parked car hit once (so it is a wreck), its wheels `lost` popped, run `secs` s; then the body mesh read. */
 function rest(cls: VehicleClassId, lost: readonly number[], secs = 5): Rest {
@@ -32,9 +32,7 @@ function rest(cls: VehicleClassId, lost: readonly number[], secs = 5): Rest {
   armKill(car.deform, killClass(car), HANDLING.realism, "default");
   car.spawnFacing(0, 0, 0, 0);
   car.group.updateMatrixWorld(true);
-  car.applyImpact(car.group.position.clone().addScaledVector(car.forward, 2.05), car.forward.clone().negate(), 0.5, 0.5);
-  for (const i of lost) car.deform.popHub(car.deform.masses.find((m) => m.name === HUBS[i])!);
-  const w = newWorld([car]);
+  car.updateSkin();
   const bodyY = (): number[] => {
     car.group.updateMatrixWorld(true);
     car.body.updateWorldMatrix(true, false);
@@ -48,6 +46,10 @@ function rest(cls: VehicleClassId, lost: readonly number[], secs = 5): Rest {
     }
     return low;
   };
+  const fresh = bodyY();
+  car.applyImpact(car.group.position.clone().addScaledVector(car.forward, 2.05), car.forward.clone().negate(), 0.5, 0.5);
+  for (const i of lost) car.deform.popHub(car.deform.masses.find((m) => m.name === HUBS[i])!);
+  const w = newWorld([car]);
   let before: number[] = [];
   for (let f = 0; f < secs * 60; f++) {
     if (f === (secs - 1) * 60) before = bodyY();
@@ -59,6 +61,8 @@ function rest(cls: VehicleClassId, lost: readonly number[], secs = 5): Rest {
   return {
     low: low[4]!,
     corners: lost.map((i) => low[i]!),
+    fresh,
+    all: low,
     speed: car.velocity.length(),
     drift: Math.max(...low.map((y, i) => Math.abs(y - before[i]!))),
   };
@@ -78,8 +82,17 @@ describe("given a parked car of each vehicle class, hit once so it is a wreck, w
         assert.ok(r.drift < 0.003, `${tag}: body still settling after 4 s, moved ${(r.drift * 1000).toFixed(1)} mm in the last second`);
         assert.ok(r.low > -0.02, `${tag}: body ${(-r.low * 100).toFixed(1)} cm into the ground`);
         assert.ok(r.low < touch, `${tag}: body hovers ${(r.low * 100).toFixed(1)} cm over the ground`);
+        // A diagonal pair lost leaves the body on the other diagonal's tyres: it tips about the line through them until one empty corner is
+        // down. The two empty corners, mirrored across that line, go down and up by the same amount, and the line stands no higher than the
+        // fresh body did, so the risen one is at most twice its fresh height less the low one's: on a lifted body (the monster's 0.48 m) that
+        // is over the flat bar.
         const hover = Math.max(...r.corners);
-        assert.ok(hover < 0.1 + 0.2 * CLASSES[cls].lift + (diagonal ? 0.2 : 0), `${tag}: an empty corner hovers ${(hover * 100).toFixed(1)} cm`);
+        const low = Math.min(...r.corners);
+        const tipped = 2 * Math.max(...lost.map((i) => r.fresh[i]!)) - low + 0.01;
+        const bound = diagonal && CLASSES[cls].lift > 0.3 ? tipped : 0.1 + 0.2 * CLASSES[cls].lift + (diagonal ? 0.2 : 0);
+        const down = 0.03 + 0.12 * CLASSES[cls].lift;
+        if (diagonal) assert.ok(low < down, `${tag}: no empty corner down, the lower at ${(low * 100).toFixed(1)} cm`);
+        assert.ok(hover < bound, `${tag}: an empty corner hovers ${(hover * 100).toFixed(1)} cm (bound ${(bound * 100).toFixed(1)} cm)`);
       }
     });
   }
@@ -95,9 +108,9 @@ describe("given a sedan with its front-left and rear-right wheels popped off", (
 });
 
 describe("given a sedan with all four wheels on", () => {
-  it("when it settles for 5 s after one hit, then it keeps the stock ride (its belly 0.032 m off the ground within 4 mm), with no sag where nothing is missing", () => {
+  it("when it settles for 5 s after one hit, then each corner's lowest point stays within 4 mm of the same corner on the fresh car, with no sag where nothing is missing", () => {
     const r = rest("sedan", []);
-    assert.ok(Math.abs(r.low - 0.032) < 0.004, `belly ${r.low.toFixed(3)} m`);
+    for (let i = 0; i < 4; i++) assert.ok(Math.abs(r.all[i]! - r.fresh[i]!) < 0.004, `${NAMES[i]} corner ${(r.all[i]! * 100).toFixed(1)} cm, fresh ${(r.fresh[i]! * 100).toFixed(1)} cm`);
   });
 });
 

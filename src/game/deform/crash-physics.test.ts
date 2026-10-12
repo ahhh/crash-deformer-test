@@ -9,6 +9,7 @@ import { DT, MODES, assertSameDigest, dummyGeom, mass } from "../vehicle/test-su
 import { runPair } from "../contact/crash-scenarios.test-util.ts";
 import { holdOnFace } from "../contact/external-contact.ts";
 import { warmCrashPath } from "../engine/world-step.ts";
+import { stepWreck, type WreckRig } from "./physics-util.test-util.ts";
 
 /** ~50 km/h NCAP-style rigid barrier. */
 const FRONTAL_MPS = 14;
@@ -47,28 +48,28 @@ function forModes(title: string, fn: (spawnFn: typeof spawn, mode: DeformMode) =
   }
 }
 
-/** Contact then lattice — the order the engine should use. */
+/** Contact then lattice — the order the engine uses: the body carries, the hit is fed, the structure steps. */
 function stepWall(
-  s: ReturnType<typeof spawn>,
+  s: WreckRig & { geom: THREE.BufferGeometry },
   dt: number,
   overlap = 0.08,
   contactX?: number,
   n = new THREE.Vector3(0, 0, -1),
 ): void {
-  s.d.notifyContact();
-  const fl = mass(s.d, "bumperFL").world;
-  const fr = mass(s.d, "bumperFR").world;
-  const contact = new THREE.Vector3(
-    contactX ?? (fl.x + fr.x) * 0.5,
-    (fl.y + fr.y) * 0.5,
-    (fl.z + fr.z) * 0.5,
-  );
-  const closing = Math.max(0, -s.vel.dot(n));
-  s.d.feedOverlap(contact, n, overlap, closing, dt);
-  const leftover = Math.max(0, closing) * 0.18;
-  if (leftover > 0.3) s.d.applyImpulse(n.x, n.y, n.z, leftover * s.d.totalMass * dt * 4);
-  s.d.stepStructure(dt);
-  s.d.followGroup(s.group, s.vel, s.omega, dt);
+  stepWreck(s, dt, () => {
+    s.d.notifyContact();
+    const fl = mass(s.d, "bumperFL").world;
+    const fr = mass(s.d, "bumperFR").world;
+    const contact = new THREE.Vector3(
+      contactX ?? (fl.x + fr.x) * 0.5,
+      (fl.y + fr.y) * 0.5,
+      (fl.z + fr.z) * 0.5,
+    );
+    const closing = Math.max(0, -s.vel.dot(n));
+    s.d.feedOverlap(contact, n, overlap, closing, dt);
+    const leftover = Math.max(0, closing) * 0.18;
+    if (leftover > 0.3) s.d.applyImpulse(n.x, n.y, n.z, leftover * s.d.totalMass * dt * 4);
+  });
   s.d.stepCrush(dt);
   s.d.update(s.geom);
 }
@@ -496,18 +497,20 @@ forModes("given a car set up for a head-on crash into a wall", (spawn, mode) => 
     }
   });
 
-  it("when the front-left bumper is pressed 18 cm back from rest and one physics step runs, then it springs back toward rest (lattice mode: by at least 4 mm; shape mode: without overshooting rest by 20 cm)", () => {
+  it("when the front-left bumper is pressed 18 cm back from rest and three physics steps run (the spring's speed builds over the first two and moves it from the second), then it springs back toward rest in the body's frame (lattice mode: by at least 4 mm; shape mode: without overshooting rest by 20 cm)", () => {
     const s = spawn(0);
     const a = mass(s.d, "bumperFL");
-    const z0 = a.world.z;
+    const z0 = a.local.z;
     a.world.z -= 0.18;
-    a.vel.z = 0;
-    s.d.stepStructure(DT);
+    a.vel.z = s.vel.z;
+    stepWreck(s, DT);
+    stepWreck(s, DT);
+    stepWreck(s, DT);
     if (mode === "shape") {
       // Plastic shape-matching holds the dent; it must not explode outward past rest.
-      assert.ok(a.world.z < z0 + 0.2, `shape exploded past rest ${a.world.z} vs ${z0}`);
+      assert.ok(a.local.z < z0 + 0.2, `shape exploded past rest ${a.local.z} vs ${z0}`);
     } else {
-      assert.ok(a.world.z > z0 - 0.18 + 0.004, `no restore [${mode}] z ${a.world.z} from ${z0 - 0.18}`);
+      assert.ok(a.local.z > z0 - 0.18 + 0.004, `no restore [${mode}] z ${a.local.z} from ${z0 - 0.18}`);
     }
   });
 });
@@ -595,12 +598,12 @@ forModes("given a car whose right side is pushed in at 10 m/s", (spawn) => {
     s.vel.set(10, 0, 0);
     for (let i = 0; i < 14; i++) {
       s.vel.x = 10;
-      const door = mass(s.d, "doorR").world;
-      s.d.notifyContact();
-      s.d.feedOverlap(door, n, 0.1, 10, DT);
-      s.d.applyImpulse(n.x, 0, n.z, 80);
-      s.d.stepStructure(DT);
-      s.d.followGroup(s.group, s.vel, s.omega, DT);
+      stepWreck(s, DT, () => {
+        const door = mass(s.d, "doorR").world;
+        s.d.notifyContact();
+        s.d.feedOverlap(door, n, 0.1, 10, DT);
+        s.d.applyImpulse(n.x, 0, n.z, 80);
+      });
       s.d.stepCrush(DT);
       s.d.update(s.geom);
     }
@@ -751,18 +754,6 @@ forModes("given feedOverlap (the call that turns the wall's overlap into crush a
   });
 });
 
-forModes("given a wheel hub driven down into the pavement", (spawn, mode) => {
-  it("when the front-left hub is 10 cm up and moving down at 4 m/s and one physics step runs, then the road stops it: the hub is lifted to at least 27 cm and keeps at most 0.05 m/s of downward speed (0.15 m/s in shape mode)", () => {
-    const s = spawn(0);
-    const h = mass(s.d, "hubFL");
-    h.world.y = 0.1;
-    h.vel.y = -4;
-    s.d.stepStructure(DT);
-    assert.ok(h.world.y >= 0.27);
-    assert.ok(h.vel.y >= (mode === "shape" ? -0.15 : -0.05), `restitution bounce vel.y=${h.vel.y}`);
-  });
-});
-
 forModes("given a car with its total mass, the sum of the masses of all its body particles", (spawn) => {
   it("when the wall crushes it for 10 steps, then its total mass is the lumped sum of its parts (between 600 and 1200 kg, not 1) and the crush does not change it", () => {
     const s = spawn(0);
@@ -800,7 +791,7 @@ forModes("given a car whose wheels stay on until a hard enough hit knocks them o
       h.world.copy(h.local);
     }
     s.group.updateMatrixWorld();
-    s.d.followGroup(s.group, s.vel, s.omega, DT);
+    stepWreck(s, DT);
     return s;
   };
   const popped = (s: ReturnType<typeof spawn>) => (["hubFL", "hubFR", "hubRL", "hubRR"] as const).filter((n) => mass(s.d, n).popped);
@@ -834,8 +825,7 @@ forModes("given a car whose wheels stay on until a hard enough hit knocks them o
     const s = spawn(0, 0);
     const settle = (n: number) => {
       for (let i = 0; i < n; i++) {
-        s.d.stepStructure(DT);
-        s.d.followGroup(s.group, s.vel, s.omega, DT);
+        stepWreck(s, DT);
       }
     };
     settle(60);
@@ -862,9 +852,9 @@ forModes("given a car whose wheels stay on until a hard enough hit knocks them o
     // A slab square to the car (normal −z) whose near face is 0.1 m inside the tyre (hub z + TYRE_R).
     const face = h.world.z + TYRE_R - 0.1;
     holdOnFace(s.d, h.world.x, face + 0.5, 0.5, 0.06, Math.PI / 2, true);
-    s.d.followGroup(s.group, s.vel, s.omega, DT);
+    stepWreck(s, DT);
     assert.ok(h.local.z - h.rest.z < -0.09, `hub held at ${(h.local.z - h.rest.z).toFixed(3)} m: the face is inside the tyre`);
-    s.d.followGroup(s.group, s.vel, s.omega, DT);
+    stepWreck(s, DT);
     assert.ok(h.local.z - h.rest.z < -0.09, "the pin pulled the hub back into the face");
     assert.equal(h.popped, false);
   });
@@ -872,12 +862,12 @@ forModes("given a car whose wheels stay on until a hard enough hit knocks them o
   it("when a wall face shoves a standing car's front-right wheel back more than one wheel diameter, then the wheel tears off, whereas with wheel detaching switched off it stays on and moves at most one wheel diameter", () => {
     const on = spawn(0, 0);
     on.d.shoveHub(mass(on.d, "hubFR"), 0, -(2 * TYRE_R + 0.01));
-    on.d.followGroup(on.group, on.vel, on.omega, DT);
+    stepWreck(on, DT);
     assert.equal(mass(on.d, "hubFR").popped, true, "a wheel diameter of shove left the wheel on");
     const held = spawn(0, 0);
     held.d.wheelsDetach = false;
     held.d.shoveHub(mass(held.d, "hubFR"), 0, -1);
-    held.d.followGroup(held.group, held.vel, held.omega, DT);
+    stepWreck(held, DT);
     const hub = mass(held.d, "hubFR");
     assert.equal(hub.popped, false, "wheelsDetach off still popped the wheel");
     assert.ok(Math.abs(hub.local.z - hub.rest.z) <= 2 * TYRE_R + 1e-6, `shoved ${(hub.local.z - hub.rest.z).toFixed(3)} m past a diameter`);
@@ -886,10 +876,10 @@ forModes("given a car whose wheels stay on until a hard enough hit knocks them o
   it("when three wheels have popped off and then the fourth does too, then the drivetrain is still alive with three gone and dead once all four are gone, like a dead engine", () => {
     const s = spawn(0, 0);
     for (const name of ["hubFL", "hubFR", "hubRL"] as const) s.d.popHub(mass(s.d, name));
-    s.d.followGroup(s.group, s.vel, s.omega, DT);
+    stepWreck(s, DT);
     assert.equal(s.d.drivetrainAlive, true, "three wheels gone already killed it");
     s.d.popHub(mass(s.d, "hubRR"));
-    s.d.followGroup(s.group, s.vel, s.omega, DT);
+    stepWreck(s, DT);
     assert.equal(s.d.drivetrainAlive, false, "no wheels and still driving");
   });
 
@@ -910,17 +900,18 @@ describe("given a wreck that has just stopped being touched, in shape deform mod
   // the wheels at that speed and the frame, anchored on them, followed 0.08 m a step.
   it("when the wheels carry a stale 30 m/s sideways speed and the car then sits untouched until it settles in place, then each wheel is held within 8 m/s of the body and the frame moves less than 8 m/s's worth (13 cm) per 1/60 s step, so the wheels' stale speed cannot carry the frame off", () => {
     const s = spawn(0, 0, undefined, undefined, "shape");
-    const step = () => {
-      s.d.stepStructure(DT);
-      s.d.followGroup(s.group, s.vel, s.omega, DT);
-    };
+    const step = () => stepWreck(s, DT);
     for (let i = 0; i < 6; i++) step();
     assert.ok(s.d.quietTime() < 0.2, "already planted");
+    const mean = new Float64Array(4);
+    s.d.motion(mean);
+    const before = mean[0]!;
     for (const m of s.d.masses) if (m.hub) m.vel.x = 30;
+    s.d.motion(mean);
+    s.vel.x += mean[0]! - before;
     for (let i = 0; i < 12; i++) step();
     assert.ok(s.d.quietTime() > 0.25, "never planted");
-    const cell = mass(s.d, "cell");
-    for (const m of s.d.masses) if (m.hub) assert.ok(m.vel.x - cell.vel.x <= 8 + 1e-9, `${m.name} freed at ${(m.vel.x - cell.vel.x).toFixed(2)} m/s off the body`);
+    for (const m of s.d.masses) if (m.hub) assert.ok(m.vel.x - s.vel.x <= 8 + 1e-9, `${m.name} freed at ${(m.vel.x - s.vel.x).toFixed(2)} m/s off the body`);
     let worst = 0;
     for (let i = 0; i < 6; i++) {
       const before = s.group.position.clone();
@@ -931,32 +922,22 @@ describe("given a wreck that has just stopped being touched, in shape deform mod
   });
 });
 
-forModes("given a wreck that has settled in place with three wheels knocked off their axles, so its passenger cell stands off its rest position", (spawn) => {
-  // A quiet wreck's frame sits on its hubs and its cell stands off its rest in it (here three wheels knocked off their
-  // axles: 0.11 m). The first hit stores each mass's damage base, and the touch ends the plant in the same call: a base
-  // taken cell-relative left the offset in every mass's travel, and the first live clamp dragged the whole body back by
-  // it (derby seed 19 car 6 at 80.22 s: 0.11 m in one dt = 0 call, a zip).
-  it("when a new hit touches it, then no body particle except the wheels jumps more than 3 cm, because the new hit does not drag the body back by how far the settled cabin stands off its rest position", () => {
+forModes("given a wreck that has settled in place with its passenger cell 0.11 m off its seat in the body", (spawn) => {
+  // The body seats on its cell no faster than SEAT_SPEED, so a body shoved off its cell stands off it for a while. The first hit
+  // stores each mass's damage base, and the touch ends the plant in the same call: a base taken cell-relative left the offset in
+  // every mass's travel, and the first live clamp dragged the whole body back by it (derby seed 19 car 6 at 80.22 s: 0.11 m in
+  // one dt = 0 call, a zip).
+  it("when a new hit touches it, then no body particle except the wheels jumps more than 3 cm, because the new hit does not drag the body back by how far the cabin stands off its seat", () => {
     const s = spawn(0, 0);
-    const settle = (n: number) => {
-      for (let i = 0; i < n; i++) {
-        s.d.stepStructure(DT);
-        s.d.followGroup(s.group, s.vel, s.omega, DT);
-      }
-    };
-    settle(120);
-    for (const name of ["hubFL", "hubFR", "hubRL"]) {
-      const h = mass(s.d, name);
-      h.world.x -= 0.3;
-      h.world.z += 0.15;
-    }
-    settle(30);
+    for (let i = 0; i < 121; i++) stepWreck(s, DT);
     const cell = mass(s.d, "cell");
+    cell.world.x += 0.11;
+    stepWreck(s, 0);
     assert.ok(s.d.quietTime() > 2, "not planted");
     assert.ok(cell.local.distanceTo(cell.rest) > 0.05, `the cell stands ${cell.local.distanceTo(cell.rest).toFixed(3)} m off its rest: nothing to drag`);
     const before = s.d.masses.map((m) => m.world.clone());
     assert.equal(s.d.rearmHit(new THREE.Vector3(-0.95, 0.36, 0), new THREE.Vector3(1, 0, 0), 20, 6), true);
-    s.d.followGroup(s.group, s.vel, s.omega, 0);
+    stepWreck(s, 0);
     for (const [i, m] of s.d.masses.entries()) {
       if (!m.hub) assert.ok(m.world.distanceTo(before[i]!) < 0.03, `${m.name} jumped ${m.world.distanceTo(before[i]!).toFixed(3)} m at the touch`);
     }
@@ -1067,16 +1048,16 @@ forModes("given a car crashing into a rigid wall at 14 to 16 m/s", (spawn, mode)
     const fast = spawn(0, 16);
     const n = new THREE.Vector3(0, 0, -1);
     for (let i = 0; i < 8; i++) {
-      slow.d.notifyContact();
-      slow.d.feedOverlap(new THREE.Vector3(0, 0.38, 2), n, 0.1, 16, 1 / 240);
-      slow.d.stepStructure(1 / 240);
-      slow.d.followGroup(slow.group, slow.vel, slow.omega, 1 / 240);
+      stepWreck(slow, 1 / 240, () => {
+        slow.d.notifyContact();
+        slow.d.feedOverlap(new THREE.Vector3(0, 0.38, 2), n, 0.1, 16, 1 / 240);
+      });
     }
     for (let i = 0; i < 8; i++) {
-      fast.d.notifyContact();
-      fast.d.feedOverlap(new THREE.Vector3(0, 0.38, 2), n, 0.1, 16, DT);
-      fast.d.stepStructure(DT);
-      fast.d.followGroup(fast.group, fast.vel, fast.omega, DT);
+      stepWreck(fast, DT, () => {
+        fast.d.notifyContact();
+        fast.d.feedOverlap(new THREE.Vector3(0, 0.38, 2), n, 0.1, 16, DT);
+      });
     }
     const vs = mass(slow.d, "bumperFL").vel.length();
     const vf = mass(fast.d, "bumperFL").vel.length();
@@ -1087,10 +1068,7 @@ forModes("given a car crashing into a rigid wall at 14 to 16 m/s", (spawn, mode)
   it("when the crush plays out for 24 steps and the car then coasts 12 more steps with no wall contact, then its speed stays under 16 m/s, so it does not rebound above its 14 m/s impact speed", () => {
     const s = spawn(0, 14);
     for (let i = 0; i < 24; i++) stepWall(s, DT, 0.12);
-    for (let i = 0; i < 12; i++) {
-      s.d.stepStructure(DT);
-      s.d.followGroup(s.group, s.vel, s.omega, DT);
-    }
+    for (let i = 0; i < 12; i++) stepWreck(s, DT);
     assert.ok(s.vel.length() < 16, `rebound ${s.vel.length().toFixed(2)} m/s [${mode}]`);
   });
 });

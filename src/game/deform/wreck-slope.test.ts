@@ -1,6 +1,7 @@
 import { afterEach, describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { DEG, FRAME, fit, frame, makeCar, worldOf, type Fit } from "../vehicle/ground-probe.test-util.ts";
+import { idleDrive } from "../vehicle/car-drive.ts";
 import { layOnGround } from "../vehicle/car-air.ts";
 import type { VehicleClassId } from "../vehicle/vehicle-classes.ts";
 import { Ground, setGround } from "../world/ground.ts";
@@ -10,14 +11,16 @@ import { TRACKS } from "../world/tracks/index.ts";
 /**
  * A wrecked car comes to rest on the ground under its hubs. `measurePose` levelled a planted wreck to the world
  * (pitch and roll 0) after 0.35 s quiet, wherever it stood: on the stunt course's −21° descent a hit sedan sat level
- * with its tyres +72 / −34 cm off the road and its tail 48 cm under it. Bounds: 2° on the body against the ground
- * under the four hubs, 2 cm on a tyre, 1 cm of underside in the ground (a loaded tyre squats that much and the road
- * is drawn 1.5 cm over the ground, so a gap inside it can't be seen).
+ * with its tyres +72 / −34 cm off the road and its tail 48 cm under it. Bounds: 2° on the body against the intact
+ * same-class car parked and settled at the same site (its springs lean it off the ground's plane by their own rule),
+ * 2 cm on a tyre, 1 cm of underside in the ground (a loaded tyre squats that much and the road is drawn 1.5 cm over
+ * the ground, so a gap inside it can't be seen).
  */
 const TILT_DEG = 2;
 const GAP_M = 0.02;
 const PEN_M = 0.01;
 const REST_S = 3;
+const PARKED_S = 4;
 
 /** The plane `heightAt` = x·tan(pitch) + z·tan(roll) (degrees); a car facing +x sees `pitch` as its slope. */
 class Plane extends Ground {
@@ -57,8 +60,8 @@ const SITES: Site[] = [
 ];
 const CLASSES_UNDER_TEST: VehicleClassId[] = ["sedan", "monster"];
 
-/** A `cls` car standing at `site` (speed `v` along its heading), struck head-on so it becomes a wreck. */
-function wreck(site: Site, cls: VehicleClassId, v: number) {
+/** A `cls` car standing at `site` (speed `v` along its heading), settled 30 frames. */
+function stand(site: Site, cls: VehicleClassId, v: number) {
   setGround(site.ground);
   const car = makeCar(cls);
   car.spawnFacing(site.x, site.z, site.yaw, v);
@@ -67,9 +70,25 @@ function wreck(site: Site, cls: VehicleClassId, v: number) {
   const w = worldOf(car);
   const st = { acc: 0 };
   for (let n = 0; n < 30; n++) frame(w, null, st);
-  const fw = car.forward;
-  car.applyImpact(car.group.position.clone().addScaledVector(fw, 2).setY(car.group.position.y + 0.5), fw.clone().negate(), 20, 12);
-  return { car, step: () => frame(w, null, st) };
+  return { car, w, st, step: () => frame(w, null, st) };
+}
+
+/** A `cls` car standing at `site`, struck head-on so it becomes a wreck. */
+function wreck(site: Site, cls: VehicleClassId, v: number) {
+  const s = stand(site, cls, v);
+  const fw = s.car.forward;
+  s.car.applyImpact(s.car.group.position.clone().addScaledVector(fw, 2).setY(s.car.group.position.y + 0.5), fw.clone().negate(), 20, 12);
+  return { car: s.car, step: () => frame(s.w, idleDrive(), s.st) };
+}
+
+/** How the intact `cls` car sits at `site` after `PARKED_S` s parked there. */
+function parkedFit(site: Site, cls: VehicleClassId): Fit {
+  const { car, step } = stand(site, cls, 0);
+  car.parked = true;
+  for (let n = 0; n < PARKED_S * 60; n++) step();
+  const f = fit(car, site.ground);
+  car.dispose();
+  return f;
 }
 
 const label = (f: Fit) =>
@@ -81,15 +100,16 @@ describe("given a car struck head-on while standing on flat ground, a slope, a b
 
   for (const cls of CLASSES_UNDER_TEST) {
     for (const site of SITES) {
-      it(`when a ${cls} on ${site.name} is left to settle for ${REST_S} s after the hit, then it sits on the ground under its wheels (pitch and roll within 2° of the ground, tyres within 2 cm of it, underside no more than 1 cm in it)`, () => {
+      it(`when a ${cls} on ${site.name} is left to settle for ${REST_S} s after the hit, then it sits on the ground under its wheels (pitch and roll within 2° of the intact ${cls} parked and settled ${PARKED_S} s there, tyres within 2 cm of the ground, underside no more than 1 cm in it)`, () => {
+        const intact = parkedFit(site, cls);
         const { car, step } = wreck(site, cls, 0);
         for (let n = 0; n < REST_S * 60; n++) step();
         const f = fit(car, site.ground);
         car.dispose();
         assert.ok(car.crashed && car.deform.massActive, "the hit did not make a wreck");
         const where = `${cls} on ${site.name}: ${label(f)}`;
-        assert.ok(Math.abs(f.pitch - f.groundPitch) <= TILT_DEG, `pitch off the ground: ${where}`);
-        assert.ok(Math.abs(f.roll - f.groundRoll) <= TILT_DEG, `roll off the ground: ${where}`);
+        assert.ok(Math.abs(f.pitch - intact.pitch) <= TILT_DEG, `pitch off the intact car's (${intact.pitch.toFixed(1)}°): ${where}`);
+        assert.ok(Math.abs(f.roll - intact.roll) <= TILT_DEG, `roll off the intact car's (${intact.roll.toFixed(1)}°): ${where}`);
         assert.ok(Math.max(...f.gaps.map(Math.abs)) <= GAP_M, `a tyre off the ground or in it: ${where}`);
         assert.ok(f.pen <= PEN_M, `the underside is in the ground: ${where}`);
       });

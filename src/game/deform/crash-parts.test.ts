@@ -8,10 +8,11 @@ import { DeformableCar } from "../vehicle/car.ts";
 import { leftoverCrumple, snapshotPoints } from "./physics-util.ts";
 import { GRAVITY } from "../kernel/constants.ts";
 import { DT, dummyGeom, forModes, mass, paint } from "../vehicle/test-support.ts";
-import { makeCar, makeWorld, runPair, runWall, tickWorld } from "../contact/crash-scenarios.test-util.ts";
+import { FREEWHEEL, makeCar, makeWorld, PARKED, runPair, runWall, tickWorld } from "../contact/crash-scenarios.test-util.ts";
 import { sliceSpeed } from "../contact/sat.ts";
 import { fleetStyle } from "../scenes/fleet.ts";
 import { DebrisSystem } from "../present/engine-fx.ts";
+import { stepWreck, type WreckRig } from "./physics-util.test-util.ts";
 type PartRow = { name: string; hingeT: number; detached: boolean };
 
 function spawnOffset(impactX: number, speed = 14, mode: DeformMode = "lattice") {
@@ -26,16 +27,19 @@ function spawnOffset(impactX: number, speed = 14, mode: DeformMode = "lattice") 
   return { d, group, vel, omega, geom };
 }
 
-function stepWall(s: ReturnType<typeof spawnOffset>, dt: number, contactX: number): void {
-  s.d.notifyContact();
-  const fl = mass(s.d, "bumperFL").world;
-  const fr = mass(s.d, "bumperFR").world;
-  const contact = new THREE.Vector3(contactX, 0.38, (fl.z + fr.z) * 0.5);
-  const n = new THREE.Vector3(0, 0, -1);
-  const closing = Math.max(0, -s.vel.dot(n));
-  s.d.feedOverlap(contact, n, 0.1, closing, dt);
-  s.d.stepStructure(dt);
-  s.d.followGroup(s.group, s.vel, s.omega, dt);
+/** One frame of the wall hit. */
+function stepWall(s: WreckRig & { geom: THREE.BufferGeometry }, dt: number, contactX: number): void {
+  stepWreck(s, dt, () => {
+    s.d.notifyContact();
+    const fl = mass(s.d, "bumperFL").world;
+    const fr = mass(s.d, "bumperFR").world;
+    const contact = new THREE.Vector3(contactX, 0.38, (fl.z + fr.z) * 0.5);
+    const n = new THREE.Vector3(0, 0, -1);
+    const closing = Math.max(0, -s.vel.dot(n));
+    if (s.d.massActive) s.d.markMotion();
+    s.d.feedOverlap(contact, n, 0.1, closing, dt);
+    if (s.d.massActive) s.d.takeMotion(s.vel, s.omega);
+  });
   s.d.stepCrush(dt);
   s.d.update(s.geom);
 }
@@ -161,7 +165,7 @@ forModes("given a car struck on its right side at 28 m/s, with the contact held 
       car.deform.notifyContact();
       car.deform.feedOverlap(hit, inward, 0.08, 12, DT);
       car.deform.stepStructure(DT);
-      car.syncPose(DT);
+      car.integrate(DT);
       car.stepBreakage(DT);
       car.updateSkin();
     }
@@ -197,7 +201,7 @@ forModes("given a car hit on its nose at 40 m/s, with the contact held for 50 fr
       car.deform.notifyContact();
       car.deform.feedOverlap(hit, inward, 0.1, 16, DT);
       car.deform.stepStructure(DT);
-      car.syncPose(DT);
+      car.integrate(DT);
       car.stepBreakage(DT);
       car.updateSkin();
     }
@@ -222,7 +226,7 @@ forModes("given a car spawned far from the map's origin and hit on its nose at 5
       car.deform.notifyContact();
       car.deform.feedOverlap(hit, inward, 0.12, 18, DT);
       car.deform.stepStructure(DT);
-      car.syncPose(DT);
+      car.integrate(DT);
       car.stepBreakage(DT);
       car.updateSkin();
       car.afterContacts(DT);
@@ -334,7 +338,7 @@ forModes("given a car hit on its right-front corner at 22 m/s, with the contact 
       car.deform.notifyContact();
       car.deform.feedOverlap(hit, inward, 0.08, 10, DT);
       car.deform.stepStructure(DT);
-      car.syncPose(DT);
+      car.integrate(DT);
       car.stepBreakage(DT);
       car.updateSkin();
     }
@@ -371,7 +375,7 @@ describe("given a car's front bumper, in shape deform mode", () => {
       car.deform.notifyContact();
       car.deform.feedOverlap(hit, inward, 0.1, 16, DT);
       car.deform.stepStructure(DT);
-      car.syncPose(DT);
+      car.integrate(DT);
       car.stepBreakage(DT);
       car.updateSkin();
     }
@@ -475,7 +479,8 @@ function tbone(squash: number): { door: number; gap: number } {
     c.velocity.set(vx, 0, 0);
     c.deform.bindKinematic(c.group, c.velocity, c.angular);
   }
-  const w = makeWorld([a, b], false, false);
+  const w = makeWorld([a, b], false, false, FREEWHEEL);
+  w.pedals.set(a, PARKED);
   let door = 0;
   let gap = Infinity;
   let since = -1;
@@ -551,10 +556,10 @@ describe("given the recorded 16-car pile-up in which wrecks spun on the spot, in
     assert.ok(turn[worst]! < 0.1, `${SPIN_FLEET[worst]![0]} turned ${turn[worst]!.toFixed(2)} rad in the last 2 s, |ω| ${cars[worst]!.angular.y.toFixed(2)}`);
   });
 
-  // todo -> Stage 4 item 6 (wreck split), the same cause as derby-ai's contact peaks. Measured (SPIN_FLEET at squash 0.4): Khaki 5.48 rad/s over 0.1 s (Bronze 7.29 with the
+  // todo -> Stage 5 (item 6's wreck split left Khaki at 5.85 rad/s), the same cause as derby-ai's contact peaks. Measured (SPIN_FLEET at squash 0.4) before item 6: Khaki 5.48 rad/s over 0.1 s (Bronze 7.29 with the
   // pair's friction off, Khaki 6.16 and 7.20 with the one-body motion and the kill subtraction off: no toggle of the kernel's terms removes it); the
   // last-2-s row above (no wreck still turning) passes. A pile's wreck struck at a lever spins by J·lever/I; the yaw grip that ends it is the wreck split's.
-  it("when the squash setting is 0.4 and the buckle setting 0.45, then no wreck turns faster than 5 rad/s over any 0.1 s of the first 2.5 s", { todo: "Khaki 5.48 rad/s over 0.1 s in the 16-car pile (lever torque of the pair kernel; wreck yaw grip is the split's): Stage 4 item 6 (wreck split)" }, () => {
+  it("when the squash setting is 0.4 and the buckle setting 0.45, then no wreck turns faster than 5 rad/s over any 0.1 s of the first 2.5 s", { todo: "Khaki 5.85 rad/s over 0.1 s in the 16-car pile (bar 5; lever torque of the pair kernel; the wreck's yaw grip is the tyres'): Stage 5" }, () => {
     const cars = SPIN_FLEET.map(([name, x, z, yaw, speed], i) => {
       const car = new DeformableCar({ body: 0xffffff, accent: 0x444444, name }, new THREE.Scene(), null, fleetStyle(i));
       car.deform.setMode("shape");
@@ -586,13 +591,13 @@ describe("given the recorded 16-car pile-up in which wrecks spun on the spot, in
   });
 });
 
-/** A wreck at (0, z) heading `yaw`, sliding along +z at `v` (m/s), its masses armed by a light knock. */
-function slidingWreck(z: number, v: number, yaw = 0): DeformableCar {
+/** A wreck at (x, z) heading `yaw`, moving at (vx, v) m/s (v along +z), its masses armed by a light knock. */
+function slidingWreck(z: number, v: number, yaw = 0, x = 0, vx = 0): DeformableCar {
   const car = new DeformableCar(paint(), new THREE.Scene());
   car.deform.setMode("shape");
-  car.spawnFacing(0, z, yaw, 0);
-  car.velocity.set(0, 0, v);
-  car.speed = v;
+  car.spawnFacing(x, z, yaw, 0);
+  car.velocity.set(vx, 0, v);
+  car.speed = Math.hypot(vx, v);
   car.deform.bindKinematic(car.group, car.velocity, car.angular);
   car.applyImpact(car.group.localToWorld(new THREE.Vector3(0.7, 0.4, 2.2)), car.forward.clone().negate(), 2, 2);
   return car;
@@ -624,14 +629,33 @@ function slideDecel(cars: DeformableCar[], secs: number): number {
   return (v0 - groupSpeed(cars)) / secs;
 }
 
+/** A wreck on its drive's coast stops in 0.4-0.6 s: a longer window would read the speed it started with, not a rate. */
+const GRIND_S = 0.15;
+
 describe("given crashed wrecks sliding to a stop on the ground", () => {
   // Owner dump: a pair of wrecks grinding together slid at 0.44 g against 1.4–1.8 g alone: the mass
   // drag waited for the car-contact quiet timer, which the rubbing kept resetting.
   it("when two wrecks grind together, one's nose on the other's side, both sliding along, then they slow down at least as fast as one wreck alone, within 15 %", () => {
-    const lone = slideDecel([slidingWreck(0, 10)], 1);
+    const lone = slideDecel([slidingWreck(0, 10)], GRIND_S);
     // T-bone grind: the faster wreck's nose on the slower one's side, both sliding along +z.
-    const pair = slideDecel([slidingWreck(-4, 11), slidingWreck(0, 9, Math.PI / 2)], 1);
+    const pair = slideDecel([slidingWreck(-4, 11), slidingWreck(0, 9, Math.PI / 2)], GRIND_S);
     assert.ok(pair >= lone * 0.85, `pair ${(pair / 9.81).toFixed(2)} g vs alone ${(lone / 9.81).toFixed(2)} g`);
+  });
+});
+
+describe("given two overlapping wrecks in shape deform mode, one resting and one sliding at 6 m/s along z and 4 m/s toward it", () => {
+  it("when they scrape flank to flank for one frame, then the pair kernel reports the contact and the resting wreck takes over 60 kg·m/s of the slide through friction", () => {
+    const a = slidingWreck(0, 0);
+    const b = slidingWreck(0, 6, 0, 1.5, -4);
+    const w = makeWorld([a, b], false, false, null);
+    let reported = false;
+    w.world.pairHit = () => {
+      reported = true;
+    };
+    tickWorld(w);
+    const pz = a.deform.masses.reduce((s, m) => s + m.vel.z * m.mass, 0);
+    assert.ok(reported, "overlapping wrecks are a contact the pair kernel reports (`World.pairHit`)");
+    assert.ok(pz > 60, `the struck wreck took ${pz.toFixed(1)} kg·m/s of the 6 m/s slide`);
   });
 });
 
@@ -719,22 +743,6 @@ describe("given a debris system of 8 pieces whose first piece is nearly spent", 
     assert.equal(scales[0], 0, "spent piece 0 is still drawn");
     assert.ok(new Set(scales.slice(1).map((x) => x.toFixed(4))).size > 1, `every live piece has scale ${scales[1]}`);
     assert.ok(qs[1]!.angleTo(qs[2]!) > 0.01, "pieces 1 and 2 share one rotation");
-  });
-});
-
-describe("given two overlapping wrecks in shape deform mode, one resting and one sliding at 6 m/s along z and 4 m/s toward it", () => {
-  it("when they scrape flank to flank, then they are reported in contact and the resting wreck takes over 60 kg·m/s of the slide through friction", () => {
-    const a = spawnOffset(0, 0, "shape");
-    const b = spawnOffset(0, 0, "shape");
-    for (const m of b.d.masses) {
-      m.world.x += 1.5;
-      m.vel.set(-4, 0, 6);
-    }
-    for (const m of a.d.masses) m.vel.set(0, 0, 0);
-    const pz = (d: StreamedDeformation) => d.masses.reduce((s, m) => s + m.vel.z * m.mass, 0);
-    assert.ok(a.d.collideWith(b.d, 1 / 240), "overlapping masses are a contact the world reports as a touch (`World.partTouch`)");
-    // 11 kg·m/s reaches it through the normals alone; Coulomb friction (μ 0.45) hands over ~147.
-    assert.ok(pz(a.d) > 60, `the struck wreck took ${pz(a.d).toFixed(1)} kg·m/s of the 6 m/s slide`);
   });
 });
 

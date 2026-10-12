@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import * as THREE from "three";
 import "../kernel/rapier-node.test-util.ts";
 import type { RigidBody, World } from "@dimforge/rapier3d-simd";
-import { launch, makeCar, makeWorld, tickWorld } from "../contact/crash-scenarios.test-util.ts";
+import { FREEWHEEL, launch, makeCar, makeWorld, tickWorld } from "../contact/crash-scenarios.test-util.ts";
 import { armKill, DEFAULT_REALISM } from "../vehicle/vehicle-classes.ts";
 import { THROW_ONSET } from "../match/phase.ts";
 import { RANGE } from "../scenes/range.ts";
@@ -79,7 +79,7 @@ async function rangeThrow(frame: () => number): Promise<Run> {
   const car = makeCar("shape", 0.32, 0.45);
   armKill(car.deform, "sedan", DEFAULT_REALISM, "default");
   launch(car, -RANGE.run, 0, Math.PI / 2, RANGE.kph / 3.6, 0);
-  const w = makeWorld([car], true, false);
+  const w = makeWorld([car], true, false, FREEWHEEL);
   w.onEject = (e) => ragdolls.launch(e, [car]);
   w.clock.slomoAt = THROW_ONSET;
   const ragdolls = new RagdollSystem(new THREE.Scene(), () => {}, () => {});
@@ -233,7 +233,7 @@ describe("given a thrown dummy (the ejected driver's jointed ragdoll)", () => {
   it("when a car drives into a dummy that has gone to sleep, then he is woken and shoved by it", async () => {
     const car = makeCar("shape", 0.32, 0.45);
     launch(car, -30, 0, Math.PI / 2, 0, 0);
-    const w = makeWorld([car], false, false);
+    const w = makeWorld([car], false, false, FREEWHEEL);
     w.onEject = (e) => ragdolls.launch(e, [car]);
     const ragdolls = new RagdollSystem(new THREE.Scene(), () => {}, () => {});
     await ragdolls.preload();

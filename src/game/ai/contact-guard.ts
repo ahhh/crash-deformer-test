@@ -174,7 +174,13 @@ export function guardContact(self: AiCar, cars: readonly AiCar[], count: number,
   const toward = lateral >= 0 ? out.steer > 0 : out.steer < 0;
   out.steer = clamp((toward ? out.steer * (1 - need) : out.steer) * (1 - u) + (lateral >= 0 ? -u : u), -1, 1);
   out.throttle *= 1 - need;
-  // The drive brakes at 0.45 of full at the lightest touch of the pedal, so only a real stop touches it.
-  if (need > 0.5) out.brake = Math.max(out.brake, need);
+  // The drive brakes at 0.45 of full at the lightest touch of the pedal, so only a real stop touches it, and a braking car is off the
+  // gas; inside the zone already (`soonest` 0, its time taken as 0.05 s), any closing past a `TAP` is braked for. With the throttle
+  // share left on while braking, and from 0.5 there (a closing of `TAP` + 0.05 s of the braking), a clean city racer held 2.2-3.7 m/s
+  // behind a crashed car crawling at 1.2 m/s, brake and throttle about 0.5 each, until it touched it (race-contact :125, frame 3994).
+  if (need > 0.5 || (soonest <= 0 && need > 0)) {
+    out.brake = Math.max(out.brake, need);
+    out.throttle = 0;
+  }
   if (need > 0.1) out.boost = false;
 }

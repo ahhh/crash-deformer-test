@@ -409,14 +409,14 @@ export function carInState(id: (typeof STATES)[number]["id"], style: CarStyleId,
     const other = buildCar(style, "sedan");
     launch(car, -5, 0, Math.PI / 2, 50 / 3.6, 0);
     launch(other, 5, 0, -Math.PI / 2, -50 / 3.6, 0);
-    stepFrames(makeWorld([car, other], false, false), 5);
+    stepFrames(makeWorld([car, other], false, false, null), 5);
   } else if (id === "rolled") {
     car.spawnFacing(0, 0, 0, 0);
     car.group.rotation.set(Math.PI, 0, 0, "YXZ");
     car.group.updateMatrixWorld(true);
     car.group.position.y += -new THREE.Box3().setFromObject(car.group).min.y + 2;
     car.airborne = true;
-    stepFrames(makeWorld([car], false, false), 6);
+    stepFrames(makeWorld([car], false, false, null), 6);
   } else {
     car.spawnFacing(0, 0, 0, 0);
     car.deform.bindKinematic(car.group, car.velocity, car.angular);
@@ -424,7 +424,7 @@ export function carInState(id: (typeof STATES)[number]["id"], style: CarStyleId,
       car.deform.crush[FACE_TOP] = 0.4;
       car.deform.bakeLoadCrush();
     }
-    stepFrames(makeWorld([car], false, false), 0.5);
+    stepFrames(makeWorld([car], false, false, null), 0.5);
   }
   car.airborne = id === "airborne";
   car.group.position.set(0, id === "airborne" ? 3 : 0, 0);

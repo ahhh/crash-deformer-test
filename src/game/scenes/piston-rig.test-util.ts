@@ -197,6 +197,7 @@ export function firePiston(car: DeformableCar, id: PistonId, shot: PistonShot = 
   const head = rig.head(id);
   if (shot.carMoves) {
     head.fire(0, rig.honey);
+    car.parked = false;
     const u = rig.config.speedKph / 3.6;
     car.velocity.set(-head.nx * u, 0, -head.nz * u);
     car.speed = u;
@@ -207,7 +208,6 @@ export function firePiston(car: DeformableCar, id: PistonId, shot: PistonShot = 
   let since = 0;
   for (let f = 0; f < 60 * 20; f++) {
     for (let s = 0; s < 2; s++) {
-      if (shot.carMoves) car.integrate(frame / 2);
       rig.step(frame / 2);
       car.afterContacts(frame / 2);
       if (car.deform.massActive && !car.deform.drivetrainAlive) car.deform.cutDrive(frame / 2);

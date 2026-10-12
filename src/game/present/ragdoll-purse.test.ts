@@ -7,7 +7,7 @@ import { driverLook } from "./driver-look.ts";
 import { assertSameNumbers } from "../vehicle/test-support.ts";
 import { RagdollSystem } from "./engine-ragdoll.ts";
 import { Purses, BURST_AT, ITEM_SPEED, ITEMS_MIN, PURSE_SPEED, SPREAD } from "./ragdoll-purse.ts";
-import { launch, makeCar, makeWorld, tickWorld } from "../contact/crash-scenarios.test-util.ts";
+import { FREEWHEEL, launch, makeCar, makeWorld, tickWorld } from "../contact/crash-scenarios.test-util.ts";
 import { armKill, DEFAULT_REALISM } from "../vehicle/vehicle-classes.ts";
 import { THROW_ONSET } from "../match/phase.ts";
 import { RANGE } from "../scenes/range.ts";
@@ -167,7 +167,7 @@ describe("given a thrown crash-test dummy driver who may carry a handbag (a woma
     const car = makeCar("shape", 0.32, 0.45);
     armKill(car.deform, "sedan", DEFAULT_REALISM, "default");
     launch(car, -RANGE.run, 0, Math.PI / 2, RANGE.kph / 3.6, 0);
-    const w = makeWorld([car], true, false);
+    const w = makeWorld([car], true, false, FREEWHEEL);
     w.onEject = (e) => r.launch(e, [car]);
     w.clock.slomoAt = THROW_ONSET;
     const r = await system(seedWhere(true));

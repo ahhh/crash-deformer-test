@@ -27,9 +27,9 @@ function unexplained(w: World, go: () => void): string[] {
   const hits: { car: number; t: number }[] = [];
   const events: Event[] = [];
   const apply = DeformableCar.prototype.applyImpact;
-  DeformableCar.prototype.applyImpact = function (this: DeformableCar, point: THREE.Vector3, inward: THREE.Vector3, impulse: number, ebs: number): void {
+  DeformableCar.prototype.applyImpact = function (this: DeformableCar, point: THREE.Vector3, inward: THREE.Vector3, impulse: number, ebs: number): boolean {
     if (impulse >= MIN_HIT) hits.push({ car: w.cars.indexOf(this), t: w.race.time });
-    apply.call(this, point, inward, impulse, ebs);
+    return apply.call(this, point, inward, impulse, ebs);
   };
   const watch = w.step.ejection;
   assert.ok(watch, "the race stack runs the ejection watch");

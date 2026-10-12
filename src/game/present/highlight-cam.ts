@@ -136,10 +136,12 @@ export function inFrame(eye: Vec3, aim: Vec3, p: Vec3, fov: number): boolean {
 }
 
 /**
- * An eye from which both `a` and `b` lie in frame and car-sized, looking at their midpoint, with a clear line to each over the
- * course's static solids `s`, standing in none, and (when `s` has the cars' boxes, `carsBlock`) in no car's box with none on
- * either line; into `eye` and `aim`. Returns its lens (deg), 0 when none works (a wall or a building in every way, or the
- * points too far apart for any lens). The eyes are tried nearest first, each from the directions starting at `turn` (rad).
+ * An eye from which both `a` and `b` lie in frame and car-sized, looking at their midpoint, standing in no static solid of the course
+ * `s`, with a clear line to each over them and (when `s` has the cars' boxes, `carsBlock`) in no car's box with none on either line;
+ * into `eye` and `aim`. Where no eye has both lines clear, one with the line to `b` (the hit it is for) clear: `a`, the hit before,
+ * then only keeps its place in the frame, behind a wall, a building or a car (a city clip found no eye for hits 30 m apart among the
+ * buildings and the pile, and the reel cut away from the earlier one). Returns its lens (deg), 0 when none works (a solid in every way,
+ * or the points too far apart for any lens). The eyes are tried nearest first, each from the directions starting at `turn` (rad).
  */
 export function contextEye(s: Sight, a: Vec3, b: Vec3, turn: number, eye: THREE.Vector3, aim: THREE.Vector3): number {
   const mx = (a.x + b.x) / 2;
@@ -147,20 +149,22 @@ export function contextEye(s: Sight, a: Vec3, b: Vec3, turn: number, eye: THREE.
   const mz = (a.z + b.z) / 2;
   const tanMax = Math.tan((CONTEXT.fov * Math.PI) / 360);
   const line = Math.atan2(a.z - mz, a.x - mx);
-  for (const [reach, up] of CONTEXT.eyes) {
-    for (let k = 0; k < CONTEXT.turns + CONTEXT.line.length; k++) {
-      const t = k < CONTEXT.turns ? turn + (k * 2 * Math.PI) / CONTEXT.turns : line + CONTEXT.line[k - CONTEXT.turns]!;
-      const e = { x: mx + Math.cos(t) * reach!, y: my + up!, z: mz + Math.sin(t) * reach! };
-      if (solid(s, e.x, e.y, e.z, 0.5)) continue;
-      if (!look(e, mx, my, mz)) continue;
-      // The widest lens that keeps both points a car's size is the eye's; both must fit inside it.
-      const tanH = Math.min(tanMax, CONTEXT.reach / Math.max(hypot3(a.x - e.x, a.y - e.y, a.z - e.z), hypot3(b.x - e.x, b.y - e.y, b.z - e.z)));
-      if (Math.max(tanNeeded(a, e, _f, _r, _u), tanNeeded(b, e, _f, _r, _u)) > tanH) continue;
-      if (sightLine(s, e.x, e.y, e.z, a.x, a.y, a.z) < 0 || sightLine(s, e.x, e.y, e.z, b.x, b.y, b.z) < 0) continue;
-      if (carsBlock(s, e, a) || carsBlock(s, e, b)) continue;
-      eye.set(e.x, e.y, e.z);
-      aim.set(mx, my, mz);
-      return (2 * Math.atan(tanH) * 180) / Math.PI;
+  for (let both = 1; both >= 0; both--) {
+    for (const [reach, up] of CONTEXT.eyes) {
+      for (let k = 0; k < CONTEXT.turns + CONTEXT.line.length; k++) {
+        const t = k < CONTEXT.turns ? turn + (k * 2 * Math.PI) / CONTEXT.turns : line + CONTEXT.line[k - CONTEXT.turns]!;
+        const e = { x: mx + Math.cos(t) * reach!, y: my + up!, z: mz + Math.sin(t) * reach! };
+        if (solid(s, e.x, e.y, e.z, 0.5)) continue;
+        if (!look(e, mx, my, mz)) continue;
+        // The widest lens that keeps both points a car's size is the eye's; both must fit inside it.
+        const tanH = Math.min(tanMax, CONTEXT.reach / Math.max(hypot3(a.x - e.x, a.y - e.y, a.z - e.z), hypot3(b.x - e.x, b.y - e.y, b.z - e.z)));
+        if (Math.max(tanNeeded(a, e, _f, _r, _u), tanNeeded(b, e, _f, _r, _u)) > tanH) continue;
+        if (sightLine(s, e.x, e.y, e.z, b.x, b.y, b.z) < 0 || carsBlock(s, e, b)) continue;
+        if (both === 1 && (sightLine(s, e.x, e.y, e.z, a.x, a.y, a.z) < 0 || carsBlock(s, e, a))) continue;
+        eye.set(e.x, e.y, e.z);
+        aim.set(mx, my, mz);
+        return (2 * Math.atan(tanH) * 180) / Math.PI;
+      }
     }
   }
   return 0;

@@ -9,9 +9,7 @@ import type { DeformableCar } from "./car.ts";
 /**
  * A wreck's yaw is resisted by its tyres: each hub on the ground carries an equal share of the weight and rubs at
  * Coulomb μ (a tyre `muSlide`, a popped hub's rim `muScuff`), so spinning on the spot the torque is τ = Σ μ (M g / n) r
- * and the angular momentum L falls at τ. Before, the slide drag took a spin down at a third of that and the quiet
- * rule (0.35 s after the last hit) set every mass to the mean velocity: any spin was zeroed there, 2 rad/s too late
- * and 12 rad/s 0.6 s too early.
+ * and the angular momentum L falls at τ. The spin is the rigid body's (`car.angular`), the masses riding it.
  */
 type Spin = { hitAt: number; elapsed: number };
 
@@ -35,6 +33,8 @@ function spinUp(car: DeformableCar, w0: number): { m: number; cx: number; cz: nu
     q.vel.x = w0 * (q.world.z - cz);
     q.vel.z = -w0 * (q.world.x - cx);
   }
+  car.velocity.set(0, 0, 0);
+  car.angular.set(0, w0, 0);
   const clock = car.deform as unknown as Spin;
   clock.hitAt = clock.elapsed;
   return { m, cx, cz, inertia };

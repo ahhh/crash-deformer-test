@@ -34,10 +34,10 @@ type Scenario = {
 type Leg = { digests: number[]; final: Float32Array[]; seen: Seen };
 
 const popHub = (cars: DeformableCar[], frame: number): void => {
-  if (frame !== 60) return;
+  if (frame !== 30) return;
   for (const car of cars.slice(0, 3)) {
     const hub = car.deform.masses.find((m) => m.name === "hubFL");
-    if (hub) hub.popped = true;
+    if (hub) car.deform.popHub(hub);
   }
 };
 
@@ -67,7 +67,7 @@ const SCENARIOS: Scenario[] = [
     },
     covers: ["skins", "deep"],
   },
-  { label: "6 cars of which three lose a front-left wheel hub at frame 60", derby: false, cars: 6, frames: 200, setup: popHub, covers: ["skins", "hubs"] },
+  { label: "6 cars of which three lose a front-left wheel hub at frame 30", derby: false, cars: 6, frames: 200, setup: popHub, covers: ["skins", "hubs"] },
 ];
 
 const FNV = 16777619;

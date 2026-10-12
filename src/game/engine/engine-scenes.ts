@@ -534,6 +534,7 @@ export abstract class EngineScenes extends EngineDerby {
     parked.crashed = false;
     parked.speed = 0;
     parked.spawnSpeed = 0;
+    parked.parked = true;
     parked.refreshBasis();
     this.dressCar(parked);
     parked.deform.bindKinematic(parked.group, parked.velocity, parked.angular);

@@ -59,7 +59,7 @@ import { makeSnapshot, MAX_NET_CARS, MSG, NET_VERSION, readEjection, readSnapsho
  * stopped mate the steer already clears, and a racer off the road corridor wakes no stakeout; 33: a wreck's car.angular
  * is L/I plus the driven steer only, the write-back's kept turn a readout, so keyframe spin changes; 34: a wreck's
  * tyres and scraping hubs resist its spin by Coulomb friction and the quiet collapse keeps spin until friction stops it;
- * 35: a wreck in flight lands on a fleet wedge's end only from within LIFT_OFF of its top, no longer popped onto it;
+ * 35: a wreck in flight lands on a fleet wedge's end only from within 0.1 m of its top, no longer popped onto it;
  * 36: a hunter's drop-in keeps dropMin from the player up to the frame the cop shows; 37: a car whose masses are idle
  * holds no contact clock, so a once-touched intact bystander stays quiet; 38: a car's far-end bumpers ride with the
  * cabin, crumpleWeight 1 only at the struck end; 39: a race reset puts a car at its last on-road spot between the last
@@ -98,10 +98,13 @@ import { makeSnapshot, MAX_NET_CARS, MSG, NET_VERSION, readEjection, readSnapsho
  * standing on another's top within the surface store's reach is not a plan hit, so a replayed stack moves differently; 61: a wedged
  * traffic car backs off, so a replayed city race's traffic moves differently; 62: 60's standing rule is withdrawn, so a replayed
  * stack moves as it did at 59; 63: a wrecked Survival cop stops driving and a cop brakes in time to stop beside a stopped player car;
- * 64: the derby is fought in the new arena (baked rises, prism wall and props), so a replayed derby moves differently.
+ * 64: the derby is fought in the new arena (baked rises, prism wall and props), so a replayed derby moves differently; 65: the wreck
+ * split (Stage 4 item 6): a wreck's pose is its rigid body's, its keyframe carries whether its cage refits exactly, and its cage keeps
+ * the crushed nose and tail lip, so every replayed crash after the first hit moves differently; the derby's jumps and pit stand 0.5 m
+ * further in, and the race AI brakes for a contact from 0.35 of its braking.
  * A saved clip also records `NET_VERSION` (its snapshots' layout).
  */
-const REPLAY_VERSION = 64;
+const REPLAY_VERSION = 65;
 /** Bounds a decoder enforces (a clip is ≤ 13 s at ≤ 300 steps/s, ≤ 15 keyframes). */
 const MAX_STEPS = 8192;
 const MAX_KEYS = 64;

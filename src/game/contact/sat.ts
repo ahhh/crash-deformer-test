@@ -1,10 +1,10 @@
 import * as THREE from "three";
 import type { DeformableCar } from "../vehicle/car.ts";
-import type { CageStyle } from "../vehicle/car-cage.ts";
+import { SAMPLE, sampleAt, type CageStyle } from "../vehicle/car-cage.ts";
 import { CLASSES, carClass } from "../vehicle/vehicle-classes.ts";
 import { hypot2 } from "../deform/physics-util.ts";
 import { detSin, detCos } from "../kernel/physics-core.js";
-import { bandAround, OUTLINE_REACH, outlineOf, SAMPLE, sampleAt, VERTICAL_CLEAR } from "./cage-outline.ts";
+import { bandAround, OUTLINE_REACH, outlineOf, VERTICAL_CLEAR } from "./cage-outline.ts";
 
 export const BARRIER_HALF = { x: 0.38, z: 1.96 };
 /** The slab's top (m): `makeJerseyBarrier`'s profile peak. A car whose every mass clears it flies over (a ramp jump). */

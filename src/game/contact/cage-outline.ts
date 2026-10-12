@@ -1,6 +1,6 @@
 import type { DeformableCar } from "../vehicle/car.ts";
 import type { CarCage, CageFields, CageStyle } from "../vehicle/car-cage.ts";
-import { CAGE_STEP } from "../vehicle/car-cage.ts";
+import { CAGE_STEP, SAMPLE, sampleAt } from "../vehicle/car-cage.ts";
 import { CLASSES, carClass } from "../vehicle/vehicle-classes.ts";
 
 /**
@@ -85,28 +85,6 @@ export function outlineOf(car: DeformableCar): CageOutline {
     OUTLINES.set(cage, outline);
   }
   return outline.refresh(cage);
-}
-
-/**
- * `sampleAt`'s query and answer: frame x and z in `SAMPLE[0]`, `SAMPLE[1]`, the value out in `SAMPLE[2]`. A call V8 does not inline
- * boxes every double it takes or returns, and the per-node loops of `satCars` make thousands of them a frame.
- */
-export const SAMPLE = new Float64Array(3);
-
-/** `field` (a per-node lattice field of `style`) bilinear at frame (`SAMPLE[0]`, `SAMPLE[1]`) → `SAMPLE[2]`; NaN outside the lattice. */
-export function sampleAt(field: Float32Array, style: CageStyle): void {
-  const fu = (SAMPLE[0]! - style.u0) / style.step;
-  const fv = (SAMPLE[1]! - style.v0) / style.step;
-  const i = Math.floor(fu);
-  const j = Math.floor(fv);
-  if (i < 0 || j < 0 || i + 1 >= style.nu || j + 1 >= style.nv) {
-    SAMPLE[2] = NaN;
-    return;
-  }
-  const a = fu - i;
-  const b = fv - j;
-  const k = j * style.nu + i;
-  SAMPLE[2] = (field[k]! * (1 - a) + field[k + 1]! * a) * (1 - b) + (field[k + style.nu]! * (1 - a) + field[k + style.nu + 1]! * a) * b;
 }
 
 /** `field` bilinear at frame (x, z); NaN outside the lattice. Off the hot path: `sampleAt` is the one that boxes nothing. */

@@ -650,19 +650,28 @@ export class ReelDirector {
   private frameShot(p: Prepared, s: Shot): void {
     const { clip, sim } = p;
     let shot = s;
+    let next: THREE.Vector3 | null = null;
     if (s.ctx) {
-      // A context shot's eye is picked now, against the cars as they stand as it cuts in; none clear of them: the shot it stands in for, framed.
+      // A context shot's eye is picked now, against the cars as they stand as it cuts in; none clear of them: the shot it stands in for
+      // (`plainShot`, what the reel draws then), framed now, and the chase when its spot cannot see the hit the context shot was for.
+      // Left as it was framed for its own moment, a city clip's aftermath spot stood with a building between it and the next hit 54 m
+      // away (reel-view "61 km/h smash", hit at 4.59 s), and framed again it did too.
       const c = s.ctx;
       c.fov = contextEye(withCars(this.host.still(), this.host.live()), c.a, c.b, c.turn, c.eye, c.aim);
-      if (c.fov > 0 || !c.instead) return;
-      shot = c.instead;
+      if (c.fov > 0) return;
+      shot = plainShot(p.shots, this.shot);
+      next = c.b;
     }
     const car = sim.cars[clip.focus]!;
     const cam = this.shotCam;
     cam.frame(shot, car, this.host.sight(car), clip.x, clip.z);
+    const still = this.host.still();
+    if (next !== null) {
+      if (!cam.sees(still, next)) cam.found = false;
+      return;
+    }
     if (!shot.hit) return;
     // The shot the cars meet in: its spot must see where they will meet (the record says where), else it is the chase.
-    const still = this.host.still();
     if (!cam.sees(still, hitAim(_c, clip.x, sim.cars[clip.firstA]!.group.position.y, clip.z, still))) cam.found = false;
   }
 

@@ -785,10 +785,15 @@ export abstract class CarCore {
     return out.copy(world).applyQuaternion(inv).normalize();
   }
 
+  /** The yaw rate (rad/s) the car is drawn to turn at: its body's spin, plus on a wreck the turn its position corrections made (the steer, the planted write-back: `keptSpin`). What turns the body is `angular`. */
+  get yawRate(): number {
+    return this.angular.y + (this.deform.massActive ? this.deform.keptSpin : 0);
+  }
+
   /** Velocity of a world point riding the body: v + ω × r about the yaw axis, the way `integrate`
    *  turns `angular.y` into `rotation.y` (pitch and roll here are eased poses, not rates). */
   pointVelocity(world: THREE.Vector3, out: THREE.Vector3): THREE.Vector3 {
-    const w = this.angular.y;
+    const w = this.yawRate;
     return out.set(
       this.velocity.x + w * (world.z - this.group.position.z),
       this.velocity.y,

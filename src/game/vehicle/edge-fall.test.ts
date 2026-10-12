@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import * as THREE from "three";
 import { beginFakeFall, type DeformableCar } from "./car.ts";
 import { COM_Y } from "./car-air.ts";
-import { makeCar, makeWorld, runPair, tickWorld } from "../contact/crash-scenarios.test-util.ts";
+import { FREEWHEEL, makeCar, makeWorld, runPair, tickWorld } from "../contact/crash-scenarios.test-util.ts";
 import { edgeAction, FAKE_DEPTH, FLEET_MIN_SEP, fleetEmptied, layoutFleet, respawnSlot, RESPAWN_S, VAPOR_DEPTH } from "../scenes/fleet.ts";
 import { DISC_GROUND, DISC_RADIUS, FLAT_GROUND, setGround, type Ground } from "../world/ground.ts";
 import { assertSameDigest, assertSameNumbers } from "./test-support.ts";
@@ -76,7 +76,7 @@ describe("given the fleet course's disc-shaped ground (a round pad with a rim pa
     it(`when a ${wreck ? "wreck sliding" : "car driven"} goes past the rim at 16 m/s, then it falls in one piece, is swapped for a frozen fake at ${FAKE_DEPTH} m down and is vaporized (removed) at ${VAPOR_DEPTH} m down`, () => {
       setGround(DISC_GROUND);
       const car = launch(40, 16, wreck);
-      const w = makeWorld([car], false, false);
+      const w = makeWorld([car], false, false, FREEWHEEL);
       const p = car.group.position;
       const skin = car.body.geometry.getAttribute("position").array;
       let prevY = 0;
@@ -119,22 +119,22 @@ describe("given the fleet course's disc-shaped ground (a round pad with a rim pa
     });
   }
 
-  it("when a wreck moving at (3, −2, 5) m/s and spinning is swapped for the fake fall, then the fake flies on at its centre's linear velocity and its angular velocity, the spin to within 35 %", () => {
+  it("when a wreck moving at (3, −2, 5) m/s and spinning is swapped for the fake fall, then the fake flies on at its body's spin and at its centre's velocity", () => {
     const car = launch(0, 0, true);
-    const v = new THREE.Vector3(3, -2, 5);
     const spin = new THREE.Vector3(0.4, -1.1, 0.7);
+    const dynamic = car.deform.masses.filter((m) => m.dynamic);
+    const mass = dynamic.reduce((s, n) => s + n.mass, 0);
     const c = new THREE.Vector3();
-    for (const m of car.deform.masses) c.addScaledVector(m.world, m.mass / car.deform.masses.reduce((s, n) => s + n.mass, 0));
-    for (const m of car.deform.masses) m.vel.copy(v).add(new THREE.Vector3().subVectors(m.world, c).cross(spin).negate());
+    for (const m of dynamic) c.addScaledVector(m.world, m.mass / mass);
+    car.velocity.set(3, -2, 5);
+    car.angular.copy(spin);
     const com = new THREE.Vector3(0, COM_Y, 0).applyQuaternion(car.group.quaternion).add(car.group.position);
-    // The rigid step's centre moves with the body: v + spin × (centre − masses' mean).
-    const want = v.clone().add(com.clone().sub(c).cross(spin).negate());
-    const arm = com.distanceTo(c);
+    // The wreck's body turns about its masses' centroid; the intact body about `COM_Y`: the velocity there is v + spin × (centre − centroid).
+    const want = car.velocity.clone().add(spin.clone().cross(com.clone().sub(c)));
     beginFakeFall(car);
     assert.ok(car.falling && !car.deform.massActive);
-    // A least-squares fit of a non-spherical body recovers the spin approximately, never exactly.
-    assert.ok(car.angular.distanceTo(spin) < 0.35 * spin.length(), `spin ${car.angular.toArray()} vs ${spin.toArray()}`);
-    assert.ok(car.velocity.distanceTo(want) <= 0.35 * spin.length() * arm + 1e-9, `velocity ${car.velocity.toArray()} vs ${want.toArray()}`);
+    assert.ok(car.angular.distanceTo(spin) < 1e-9, `spin ${car.angular.toArray()} vs ${spin.toArray()}`);
+    assert.ok(car.velocity.distanceTo(want) < 1e-9, `velocity ${car.velocity.toArray()} vs ${want.toArray()}`);
   });
 
   it("when a vaporized car is stepped for 30 frames, then it is out of the sim: its group and masses stay put", () => {
@@ -192,7 +192,7 @@ describe("given the fleet course's disc-shaped ground (a round pad with a rim pa
       cars.push(car);
     }
     setGround(DISC_GROUND);
-    const w = makeWorld(cars, false, false);
+    const w = makeWorld(cars, false, false, FREEWHEEL);
     const vaporAt: number[] = [];
     let firedAt = -1;
     // `CrashEngine.stepEdge`'s order, 60 frames a second: physics, the edge rule per car, then the empty-disc rule.

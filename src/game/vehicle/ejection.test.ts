@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import * as THREE from "three";
 import type { DeformableCar } from "./car.ts";
 import type { ExitPane } from "./car-core.ts";
-import { launch, makeCar, makeWorld, tickWorld } from "../contact/crash-scenarios.test-util.ts";
+import { FREEWHEEL, launch, makeCar, makeWorld, tickWorld } from "../contact/crash-scenarios.test-util.ts";
 import { BARRIER_HALF } from "../contact/sat.ts";
 import { ejectionVelocity, THROW_OUT, type Ejection } from "./ejection.ts";
 import { fleetCar, headOn, worn } from "./ejection.test-util.ts";
@@ -12,7 +12,7 @@ import { assignClass, armKill, DEFAULT_REALISM, killClass, VEHICLE_CLASS_IDS } f
 
 /** Run the crash 2.5 s through the engine's frame: each throw as [car, exit, pre-hit speed]. */
 function throws(cars: DeformableCar[], barrier = false): [number, ExitPane, number][] {
-  const w = makeWorld(cars, barrier, false);
+  const w = makeWorld(cars, barrier, false, FREEWHEEL);
   for (let f = 0; f < 150; f++) tickWorld(w);
   return w.ejections
     .map((e): [number, ExitPane, number] => {
@@ -120,7 +120,7 @@ describe("given a throw (the ejection event: everything a dummy needs to be laun
     const b = makeCar();
     launch(a, -5, 0, Math.PI / 2, 56 / 3.6, 0);
     launch(b, 5, 0, -Math.PI / 2, -56 / 3.6, 0);
-    const w = makeWorld([a, b], false, false);
+    const w = makeWorld([a, b], false, false, FREEWHEEL);
     const seen: Ejection[] = [];
     let checked = 0;
     const q = new THREE.Quaternion();
@@ -162,7 +162,7 @@ describe("given a throw (the ejection event: everything a dummy needs to be laun
     launch(a, -5, 0, Math.PI / 2, 56 / 3.6, 0);
     launch(b, 5, 0, -Math.PI / 2, -56 / 3.6, 0);
     a.driverOut = "windshield";
-    const w = makeWorld([a, b], false, false);
+    const w = makeWorld([a, b], false, false, FREEWHEEL);
     for (let f = 0; f < 150; f++) tickWorld(w);
     assert.deepEqual(w.ejections.map((e) => e.car), [1]);
   });
@@ -184,7 +184,7 @@ describe("given a fleet sedan driving at 30 m/s on open road, struck once on its
   function killedAfter(gap: number, touch = false): Ejection[] {
     const car = fleetCar();
     launch(car, 0, 0, 0, 0, 30);
-    const w = makeWorld([car], false, false);
+    const w = makeWorld([car], false, false, FREEWHEEL);
     car.applyImpact(new THREE.Vector3(-0.9, 0.5, -0.5), new THREE.Vector3(0.84, 0, -0.52), 7, 3.5);
     const frames = Math.round(gap * 60);
     for (let f = 0; f < frames; f++) {
@@ -224,7 +224,7 @@ describe("given the ejection range: a straight head-on into the barrier, at yaw 
           const yaw = Math.PI / 2 + (yawDeg * Math.PI) / 180;
           const v = RANGE.kph / 3.6;
           launch(car, -RANGE.run, z, yaw, Math.sin(yaw) * v, Math.cos(yaw) * v);
-          const w = makeWorld([car], true, false);
+          const w = makeWorld([car], true, false, FREEWHEEL);
           for (let f = 0; f < 150; f++) tickWorld(w);
           const where = `yaw ${yawDeg}° z ${z}`;
           if (yawDeg === 0 && z === 0) assert.equal(w.ejections.length, 1, `${where}: the square hit throws the driver`);
@@ -245,7 +245,7 @@ describe("given a car placed so close to the barrier that its kill lands before 
     const run = (nose: number): Ejection[] => {
       const car = fleetCar();
       launch(car, -BARRIER_HALF.x - 2.4 - nose, 0, Math.PI / 2, 30, 0);
-      const w = makeWorld([car], true, false);
+      const w = makeWorld([car], true, false, FREEWHEEL);
       for (let f = 0; f < 150; f++) tickWorld(w);
       car.dispose();
       return w.ejections;

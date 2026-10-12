@@ -3,7 +3,6 @@ import assert from "node:assert/strict";
 import * as THREE from "three";
 import { DRIVER_CARS } from "../match/types.ts";
 import { RangeRun } from "../scenes/range.ts";
-import { applyDrive } from "../vehicle/car-drive.ts";
 import type { ExitPane } from "../vehicle/car-core.ts";
 import { ejectionVelocity } from "../vehicle/ejection.ts";
 import { apexOf, type Carry, type Control, deepest, displayFrames, type DriverCar, inCar, lowest, rangeThrow, type RangeThrow, restOf, speeds, STILL, travel } from "./range-run.test-util.ts";
@@ -180,12 +179,13 @@ async function slideIn(type: DriverCar, steer: number): Promise<Slide> {
   let exit: ExitPane | null = null;
   const out = new THREE.Vector3();
   const run = await rangeThrow(type, {
-    slice: (car, h) => {
+    slice: (car) => {
       if (!car.crashed) {
         fwd.copy(car.fwdFlat);
         speed = Math.hypot(car.velocity.x, car.velocity.z);
       }
-      if (car.group.position.x > -TURN_AT && car.driverOut === null) applyDrive(car, { throttle: 0, steer, brake: 0, ebrake: true, boost: false }, h);
+      if (car.group.position.x > -TURN_AT && car.driverOut === null) return { throttle: 0, steer, brake: 0, ebrake: true, boost: false };
+      return undefined;
     },
     event: (e) => {
       if (exit !== null) return;

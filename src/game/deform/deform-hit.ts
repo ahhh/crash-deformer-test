@@ -1,11 +1,10 @@
 import * as THREE from "three";
 import { clampSpeed, hypot2 } from "./physics-util.ts";
 import { resetCluster } from "./shape-match.ts";
-import { BodyFit } from "./body-fit.ts";
 import { DeformRig, type DeformMode, type MassNode } from "./deform-rig.ts";
 import { FACES, FACE_AXIS } from "./load-crush.ts";
 import { detSin, detCos } from "../kernel/physics-core.js";
-import { MIN_WEIGHT_SUM } from "./constants.ts";
+import { MIN_MASS_SUM, MIN_WEIGHT_SUM } from "./constants.ts";
 
 /** Most (m/s) a wheel freed by the plant may slide off the body's speed (`seatHubs`). Goes with the plant hand-over: Stage 4 item 6 (wreck split). */
 const HUB_SLIP = 8;
@@ -24,8 +23,7 @@ const REARM_EBS = 2.8;
  *  judge, the wear counts how many hits a wreck has taken (`wreckEnergy`). */
 const WEAR_HIT = 36;
 const _r = new THREE.Vector3();
-/** `seatHubs`' spin sums (it resets and fills them). */
-const _fit = new BodyFit();
+const _centre = new Float64Array(3);
 /** A position-only pass's start (`driftFrom`): the centroid x, z; and its end (`settleDrift`): centroid x, z then mean velocity x, z. */
 const _driftFrom = new Float64Array(2);
 const _driftNow = new Float64Array(4);
@@ -83,15 +81,6 @@ export abstract class DeformHit extends DeformRig {
     out[1] = z * inv;
     out[2] = vx * inv;
     out[3] = vz * inv;
-  }
-
-  /** Two cars' masses touch: each notes the other's speed, what the re-fits that follow may move its centroid with. */
-  protected noteTouch(other: DeformHit): void {
-    this.meanInto(_driftNow);
-    const mine = hypot2(_driftNow[2]!, _driftNow[3]!);
-    other.meanInto(_driftNow);
-    this.sliceTouch = Math.max(this.sliceTouch, hypot2(_driftNow[2]!, _driftNow[3]!));
-    other.sliceTouch = Math.max(other.sliceTouch, mine);
   }
 
   /** A pass that moves positions alone (the structure step, a clamp's re-fit) begins: where the centroid is. */
@@ -229,7 +218,40 @@ export abstract class DeformHit extends DeformRig {
     out[o + 2] = this.bodyCos * dz - this.bodySin * dx + this.bodyC.z;
   }
 
+  /** The dynamic masses' centroid (x, y, z in a shared scratch: valid until the next call). */
+  private massCentre(): Float64Array {
+    let mass = 0;
+    _centre.fill(0);
+    for (const m of this.masses) {
+      if (!m.dynamic) continue;
+      _centre[0]! += m.world.x * m.mass;
+      _centre[1]! += m.world.y * m.mass;
+      _centre[2]! += m.world.z * m.mass;
+      mass += m.mass;
+    }
+    if (mass > MIN_MASS_SUM) for (let k = 0; k < 3; k++) _centre[k]! /= mass;
+    return _centre;
+  }
+
+  /** Limits a mass's speed to `CRASH.maxMassMps` relative to the rigid body's own velocity at it (`bodyV` + `bodyW` × r about `c`): a body already faster than that carries its masses. */
+  private clampToBody(m: MassNode, c: Float64Array): void {
+    const rx = m.world.x - c[0]!;
+    const ry = m.world.y - c[1]!;
+    const rz = m.world.z - c[2]!;
+    const bx = this.bodyV.x + this.bodyW.y * rz - this.bodyW.z * ry;
+    const by = this.bodyV.y + this.bodyW.z * rx - this.bodyW.x * rz;
+    const bz = this.bodyV.z + this.bodyW.x * ry - this.bodyW.y * rx;
+    m.vel.x -= bx;
+    m.vel.y -= by;
+    m.vel.z -= bz;
+    clampSpeed(m.vel);
+    m.vel.x += bx;
+    m.vel.y += by;
+    m.vel.z += bz;
+  }
+
   protected writeShapeToMasses(): void {
+    const c = this.massCentre();
     for (let i = 0; i < this.masses.length; i++) {
       const m = this.masses[i]!;
       if (!m.dynamic) continue;
@@ -242,13 +264,14 @@ export abstract class DeformHit extends DeformRig {
       m.world.y = p.y - this.bodyRestC.y + this.bodyC.y;
       m.world.z = this.bodyCos * dz - this.bodySin * dx + this.bodyC.z;
       if (!Number.isFinite(m.world.x + m.world.y + m.world.z)) m.world.copy(m.rest);
-      clampSpeed(m.vel);
+      this.clampToBody(m, c);
     }
   }
 
   bindKinematic(group: THREE.Object3D, worldVel: THREE.Vector3, worldOmega: THREE.Vector3): void {
     group.updateWorldMatrix(false, false);
     const ox = group.position.x;
+    const oy = group.position.y;
     const oz = group.position.z;
     for (let i = 0; i < this.masses.length; i++) {
       const m = this.masses[i]!;
@@ -256,11 +279,13 @@ export abstract class DeformHit extends DeformRig {
       this.offsetByCrush(i, m.local, this.crushBaked);
       m.world.copy(m.local).applyMatrix4(group.matrixWorld);
       m.vel.copy(worldVel);
-      // v = ω × r with ω = (0, ωy, 0): yaw integrates as rotation.y += ωy·dt.
+      // v = ω × r, the body's whole rigid field (as `armMasses`): the masses' mean is the velocity `seatVelocity` carries to their centroid.
       const rx = m.world.x - ox;
+      const ry = m.world.y - oy;
       const rz = m.world.z - oz;
-      m.vel.x += worldOmega.y * rz;
-      m.vel.z -= worldOmega.y * rx;
+      m.vel.x += worldOmega.y * rz - worldOmega.z * ry;
+      m.vel.y += worldOmega.z * rx - worldOmega.x * rz;
+      m.vel.z += worldOmega.x * ry - worldOmega.y * rx;
       m.dynamic = false;
       m.crushSet = 0;
       m.baseX = 0;
@@ -341,6 +366,7 @@ export abstract class DeformHit extends DeformRig {
     this.frameY = group.position.y;
     this.frameAt = 0;
     this.frameVy = worldVel.y;
+    this.seatVelocity(group, worldVel, worldOmega);
     this.snapImpactToNearestMass();
     for (const s of this.sensors) {
       s.target = 0;
@@ -401,40 +427,31 @@ export abstract class DeformHit extends DeformRig {
   }
 
   /**
-   * The wheels go free at no more than `HUB_SLIP` m/s off the body's own speed at the wheel (the centroid's plus the
+   * The wheels go free at no more than `HUB_SLIP` m/s off the body's own speed at the wheel (the rigid body's velocity plus its
    * spin's) when the plant starts. A hub written back every call keeps its own velocity, which went on taking contact
    * impulses with no position to show for them: 17–42 m/s against a body at 2 m/s at the plant of a derby pile
    * (seed 65), and the frame anchored on the hubs followed them 0.08 m a step. A hub within that of the body keeps its
-   * speed (the calibrated slide of a struck car); measured off the centroid alone, a wreck turning 8 rad/s lost its wheels' share of L.
+   * speed (the calibrated slide of a struck car).
    */
   protected seatHubs(): void {
-    const cell = this.at.cell;
-    let vx = 0;
-    let vz = 0;
     let cx = 0;
     let cz = 0;
     let mass = 0;
-    _fit.reset();
     for (const m of this.masses) {
       if (!m.dynamic || m.hub) continue;
-      vx += m.vel.x * m.mass;
-      vz += m.vel.z * m.mass;
       cx += m.world.x * m.mass;
       cz += m.world.z * m.mass;
       mass += m.mass;
-      _fit.addSpin(m.mass, m.world.x - cell.world.x, m.world.z - cell.world.z, m.vel.x, m.vel.z);
     }
     if (mass <= 0) return;
-    vx /= mass;
-    vz /= mass;
     cx /= mass;
     cz /= mass;
-    const spin = _fit.spin();
+    const spin = this.bodyW.y;
     for (const m of this.masses) {
       if (!m.hub || m.popped || !m.dynamic) continue;
-      // The body's own speed at the wheel: the centroid's plus the spin's (a turning wreck's wheels ride it).
-      const bx = vx + spin * (m.world.z - cz);
-      const bz = vz - spin * (m.world.x - cx);
+      // The body's own speed at the wheel: its velocity plus its spin's (a turning wreck's wheels ride it).
+      const bx = this.bodyV.x + spin * (m.world.z - cz);
+      const bz = this.bodyV.z - spin * (m.world.x - cx);
       const sx = m.vel.x - bx;
       const sz = m.vel.z - bz;
       const slip = hypot2(sx, sz);
@@ -491,6 +508,32 @@ export abstract class DeformHit extends DeformRig {
     this.frameY = group.position.y;
     this.frameAt = this.elapsed;
     this.frameVy = worldVel.y;
+    this.seatVelocity(group, worldVel, worldOmega);
+  }
+
+  /**
+   * The body's velocity, handed over at the group's origin (`worldVel`, with its spin `worldOmega`) to the masses just armed in that
+   * rigid field, moves to their centroid, the wreck's centre of mass where `Car.integrateWreck` reads it.
+   */
+  private seatVelocity(group: THREE.Object3D, worldVel: THREE.Vector3, worldOmega: THREE.Vector3): void {
+    let mass = 0;
+    let cx = 0;
+    let cy = 0;
+    let cz = 0;
+    for (const m of this.masses) {
+      if (!m.dynamic) continue;
+      mass += m.mass;
+      cx += m.world.x * m.mass;
+      cy += m.world.y * m.mass;
+      cz += m.world.z * m.mass;
+    }
+    if (mass < MIN_MASS_SUM) return;
+    const rx = cx / mass - group.position.x;
+    const ry = cy / mass - group.position.y;
+    const rz = cz / mass - group.position.z;
+    worldVel.x += worldOmega.y * rz - worldOmega.z * ry;
+    worldVel.y += worldOmega.z * rx - worldOmega.x * rz;
+    worldVel.z += worldOmega.x * ry - worldOmega.y * rx;
   }
 
   /**
@@ -587,6 +630,7 @@ export abstract class DeformHit extends DeformRig {
     if (wsum < MIN_WEIGHT_SUM) return;
     const invW = 1 / wsum;
     const downDv = downMass > 1e-9 ? (j * down * invW) / downMass : 0;
+    const c = this.massCentre();
     for (let i = 0; i < n; i++) {
       const m = masses[i]!;
       if (!m.dynamic) continue;
@@ -594,7 +638,7 @@ export abstract class DeformHit extends DeformRig {
       m.vel.x += nx * dv;
       m.vel.y += ny * dv;
       m.vel.z += nz * dv;
-      clampSpeed(m.vel);
+      this.clampToBody(m, c);
     }
   }
 

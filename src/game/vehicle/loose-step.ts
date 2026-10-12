@@ -4,7 +4,7 @@ import { GRAVITY } from "../kernel/constants.ts";
 import { detCos, detSin } from "../kernel/physics-core.js";
 import { NO_FLOOR } from "../world/ground.ts";
 import { C_DEPTH, C_GRIP, C_H, C_NX, C_NZ, clearOf, HIT_SIZE, holdTops, pointContact, PQ_SIZE, PQ_VX, PQ_VY, PQ_VZ, PQ_X, PQ_Y, PQ_Z, stirNear } from "../world/surfaces.ts";
-import { BODY_FROM, centreOfMass, loadShape, moveBody, openRows, placeBody, readPoints, solveRows, standAtCentre, useBody } from "./car-air.ts";
+import { centreOfMass, loadShape, moveBody, openRows, placeBody, readPoints, solveRows, standAtCentre, useBody } from "./car-air.ts";
 import { DENT_MIN_DV, recordDent, type DentState } from "./loose-dent.ts";
 import type { LooseBody, LooseShape } from "./car-core.ts";
 
@@ -22,6 +22,8 @@ const LAND_BOUNCE = 0.28;
 const SPIN_KEPT_PER_S = 0.72;
 /** A box's corners, the first of its points: a box flying free asks them alone until one touches. */
 const BOX_CORNERS = 8;
+/** The speed (m/s, rad/s) under which a part on three points or more is at rest: twice the pull of gravity over the pacer's coarsest slice (1/120 s), the most a slice's gravity leaves it. A slice's own `dt` here put a slide's stop at 0.16 m/s in a 1/120 s slice and 0.053 in a 1/360 s one, so the distance a part slid depended on how the world cut the step. */
+const REST_SPEED = (2 * GRAVITY) / 120;
 
 /**
  * A free point (an FX bit: a spark, a glass dot, a metal chip) meets what is under it and beside it by the one point query
@@ -172,17 +174,16 @@ export function stepLoose(p: LooseBody, dt: number, skip: number, dent?: DentSta
   if (!clear) {
     const end = loadShape(shape);
     // Flying free (the last step touched nothing) with no car's roof near, a box's twelve edge middles wait until a corner touches: a flat floor or a wall is met by a corner first (a crowned roof by an edge's middle, so a roof near tests all).
-    const first = shape.airborne && shape.count === 20 && roofs === 0 ? BODY_FROM + BOX_CORNERS : end;
-    n = readPoints(BODY_FROM, first, end, 0, false);
+    const first = shape.airborne && shape.count === 20 && roofs === 0 ? BOX_CORNERS : end;
+    n = readPoints(0, first, end, 0, false);
     if (n > 0 && first < end) n = readPoints(first, end, end, n, false);
   }
   shape.airborne = n === 0;
   openRows(n);
   solveRows(n);
   standAtCentre();
-  // Resting on three points or more at no more than its own jitter (a slice's gravity: `2 g dt`): at rest.
-  const jitter = 2 * GRAVITY * dt;
-  if (n >= 3 && v.x * v.x + v.y * v.y + v.z * v.z < jitter * jitter && w.x * w.x + w.y * w.y + w.z * w.z < jitter * jitter) {
+  // Resting on three points or more at no more than `REST_SPEED`: at rest.
+  if (n >= 3 && v.x * v.x + v.y * v.y + v.z * v.z < REST_SPEED * REST_SPEED && w.x * w.x + w.y * w.y + w.z * w.z < REST_SPEED * REST_SPEED) {
     v.set(0, 0, 0);
     w.set(0, 0, 0);
     shape.asleep = true;

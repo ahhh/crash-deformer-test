@@ -83,6 +83,7 @@ export class CompactorRig {
   /** Open the plates on `car` (already parked at the origin, at rest). */
   attach(car: DeformableCar): void {
     this.car = car;
+    car.parked = true;
     this.face = COMPACTOR.startFace;
     this.frontJ = 0;
     this.rearJ = 0;
@@ -115,6 +116,7 @@ export class CompactorRig {
     const moving = this.face > targetFace;
     this.face = Math.max(targetFace, this.face - COMPACTOR.speed * dt);
     const speed = moving ? COMPACTOR.speed : 0;
+    car.integrate(dt);
     car.refreshBasis();
     placePlate(this.front, 1, this.face, speed);
     placePlate(this.rear, -1, this.face, speed);
@@ -130,7 +132,7 @@ export class CompactorRig {
       hit.hits++;
     }
     if (car.deform.massActive) {
-      car.deform.stepStructure(dt);
+      car.deform.stepStructure(dt, car.group.quaternion);
       car.syncPose(dt);
     }
     if (car.crashed) this.contacted = true;

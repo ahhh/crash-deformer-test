@@ -9,7 +9,7 @@ const MIN_SCALE = 1 / 64;
 /** Wall ms a frame may spend stepping (the engine's deadline is this far from the frame's first step). */
 export const PACE_BUDGET_MS = 8;
 /** The shortest step (s) the pacer takes on a device that keeps up, and the one it falls back to when it doesn't. */
-const FINE_SLICE = 1 / 240;
+export const FINE_SLICE = 1 / 240;
 const COARSE_SLICE = 1 / 120;
 /** Go coarse when a frame's fine steps are predicted to take more than this share of the budget; come back under this share. */
 const COARSE_ABOVE = 0.9;

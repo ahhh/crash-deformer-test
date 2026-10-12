@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { launch, makeCar, makeWorld } from "./crash-scenarios.test-util.ts";
+import { FREEWHEEL, launch, makeCar, makeWorld } from "./crash-scenarios.test-util.ts";
 import { stepWorld } from "../engine/world-step.ts";
 import { pushCar } from "./pair-contact.ts";
 import { PushBudget, STEP_CEIL } from "../deform/push-budget.ts";
@@ -35,7 +35,7 @@ function plantedWreck(): DeformableCar {
   const bullet = makeCar("shape");
   launch(wreck, 0, 0, 0, 0, 0);
   launch(bullet, 0, 9, Math.PI, 0, -9);
-  const settle = makeWorld([wreck, bullet], false, false);
+  const settle = makeWorld([wreck, bullet], false, false, FREEWHEEL);
   for (let t = 0; t < 2.5; t += 1 / 120) stepWorld(settle.world, 1 / 120);
   assert.ok(wreck.deform.massActive && wreck.deform.quietTime() > 0.35, "no planted wreck");
   return wreck;
@@ -83,13 +83,14 @@ describe("given a slice whose contact corrections (pair pushes, structure step, 
     const wreck = plantedWreck();
     restoreAlongPush(wreck);
     const w = makeWorld([wreck], false, false).world;
+    const inner = w.beforeSlice!;
     let pass = 0;
-    w.beforeSlice = () => {
+    w.beforeSlice = (h) => {
       if (pass++ === 0) {
         // The pair solver's four pushes of a slice (`pushPair`), two of them at the cap already.
         for (const amount of [0.0168, 0.0214, 0.0215, 0.0215]) pushCar(wreck, PUSH_N[0], 0, PUSH_N[1], wreck.deform.takePush(PUSH_N[0], PUSH_N[1], amount, H, TOUCH));
       }
-      return false;
+      return inner(h);
     };
     w.afterCar = (car) => {
       if (car !== wreck) return;
@@ -115,30 +116,6 @@ describe("given a slice whose contact corrections (pair pushes, structure step, 
     }
   });
 
-  // Seed 275 of 17491eb: one `followGroup` re-fit moved a live car's centroid 49 mm (49/47/37/32 over four steps) right
-  // after a 26 mm correction. A live wreck's frame sits on its cell, so a sphere hit that shifts the cell leaves the
-  // other masses behind it, and the clamp drags them after: the whole cloud moves again, on top of the shift.
-  it("when a sphere hit shifts a live wreck and its masses are re-fitted, then the re-fit adds no translation beyond what the shift and the cap leave", () => {
-    const wreck = plantedWreck();
-    // The slice length the wreck's budget is in (the last world slice's).
-    stepWorld(makeWorld([wreck], false, false).world, H);
-    const [wx, wz] = centroid(wreck);
-    const other = makeCar("shape");
-    launch(other, wx, wz + 1, wreck.yaw + 0.3, 0, 0);
-    makeWorld([wreck, other], false, false);
-    wreck.deform.notifyContact();
-    const start = centroid(wreck);
-    assert.ok(wreck.deform.collideWith(other.deform, H), "the cars' masses do not touch");
-    const shifted = centroid(wreck);
-    wreck.deform.followGroup(wreck.group, wreck.velocity, wreck.angular, 0);
-    const end = centroid(wreck);
-    const shift = Math.hypot(shifted[0] - start[0], shifted[1] - start[1]);
-    const total = Math.hypot(end[0] - start[0], end[1] - start[1]);
-    // The cap with nothing moving, or the ceiling: a shift past it leaves the re-fit nothing.
-    const limit = Math.max(new PushBudget().take(1, 1, 0, 1, H, 0), STEP_CEIL);
-    assert.ok(total <= Math.max(shift, limit) + 1e-6, `shift ${(shift * 1000).toFixed(1)} mm, then the re-fit: ${(total * 1000).toFixed(1)} mm in all, cap ${(limit * 1000).toFixed(1)} mm`);
-  });
-
   // Derby seed 40 with the ceiling: the pushes took the whole cap (47.8 mm at 8.5 ms), so a structure drift AGAINST them
   // was refused as "nothing left" and the wreck stayed at 51.5 mm; against the net, it brings it in.
   it("when a drift settles against a full net translation then it is allowed, and when it goes along the net then it is refused", () => {
@@ -147,5 +124,24 @@ describe("given a slice whose contact corrections (pair pushes, structure step, 
     assert.equal(full.settle(1, 0, 1, 0.01, H, TOUCH), 0, "a drift along the full net was allowed");
     assert.ok(Math.abs(full.settle(1, 0, -1, 0.02, H, TOUCH) - 0.02) < 1e-12, "a drift back along the net was refused");
     assert.ok(Math.abs(full.z - (STEP_CEIL - 0.02)) < 1e-12, "the net was not brought in");
+  });
+});
+
+// Seed 275 of 17491eb: one `followGroup` re-fit moved a live car's centroid 49 mm (49/47/37/32 over four steps) right
+// after a 26 mm correction. A live wreck's frame sits on its cell, so a push that shifts the cell leaves the other masses
+// behind it, and the clamp drags them after: the whole cloud moves again, on top of the shift.
+describe("given a live wreck pushed by the pair kernel's push (pushCar, the amount takePush grants)", () => {
+  it("when it is pushed 30 mm and its masses are re-fitted, then the re-fit adds no translation beyond what the push and the cap leave", () => {
+    const wreck = plantedWreck();
+    stepWorld(makeWorld([wreck], false, false).world, H);
+    const start = centroid(wreck);
+    pushCar(wreck, PUSH_N[0], 0, PUSH_N[1], wreck.deform.takePush(PUSH_N[0], PUSH_N[1], 0.03, H, 0));
+    const shifted = centroid(wreck);
+    wreck.deform.followGroup(wreck.group, wreck.velocity, wreck.angular, 0);
+    const end = centroid(wreck);
+    const shift = Math.hypot(shifted[0] - start[0], shifted[1] - start[1]);
+    const total = Math.hypot(end[0] - start[0], end[1] - start[1]);
+    const limit = Math.max(new PushBudget().take(1, 1, 0, 1, H, 0), STEP_CEIL);
+    assert.ok(total <= Math.max(shift, limit) + 1e-6, `push ${(shift * 1000).toFixed(1)} mm, then the re-fit: ${(total * 1000).toFixed(1)} mm in all, cap ${(limit * 1000).toFixed(1)} mm`);
   });
 });

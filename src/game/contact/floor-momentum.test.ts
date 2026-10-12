@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import * as THREE from "three";
 import { CLASSES } from "../vehicle/vehicle-classes.ts";
 import type { DeformableCar } from "../vehicle/car.ts";
-import { holdThrottle, launch, makeCar, makeWorld, Probe, run, tickWorld, type CrashWorld } from "./crash-scenarios.test-util.ts";
+import { FREEWHEEL, holdThrottle, launch, makeCar, makeWorld, Probe, run, tickWorld, type CrashWorld } from "./crash-scenarios.test-util.ts";
 
 const FRAME = 1 / 60;
 
@@ -27,7 +27,7 @@ describe("given a coasting 53 km/h T-bone (a bullet car's nose driven into a res
     const bullet = makeCar();
     launch(struck, 0, 0, 0, 0, 0);
     launch(bullet, 6, 0, -Math.PI / 2, -53 / 3.6, 0);
-    const w = makeWorld([struck, bullet], false, false);
+    const w = makeWorld([struck, bullet], false, false, FREEWHEEL);
     let travel = 0;
     let reported = 0;
     let before = centroid(struck);
@@ -56,7 +56,7 @@ describe("given two 30 km/h cars driving head-on at each other", () => {
     const b = makeCar();
     launch(a, -5, 0, Math.PI / 2, 30 / 3.6, 0);
     launch(b, 5, 0, -Math.PI / 2, -30 / 3.6, 0);
-    const w = makeWorld([a, b], false, false);
+    const w = makeWorld([a, b], false, false, FREEWHEEL);
     const added = holdThrottle(w, [a, b], pulse);
     const pa = new Probe(a, new THREE.Vector3(1, 0, 0));
     const pb = new Probe(b, new THREE.Vector3(-1, 0, 0));
@@ -81,7 +81,7 @@ function tBone(): { struck: DeformableCar; bullet: DeformableCar; w: CrashWorld 
   const bullet = makeCar();
   launch(struck, 0, 0, 0, 0, 0);
   launch(bullet, 6, 0, -Math.PI / 2, -53 / 3.6, 0);
-  return { struck, bullet, w: makeWorld([struck, bullet], false, false) };
+  return { struck, bullet, w: makeWorld([struck, bullet], false, false, FREEWHEEL) };
 }
 
 describe("given the coasting 53 km/h T-bone, where the two cars should only be held to a common speed once the crush along the contact is spent", () => {

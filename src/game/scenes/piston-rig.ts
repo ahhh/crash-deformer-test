@@ -2,8 +2,10 @@ import * as THREE from "three";
 import type { DeformableCar } from "../vehicle/car.ts";
 import { strikeCar, makeBox, partContact } from "../contact/external-contact.ts";
 import type { StreamedDeformation } from "../deform/streamed-deform.ts";
-import { KPH_PER_MS } from "../kernel/constants.ts";
+import { GRAVITY, KPH_PER_MS } from "../kernel/constants.ts";
+import { CRASH } from "../kernel/physics-core.js";
 import { PISTON_SHOT } from "./constants.ts";
+import { MU_TYRE } from "../world/surfaces.ts";
 
 type MassNode = StreamedDeformation["masses"][number];
 
@@ -182,6 +184,7 @@ export class PistonHead {
       this.u = Math.min(this.target, this.u + this.accel * dt);
       if (this.u >= this.target) this.phase = "coast";
     }
+    if (this.contacted && this.phase === "coast") this.u = Math.max(0, this.u - MU_TYRE * GRAVITY * dt);
     this.plate += this.u * dt;
     const end = this.skinS + PISTON.stroke;
     const stopped = this.contacted && this.u <= 0.02;
@@ -224,18 +227,14 @@ function shiftVelocities(d: StreamedDeformation, dx: number, dz: number): void {
   }
 }
 
-function holdCentreOfMass(d: StreamedDeformation): void {
-  let mx = 0;
-  let mz = 0;
-  let mass = 0;
-  for (const m of d.masses) {
-    if (!m.dynamic) continue;
-    mx += m.vel.x * m.mass;
-    mz += m.vel.z * m.mass;
-    mass += m.mass;
-  }
-  if (mass < 1e-6) return;
-  shiftVelocities(d, -mx / mass, -mz / mass);
+const _mean = new Float64Array(4);
+
+/** A held car's centre of mass stays: the masses' mean motion is taken off them and the body's velocity is zero. */
+function holdCentreOfMass(car: DeformableCar): void {
+  car.deform.motion(_mean);
+  shiftVelocities(car.deform, -_mean[0]!, -_mean[2]!);
+  car.velocity.x = 0;
+  car.velocity.z = 0;
 }
 
 /**
@@ -299,6 +298,7 @@ export class PistonRig {
   /** Take a car parked at the origin, yaw 0, at rest; measure each face's paint and contact pad. */
   attach(car: DeformableCar): void {
     this.car = car;
+    car.parked = true;
     this.cell = car.deform.masses.find((m) => m.name === "cell") ?? null;
     this.time = 0;
     this.hitFresh = false;
@@ -372,6 +372,7 @@ export class PistonRig {
   private substep(car: DeformableCar, dt: number): void {
     const d = car.deform;
     this.time += dt;
+    car.integrate(dt);
     const honey = this.honey;
     car.refreshBasis();
     for (const h of this.heads) {
@@ -383,10 +384,10 @@ export class PistonRig {
     let touching = false;
     for (const h of this.heads) if (h.contacted && h.firing && this.contact(h, car, honey, dt, true)) touching = true;
     if (touching) d.notifyContact();
-    if (this.config.holdCar) holdCentreOfMass(d);
-    d.stepStructure(dt);
+    if (this.config.holdCar) holdCentreOfMass(car);
+    d.stepStructure(dt, car.group.quaternion);
     for (const h of this.heads) if (h.contacted && h.firing) this.contact(h, car, honey, dt, false);
-    if (this.config.holdCar) holdCentreOfMass(d);
+    if (this.config.holdCar) holdCentreOfMass(car);
     car.syncPose(dt);
   }
 
@@ -427,7 +428,8 @@ export class PistonRig {
   /**
    * The head as a striker box on its axis (moving at the face speed, its mass and hardness)
    * through the shared contact; whatever momentum the car takes comes off the impactor. A
-   * honeycomb face gives way at its share of the closing speed while it has depth left. A head
+   * honeycomb face gives way at its share of the closing speed while it has depth left; closing no faster than the pair's graze
+   * (`CRASH.grazeMps`) it no longer gives way and the exchange is rigid, as the pair's is. A head
    * on an end reports it (`noteContactEnd`), so front and rear together squeeze the car.
    */
   private contact(h: PistonHead, car: DeformableCar, honey: number, dt: number, crush: boolean): boolean {
@@ -435,7 +437,8 @@ export class PistonRig {
     const cell = this.cell;
     const cellVn = cell ? cell.vel.x * h.nx + cell.vel.z * h.nz : 0;
     const give = 1 - THREE.MathUtils.clamp(this.config.hardness, 0, 1);
-    const yieldRate = h.faceSet < honey ? give * Math.max(0, h.u - cellVn) : 0;
+    const closing = Math.max(0, h.u - cellVn);
+    const yieldRate = h.faceSet < honey && closing > CRASH.grazeMps ? give * closing : 0;
     const uFace = h.u - yieldRate;
     const half = PISTON.headDepth * 0.5;
     const plane = h.face(honey) + h.pad;
@@ -451,7 +454,8 @@ export class PistonRig {
     box.vz = h.nz * uFace;
     box.kg = this.config.massKg;
     box.hardness = this.config.hardness;
-    let taken = strikeCar(car, box, dt, crush);
+    // A shot that first touched no faster than the graze (a tap) is rigid for good, as the pair's is; a faster shot keeps the honeycomb-only late-stroke rule.
+    let taken = strikeCar(car, box, dt, crush, crush, closing <= CRASH.grazeMps && (honey > 0 || h.closing <= CRASH.grazeMps));
     const touching = d.faceContacts > 0;
     if (crush) taken += box.kg * partContact(car, box, dt).du;
     if (h.phase === "coast") h.u = Math.max(0, h.u - taken / this.config.massKg);

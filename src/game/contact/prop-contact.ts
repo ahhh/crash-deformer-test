@@ -2,7 +2,7 @@ import { detCos, hypot2 } from "../kernel/physics-core.js";
 import * as THREE from "three";
 import type { DeformableCar } from "../vehicle/car.ts";
 import { FF_CLOSING, FF_CX, FF_CZ, FF_FD, FF_FNX, FF_FNZ, FF_FW, FF_FX, FF_FZ, FF_GAP, FF_NX, FF_NZ, FF_PEN, FF_SIZE, FOOT_FX, FOOT_FZ, FOOT_HL, FOOT_HW, FOOT_RX, FOOT_RZ, FOOT_SIZE, FOOT_X, FOOT_Z, footFace, PR_BASE, PR_COS, PR_ENDS, PR_GU, PR_GW, PR_HARD, PR_HX, PR_HZ, PR_ID, PR_KNOCK_V, PR_MASS, PR_R, PR_SIN, PR_TOP, PR_WALL, PR_X, PR_YAW, PR_Z, sideFace } from "../world/prism.ts";
-import { C_ARG, C_DEPTH, C_NX, C_NY, C_NZ, HIT_SIZE, KNOCK, P_STRIDE, pointContact, PQ_SIZE, PQ_VX, PQ_VY, PQ_VZ, PQ_X, PQ_Y, PQ_Z, RIG, WALL, type Surface } from "../world/surfaces.ts";
+import { C_ARG, C_DEPTH, C_NX, C_NY, C_NZ, HIT_SIZE, KNOCK, P_STRIDE, pointContact, PQ_BODY, PQ_SIZE, PQ_VX, PQ_VY, PQ_VZ, PQ_X, PQ_Y, PQ_Z, RIG, WALL, type Surface } from "../world/surfaces.ts";
 import { TYRE_R } from "../deform/deform-state.ts";
 import { type ContactBox, makeBox, partContact, solidFace } from "./external-contact.ts";
 import { HIT_AHEAD, impulseCar, markApproach, wallBounce } from "./pair-contact.ts";
@@ -239,7 +239,7 @@ function sloped(s: Surface, k: number): boolean {
 }
 
 /** Car-local point (`lx`, `ly`, `lz`) of `car`, as the body is posed, asked of the one query with its own velocity; a side of a ramp it is in is kept if it is the deepest. */
-function askPoint(car: DeformableCar, s: Surface, lx: number, ly: number, lz: number): void {
+function askPoint(car: DeformableCar, s: Surface, lx: number, ly: number, lz: number, body: boolean): void {
   const q = car.group.quaternion;
   const pos = car.group.position;
   _pw.set(lx, ly, lz).applyQuaternion(q).add(pos);
@@ -251,6 +251,7 @@ function askPoint(car: DeformableCar, s: Surface, lx: number, ly: number, lz: nu
   _pq[PQ_VX] = _pv.x;
   _pq[PQ_VY] = _pv.y;
   _pq[PQ_VZ] = _pv.z;
+  _pq[PQ_BODY] = body ? 1 : 0;
   pointContact(_pq, car.slot, _pout);
   const depth = _pout[C_DEPTH]!;
   if (_pout[C_NY] !== 0 || !(depth > _side.depth)) return;
@@ -280,14 +281,14 @@ export function sideContact(car: DeformableCar, s: Surface, hits: PropHits, dt: 
     const hw = TREAD_HALF * wheel.scale.x;
     const r = TYRE_R * wheel.scale.x;
     for (let a = 0; a < SIGNS.length; a++) {
-      for (let b = 0; b < SIGNS.length; b++) askPoint(car, s, wheel.position.x + SIGNS[a]! * hw, wheel.position.y, wheel.position.z + SIGNS[b]! * r);
+      for (let b = 0; b < SIGNS.length; b++) askPoint(car, s, wheel.position.x + SIGNS[a]! * hw, wheel.position.y, wheel.position.z + SIGNS[b]! * r, false);
     }
   }
   const cage = car.cage;
   const pos = cage.fields.pos;
   const lift = cageLift(car);
-  for (let k = 0; k < cage.style.vertexCount; k++) askPoint(car, s, pos[k * 3]!, pos[k * 3 + 1]! + lift, pos[k * 3 + 2]!);
-  for (let k = 0; k < UNDERSIDE.length; k++) askPoint(car, s, UNDERSIDE[k]![0], UNDERSIDE[k]![2] + lift, UNDERSIDE[k]![1]);
+  for (let k = 0; k < cage.style.vertexCount; k++) askPoint(car, s, pos[k * 3]!, pos[k * 3 + 1]! + lift, pos[k * 3 + 2]!, true);
+  for (let k = 0; k < UNDERSIDE.length; k++) askPoint(car, s, UNDERSIDE[k]![0], UNDERSIDE[k]![2] + lift, UNDERSIDE[k]![1], true);
   if (_side.depth <= 0) return false;
   const o = _side.patch * P_STRIDE;
   const nx = _side.nx;

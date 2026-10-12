@@ -32,6 +32,7 @@ function column(config: StackConfig, bodies: Bodies, seconds: number, each?: (ca
     car.deform.setMode("shape");
     armKill(car.deform, killClass(car), HANDLING.realism, "default");
     car.spawnFacing(i === 0 ? 0 : 48 + i * 4, i === 0 ? 0 : 48, 0, 0);
+    car.parked = true;
     car.deform.bindKinematic(car.group, car.velocity, car.angular);
     return car;
   });

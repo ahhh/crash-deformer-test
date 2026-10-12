@@ -42,6 +42,9 @@ describe("given the oval race with 11 AI and police on, where two racers are put
               // at 20 m/s each. (Racers wrecked in the race's opening pile-up carry its solver state into the clip and crowd the cop out of
               // its byte share; the rule is about the clip of the staged crash, not about which slots a seed's pile-up spared.)
               armed = true;
+              // The ledger keeps the five best clips: the pile-up's (kept and still open) are dropped as the crash is staged, so the staged
+              // crash's clip ranks among the race's later ones (seed 5 kept five pile-up clips, impacts at 3.0-3.7 s, over the staged crash at 7.5 s).
+              w.race.recorder.ledger.clear();
               for (let i = 0; i < w.race.racers.length && headOn.length < 2; i++) if (!w.cars[i]!.crashed) headOn.push(i);
               const c = w.cars[cop]!.group.position;
               const s = track.project(c.x, c.z, -1, proj).s;

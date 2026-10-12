@@ -96,7 +96,7 @@ describe("given a sedan that a 30 km/h front wall hit left dented but still driv
       prev = c.yaw;
       if (k >= 60) {
         drawn += dy;
-        reported += c.angular.y * H;
+        reported += c.yawRate * H;
       }
     }
     assert.ok(Math.abs(drawn) > 0.3, `fixture: drawn turn ${drawn.toFixed(2)} rad in 0.5 s: no turn to report`);

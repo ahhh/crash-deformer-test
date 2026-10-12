@@ -4,7 +4,7 @@ import * as THREE from "three";
 import "../kernel/rapier-node.test-util.ts";
 import type { MassName } from "../kernel/rig-spec.ts";
 import { DeformableCar } from "../vehicle/car.ts";
-import { launch, makeCar, makeWorld, tickWorld } from "../contact/crash-scenarios.test-util.ts";
+import { FREEWHEEL, launch, makeCar, makeWorld, tickWorld } from "../contact/crash-scenarios.test-util.ts";
 import { armKill, assignClass, DEFAULT_REALISM } from "../vehicle/vehicle-classes.ts";
 import { beginImpact, holdForThrow, impactScale, phaseClock, stepPhase, THROW_ONSET } from "../match/phase.ts";
 import { throwComing } from "./ragdoll-trigger.ts";
@@ -71,7 +71,7 @@ type Dolls = { live: boolean; bodies: { translation(): THREE.Vector3Like; rotati
 describe("given a hit that throws a driver out of his car, where the slow-mo waits until he is out", () => {
   it("when a fleet head-on at 2×72 km/h plays out, then the exit plays at normal speed for the first 0.25 s after the hit, both drivers are thrown, and in slow-mo no corner of a torso is ever inside a car's body", async () => {
     const cars = headOn(20);
-    const w = makeWorld(cars, false, true);
+    const w = makeWorld(cars, false, true, FREEWHEEL);
     w.onEject = (e) => ragdolls.launch(e, cars);
     tickWorld(w);
     // The engine's pre-hit check (`maybePreSlowmo` → `throwComing`): this hit will throw, so the slow-mo is held.
@@ -220,7 +220,7 @@ describe("given a head-on crash where one car is a police car", () => {
     const scene = new THREE.Scene();
     const ragdolls = new RagdollSystem(scene, () => {}, () => {});
     await ragdolls.preload();
-    const w = makeWorld(cars, false, false);
+    const w = makeWorld(cars, false, false, FREEWHEEL);
     w.onEject = (e) => ragdolls.launch(e, cars);
     for (let f = 0; f < 60; f++) {
       tickWorld(w);
@@ -256,7 +256,7 @@ describe("given the ride-along camera following a driver thrown in a head-on at 
     const threw: number[] = [];
     const ragdolls: RagdollSystem = new RagdollSystem(new THREE.Scene(), (i) => { threw.push(i); ragdolls.follow(); }, () => {});
     await ragdolls.preload();
-    const w = makeWorld(cars, false, false);
+    const w = makeWorld(cars, false, false, FREEWHEEL);
     w.onEject = (e) => ragdolls.launch(e, cars);
     const camera = new THREE.PerspectiveCamera(50, 16 / 9, 0.1, 180);
     const sight = carSight(cars);
@@ -285,7 +285,7 @@ describe("given the ride-along camera following a driver thrown in a head-on at 
       const threw: number[] = [];
       const ragdolls: RagdollSystem = new RagdollSystem(new THREE.Scene(), (i) => { threw.push(i); ragdolls.follow(); }, () => {});
       await ragdolls.preload();
-      const w = makeWorld(cars, false, false);
+      const w = makeWorld(cars, false, false, FREEWHEEL);
       w.onEject = (e) => ragdolls.launch(e, cars);
       const camera = new THREE.PerspectiveCamera(50, 16 / 9, 0.1, 180);
       for (let f = 0; f < 120 && !ragdolls.rideAlong; f++) {
@@ -315,7 +315,7 @@ describe("given the ride-along camera following a driver thrown in a head-on at 
       const threw: number[] = [];
       const ragdolls: RagdollSystem = new RagdollSystem(new THREE.Scene(), (i) => { threw.push(i); ragdolls.follow(); }, () => {});
       await ragdolls.preload();
-      const w = makeWorld(cars, false, false);
+      const w = makeWorld(cars, false, false, FREEWHEEL);
       w.onEject = (e) => ragdolls.launch(e, cars);
       const camera = new THREE.PerspectiveCamera(50, 16 / 9, 0.1, 180);
       for (let f = 0; f < 120 && !ragdolls.rideAlong; f++) {
@@ -352,7 +352,7 @@ describe("given the ride-along camera following a driver thrown in a head-on at 
       const threw: number[] = [];
       const ragdolls: RagdollSystem = new RagdollSystem(new THREE.Scene(), (i) => { threw.push(i); ragdolls.follow(); }, () => {});
       await ragdolls.preload();
-      const w = makeWorld(cars, false, false);
+      const w = makeWorld(cars, false, false, FREEWHEEL);
       w.onEject = (e) => {
         exits.push({ car: e.car, at: e.pos.clone() });
         ragdolls.launch(e, cars);
@@ -376,49 +376,64 @@ describe("given the ride-along camera following a driver thrown in a head-on at 
   }
 });
 
-describe("given the ride-along camera following a driver thrown in a head-on at 30 m/s, who lands on open ground", () => {
-  it("when a dummy flies under the eye through every shot change, then the shots go windshield, follow, trackside, no shot change moves the camera more than 0.1 m, and the aim never turns faster than 4 rad/s", async () => {
-    const cars = headOn(30);
-    const ragdolls: RagdollSystem = new RagdollSystem(new THREE.Scene(), () => ragdolls.follow(), () => {});
-    await ragdolls.preload();
-    const w = makeWorld(cars, false, false);
-    w.onEject = (e) => ragdolls.launch(e, cars);
-    const camera = new THREE.PerspectiveCamera(50, 16 / 9, 0.1, 180);
-    const sight = carSight(cars);
-    const dir = new THREE.Vector3();
-    const prevDir = new THREE.Vector3();
-    const prevPos = new THREE.Vector3();
-    let shot = "";
-    let riding = 0;
-    let maxTurn = 0;
-    const jumps: string[] = [];
-    const shots = new Set<string>();
-    for (let f = 0; f < 900 && riding < 480; f++) {
-      tickWorld(w);
-      ragdolls.update(FRAME, cars, true, true, null);
-      // The settled dummy lies still ~2.5 s after landing, so the ride ends before the trackside turn: keep him
-      // "moving" so it runs through every shot change.
-      for (const d of ragdolls["dolls"]) if (d.live) d.still = 0;
-      if (!ragdolls.rideAlong) continue;
-      if (ragdolls.frameCamera(camera, FRAME, false, -1, false, 50, sight) === "none") break;
-      camera.getWorldDirection(dir);
-      const now = ragdolls["cam"].shot;
-      shots.add(now);
-      if (riding > 0) {
-        const turn = dir.angleTo(prevDir);
-        maxTurn = Math.max(maxTurn, turn);
-        if (now !== shot && camera.position.distanceTo(prevPos) > 0.1) jumps.push(`${shot}->${now} moved ${camera.position.distanceTo(prevPos).toFixed(2)} m`);
-      }
-      shot = now;
-      prevPos.copy(camera.position);
-      prevDir.copy(dir);
-      riding++;
+/** Rides the thrown driver in `cars` through every shot change, the dummy kept "moving" so the ride outlasts his landing. */
+async function rideShots(cars: DeformableCar[], barrier: boolean): Promise<{ riding: number; shots: string[]; jumps: string[]; maxTurn: number }> {
+  const ragdolls: RagdollSystem = new RagdollSystem(new THREE.Scene(), () => ragdolls.follow(), () => {});
+  await ragdolls.preload();
+  const w = makeWorld(cars, barrier, false, FREEWHEEL);
+  w.onEject = (e) => ragdolls.launch(e, cars);
+  const camera = new THREE.PerspectiveCamera(50, 16 / 9, 0.1, 180);
+  const sight = carSight(cars);
+  const dir = new THREE.Vector3();
+  const prevDir = new THREE.Vector3();
+  const prevPos = new THREE.Vector3();
+  let shot = "";
+  let riding = 0;
+  let maxTurn = 0;
+  const jumps: string[] = [];
+  const shots = new Set<string>();
+  for (let f = 0; f < 900 && riding < 480; f++) {
+    tickWorld(w);
+    ragdolls.update(FRAME, cars, true, true, null);
+    // The settled dummy lies still ~2.5 s after landing, so the ride ends before the trackside turn: keep him
+    // "moving" so it runs through every shot change.
+    for (const d of ragdolls["dolls"]) if (d.live) d.still = 0;
+    if (!ragdolls.rideAlong) continue;
+    if (ragdolls.frameCamera(camera, FRAME, false, -1, false, 50, sight) === "none") break;
+    camera.getWorldDirection(dir);
+    const now = ragdolls["cam"].shot;
+    shots.add(now);
+    if (riding > 0) {
+      maxTurn = Math.max(maxTurn, dir.angleTo(prevDir));
+      if (now !== shot && camera.position.distanceTo(prevPos) > 0.1) jumps.push(`${shot}->${now} moved ${camera.position.distanceTo(prevPos).toFixed(2)} m`);
     }
-    ragdolls.dispose();
-    assert.ok(riding > 300, `rode ${riding} frames`);
-    assert.deepEqual([...shots].slice(0, 3), ["glass", "follow", "trackside"], "opens on the windshield, follows, then the trackside turn");
-    assert.deepEqual(jumps, []);
-    assert.ok(maxTurn < 4 * FRAME * 1.1, `turned ${maxTurn.toFixed(3)} rad in one frame`);
+    shot = now;
+    prevPos.copy(camera.position);
+    prevDir.copy(dir);
+    riding++;
+  }
+  ragdolls.dispose();
+  return { riding, shots: [...shots], jumps, maxTurn };
+}
+
+describe("given the ride-along camera following a driver thrown in a head-on at 26 m/s", () => {
+  it("when a dummy flies under the eye through every shot change, then no shot change moves the camera more than 0.1 m and the aim never turns faster than 4 rad/s", async () => {
+    const r = await rideShots(headOn(26), false);
+    assert.ok(r.riding > 300, `rode ${r.riding} frames`);
+    assert.deepEqual(r.jumps, []);
+    assert.ok(r.maxTurn < 4 * FRAME * 1.1, `turned ${r.maxTurn.toFixed(3)} rad in one frame`);
+  });
+});
+
+describe("given the ride-along camera following a driver thrown by a car into the barrier, who lands on open ground", () => {
+  it("when the dummy flies under the eye through every shot change, then the shots go windshield, follow, trackside, no shot change moves the camera more than 0.1 m, and the aim never turns faster than 4 rad/s", async () => {
+    const car = fleetCar();
+    launch(car, 6.2, 0, -Math.PI / 2, -30, 0);
+    const r = await rideShots([car], true);
+    assert.ok(r.riding > 300, `rode ${r.riding} frames`);
+    assert.deepEqual(r.shots.slice(0, 3), ["glass", "follow", "trackside"], "opens on the windshield, follows, then the trackside turn");
+    assert.deepEqual(r.jumps, []);
+    assert.ok(r.maxTurn < 4 * FRAME * 1.1, `turned ${r.maxTurn.toFixed(3)} rad in one frame`);
   });
 });
 

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import * as THREE from "three";
-import { launch, makeWorld, relaunchDamaged, tickWorld } from "../contact/crash-scenarios.test-util.ts";
+import { FREEWHEEL, launch, makeWorld, relaunchDamaged, tickWorld } from "../contact/crash-scenarios.test-util.ts";
 import { buildCar, skinGap, stepFrames } from "./drawn-body.test-util.ts";
 
 /**
@@ -36,7 +36,7 @@ function scene(damaged: boolean, meeting: Meeting, withParked: boolean) {
     const other = buildCar("sedan", "sedan");
     launch(parked, -5, 0, Math.PI / 2, 50 / 3.6, 0);
     launch(other, 5, 0, -Math.PI / 2, -50 / 3.6, 0);
-    stepFrames(makeWorld([parked, other], false, false), 5);
+    stepFrames(makeWorld([parked, other], false, false, FREEWHEEL), 5);
     relaunchDamaged(parked, 0, 0, 0, 0, 0);
   } else launch(parked, 0, 0, 0, 0, 0);
   const second = buildCar("sedan", "sedan");
@@ -47,7 +47,7 @@ function scene(damaged: boolean, meeting: Meeting, withParked: boolean) {
     second.group.position.y = DROP_FROM_M;
     second.airborne = true;
   }
-  return { parked, second, world: makeWorld(withParked ? [parked, second] : [second], false, false) };
+  return { parked, second, world: makeWorld(withParked ? [parked, second] : [second], false, false, FREEWHEEL) };
 }
 
 for (const testCase of meetings) {

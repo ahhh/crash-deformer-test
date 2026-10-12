@@ -2,7 +2,7 @@ import { afterEach, describe, it } from "node:test";
 import assert from "node:assert/strict";
 import * as THREE from "three";
 import { DeformableCar } from "./car.ts";
-import { applyDrive, type DriveInput } from "./car-drive.ts";
+import type { DriveInput } from "./car-drive.ts";
 import { assignClass } from "./vehicle-classes.ts";
 import { paint } from "./test-support.ts";
 import { makeWorld, tickWorld, type CrashWorld } from "../contact/crash-scenarios.test-util.ts";
@@ -43,8 +43,8 @@ function settle(w: CrashWorld, seconds: number): void {
 function driveOff(w: CrashWorld, c: DeformableCar): { v: number[]; z: number; airEarly: boolean } {
   const v = [0, 0, 0, 0];
   let airEarly = false;
+  w.pedals.set(c, FULL);
   for (let f = 1; f <= 90; f++) {
-    applyDrive(c, FULL, FRAME);
     tickWorld(w, FRAME);
     if (f <= 12 && c.airborne) airEarly = true;
     const k = f === 15 ? 0 : f === 30 ? 1 : f === 60 ? 2 : f === 90 ? 3 : -1;
@@ -88,8 +88,8 @@ describe("given a sedan resting belly-down on another sedan's roof, its tyres 0.
       if (upper.airborne) air++;
       tickWorld(w, FRAME);
     }
+    w.pedals.set(upper, FULL);
     for (let f = 0; f < 120; f++) {
-      applyDrive(upper, FULL, FRAME);
       tickWorld(w, FRAME);
       if (upper.airborne) air++;
     }

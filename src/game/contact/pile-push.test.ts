@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { launch, makeCar, makeWorld, type CrashWorld } from "./crash-scenarios.test-util.ts";
+import { FREEWHEEL, launch, makeCar, makeWorld, type CrashWorld } from "./crash-scenarios.test-util.ts";
 import { stepWorld } from "../engine/world-step.ts";
 import { PUSH_SPEED, PushBudget } from "../deform/push-budget.ts";
 import { satPushCap } from "../deform/physics-util.ts";
@@ -30,7 +30,7 @@ function wedged(depth: number): { wreck: DeformableCar; world: CrashWorld } {
   const bullet = makeCar("shape");
   launch(wreck, 0, 0, 0, 0, 0);
   launch(bullet, 0, 9, Math.PI, 0, -9);
-  const settle = makeWorld([wreck, bullet], false, false);
+  const settle = makeWorld([wreck, bullet], false, false, FREEWHEEL);
   for (let t = 0; t < 2.5; t += 1 / 120) stepWorld(settle.world, 1 / 120);
   assert.ok(wreck.deform.massActive && wreck.deform.quietTime() > 1, "no settled wreck to wedge");
   const [wx, wz] = centroid(wreck);

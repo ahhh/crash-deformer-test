@@ -52,8 +52,9 @@ describe("given the arena's ground and the full field's spawn ring", () => {
     }
   });
 
-  it("when the rises are read on the grid, then none reaches the ring where cars spawn", () => {
-    const innerEdgeOfSpawns = radius - spawnInset - CAR_HALF.z;
+  it("when the rises are read on the grid, then none reaches the ring where cars spawn, a grid cell's reach included", () => {
+    // The ground reads its nodes bilinearly: a rise node raises the floor up to a cell (√2 m) beyond it.
+    const innerEdgeOfSpawns = radius - spawnInset - CAR_HALF.z - Math.SQRT2;
     const nodes = 2 * gridHalf + 1;
     for (let j = 0; j < nodes; j++) {
       for (let i = 0; i < nodes; i++) {

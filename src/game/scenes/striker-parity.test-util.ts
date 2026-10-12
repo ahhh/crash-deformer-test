@@ -72,7 +72,7 @@ export function healthAfter(striker: Striker, kph: number): number {
       plate.z = z;
       strikeCar(car, plate, SLICE, true);
       if (car.deform.massActive) {
-        car.deform.stepStructure(SLICE);
+        car.deform.stepStructure(SLICE, car.group.quaternion);
         strikeCar(car, plate, SLICE, false);
         car.syncPose(SLICE);
       }

@@ -172,8 +172,8 @@ const CARDS_GAP = 0.2;
 /** The nose and tail lever (car-local z, m) of the top car's pitch: `UNDERSIDE`'s end rows, where the belly the rigid step rests with ends. */
 const KEEL_Z = 2;
 /** A base car under the top car's weight rides bottomed on its suspension's stops, pitched nose-up by the rear tyres: its origin's height (m) and pitch (rad), measured on the lab's cards. */
-const BASE_RIDE = -0.0368;
-const BASE_PITCH = -0.0024;
+const BASE_RIDE = -0.0518;
+const BASE_PITCH = -0.00988;
 
 /** The cage a car of body `style` is built with (the one every car of the style shares), made from a throwaway car on first ask: a layout is data, no car exists yet. */
 const STOCK_CAGES = new Map<CarType["style"], CarCage>();

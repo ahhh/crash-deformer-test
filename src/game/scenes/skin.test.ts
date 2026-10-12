@@ -324,21 +324,18 @@ describe("given a car shot at 40 km/h by a piston, measured against a 3 km/h tap
     }
     return shots.get(id)!;
   };
-  // Since 0570130f the struck car takes the kernel's spin (v += dv + dw × r on every mass), and turns 24-31° about the strike (0.001-0.044
-  // rad before). Measured with dw alone zeroed in `exchange`, every row below is back to its pre-0570130f number (dent 99 %; far paint
-  // 0.097 m against far particles 0.066 m at frontLeft, 0.143 m against 0.158 m at rearRight), so the spin is the whole change. The
-  // lattice takes it as per-mass velocity while the planted tyres scrub: the hubs end 0.150 m off the body (0.129 m without the spin;
-  // the arch paint is pinned 82 % to them) and the rear corner's paint 0.184 m (0.143 m) against particles that moved 0.141 m (0.158 m).
-  // Not the tilt (the roll fell, 0.133 to 0.115 rad) and not the hubs' share of the spin (leaving them out leaves the rows red). The
-  // rigid motion is not crush, and it stops going through the lattice when the wreck split goes (Stage 4 item 6 (wreck split): the rigid
-  // body owns the spin, the masses get the crush alone).
-  const SPIN = "the struck car's spin goes through the lattice as per-mass velocity (tyre scrub drags the hubs, the corner paint outruns the particles): closes in Stage 4 item 6 (wreck split)";
-  const FAR_TODO: Partial<Record<(typeof PISTON_IDS)[number], string>> = { frontLeft: SPIN, frontRight: SPIN, rearRight: SPIN, rearLeft: SPIN };
-  const DENT_TODO: Partial<Record<(typeof PISTON_IDS)[number], string>> = { rearRight: SPIN, rearLeft: SPIN };
+  // Since the wreck split (3bf63441) the 3 km/h tap no longer sags the car as it arms (far paint 0.001 m, 0.080 m before), so these rows,
+  // measured against the tap, see the skin's own far-corner overshoot that the tap's sag used to cancel: the right shot's far paint 0.237 m
+  // against far particles 0.178 m (0.193 against 0.149 before). Held level and unspun through the shot it is 0.195 against 0.110: not the
+  // tilt, not the spin. The front shot's far particles barely move (0.024 m) while its tail paint moves 0.148 m; with the body's pitch and
+  // roll rates held at zero it passes (0.111 against 0.094).
+  const OVERSHOOT = "after the plan: make the skin's far corners follow the particles; since the wreck split the tap no longer sags the car, and the far paint outruns the far particles by 6 cm (right 0.238 m against 0.178, left 0.248 against 0.186), with tilt and spin held out still 8 cm";
+  const PITCHED = "after the plan: the front shot's far particles move 0.024 m and its tail paint 0.148 m; with the body's pitch and roll rates held at zero through the shot it is 0.111 against 0.094";
+  const FAR_TODO: Partial<Record<(typeof PISTON_IDS)[number], string>> = { front: PITCHED, right: OVERSHOOT, left: OVERSHOOT };
   for (const id of PISTON_IDS) {
     // Cluster-only skin: corners 37%, front 44% of the particles' dent; a strain-whole anchor put
     // the door paint 8% past the door.
-    it(`when the ${id} piston shoots it, then the paint dent is at least 75% and at most 105% of the dent of the particles it struck`, { todo: DENT_TODO[id] }, () => {
+    it(`when the ${id} piston shoots it, then the paint dent is at least 75% and at most 105% of the dent of the particles it struck`, () => {
       const { dent, particle } = measure(id);
       assert.ok(dent >= 0.75 * particle && dent <= 1.05 * particle, `paint ${dent.toFixed(3)} m vs particles ${particle.toFixed(3)} m`);
     });

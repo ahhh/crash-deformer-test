@@ -2,6 +2,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { makeCar } from "../contact/crash-scenarios.test-util.ts";
 import { PISTON, PISTON_IDS, PistonRig, type PistonId } from "./piston-rig.ts";
+import { regionCrushBands } from "../kernel/physics-core.js";
 import { firePiston, pistonLocality, PISTON_FAR, PISTON_STRUCK, type PistonShot, type PistonShotResult } from "./piston-rig.test-util.ts";
 import type { DeformMode } from "../deform/deform-rig.ts";
 import type { DeformableCar } from "../vehicle/car.ts";
@@ -140,11 +141,11 @@ describe("given the piston rig attached to a parked car (eight impactors, one at
     assert.ok(Math.abs(soft.energy - shoot("front").energy * 0.5) < 1, `car energy ${soft.energy.toFixed(0)} J`);
   });
 
-  it("when the car is held in the rig instead of free to be shoved, then it slides under 0.5 m rather than over 3 m, takes over twice the energy and crushes deeper", () => {
+  it("when the car is held in the rig instead of free to be shoved, then it slides under 0.5 m and under a fifth of the free slide, takes over twice the energy and crushes deeper", () => {
     const held = shoot("front", { ...STANDARD, holdCar: true });
     const free = shoot("front");
     assert.ok(held.shove < 0.5, `held car slid ${f3(held.shove)} m`);
-    assert.ok(free.shove > 3, `free car slid only ${f3(free.shove)} m`);
+    assert.ok(free.shove > held.shove * 5, `free car slid ${f3(free.shove)} m vs held ${f3(held.shove)} m`);
     assert.ok(held.energy > free.energy * 2, `held ${held.energy.toFixed(0)} J vs free ${free.energy.toFixed(0)} J`);
     assert.ok(crushOf(held) > crushOf(free), `held crush ${f3(crushOf(held))} vs free ${f3(crushOf(free))}`);
   });
@@ -237,16 +238,23 @@ describe("given a parked car and any one piston fired as a 3 km/h tap (0.2 kJ) t
 /** Front/rear/corner rows every 10 km/h; the side rows every 5 (their fit row is re-expressed below). */
 const SPEEDS = [20, 30, 40, 50, 60, 70, 80];
 const SIDE_SPEEDS = [20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80];
-/** Float floor (m) on the door's body-frame crush comparisons: 1 µm, i.e. exact. */
-const EXACT = 1e-6;
+/** Float floor (m) on the door's crush comparisons: 10 µm. The door's local position round-trips through the group's world matrix; the readings differ by ≤ 3 µm. */
+const EXACT = 1e-5;
+/** The door's crush against the cell (m) once its stroke is spent: its crush band's cap (`regionCrushBands`), measured from the cell it rides on. */
+const DOOR_CAP = regionCrushBands("doorL").max;
 
-/** Body-frame inward crush (m) of a side piston's door — what clampLocal caps, no rigid fit — and its cap. */
-function doorCrush(id: "left" | "right", kph: number): { crush: number; cap: number } {
+/**
+ * Inward crush (m) of a side piston's door against the passenger cell, no rigid fit. The drawn car is skinned from the masses, so
+ * the cloud's offset from the body's origin (the seat the body follows the cell with) is invisible: the crush the player sees is
+ * the door's travel from where it sits against the cell at rest.
+ */
+function doorCrush(id: "left" | "right", kph: number): number {
   const shot = { ...STANDARD, speedKph: kph };
   shoot(id, shot);
   const car = cars.get(`shape|${id}|${JSON.stringify(shot)}`)!;
   const door = car.deform.masses.find((m) => m.name === (id === "left" ? "doorL" : "doorR"))!;
-  return { crush: -Math.sign(door.rest.x) * (door.local.x - door.rest.x), cap: door.bands.max };
+  const cell = car.deform.masses.find((m) => m.name === "cell")!;
+  return -Math.sign(door.rest.x) * (door.local.x - cell.local.x - (door.rest.x - cell.rest.x));
 }
 
 describe("given a parked car and pistons firing 1500 kg rigid shots of growing severity, to see how crush and the drivetrain kill respond", () => {
@@ -259,20 +267,19 @@ describe("given a parked car and pistons firing 1500 kg rigid shots of growing s
       let strictEnd = row.length;
       if (side) {
         const doors = speeds.map((kph) => doorCrush(id, kph));
-        const dmsg = `door body-frame crush by speed ${doors.map((d) => d.crush.toFixed(4)).join(" ")} (cap ${doors[0]!.cap.toFixed(4)})`;
-        for (let i = 1; i < doors.length; i++) assert.ok(doors[i]!.crush >= doors[i - 1]!.crush - EXACT, dmsg);
-        const capAt = doors.findIndex((d) => Math.abs(d.crush - d.cap) < EXACT);
-        // Above the door's cap the fit row is not asserted monotonic: it is a rigid-fit reading over the
-        // far particles and wanders ±7 mm with the frame path while the door itself sits on its cap (main
-        // 2a53b04 read 0.223 → 0.216 m between 50 and 55 km/h). The door must stay exactly on the cap and
-        // the fit row inside IIHS side intrusion (≥ 0.20 m).
-        if (capAt >= 0) {
-          strictEnd = capAt + 1;
-          for (let i = capAt; i < doors.length; i++) {
-            assert.ok(Math.abs(doors[i]!.crush - doors[i]!.cap) < EXACT, dmsg);
+        const dmsg = `door crush against the cell by speed ${doors.map((d) => d.toFixed(4)).join(" ")} (never shrinks, caps at ${DOOR_CAP.toFixed(4)})`;
+        for (let i = 1; i < doors.length; i++) assert.ok(doors[i]! >= doors[i - 1]! - EXACT, dmsg);
+        // Once the door has spent its stroke it sits at its cap; the fit row is a rigid-fit reading over the far particles, so
+        // it is held to IIHS side intrusion (≥ 0.20 m) there and not asserted monotonic.
+        const plateauAt = doors.findIndex((d) => d >= DOOR_CAP - EXACT);
+        if (plateauAt >= 0) {
+          strictEnd = plateauAt + 1;
+          for (let i = plateauAt; i < doors.length; i++) {
+            assert.ok(Math.abs(doors[i]! - DOOR_CAP) <= EXACT, dmsg);
             assert.ok(row[i]! >= 0.2, msg);
           }
         }
+        assert.ok(plateauAt >= 0, dmsg);
       }
       for (let i = 1; i < strictEnd; i++) assert.ok(row[i]! >= row[i - 1]! - 0.005, msg);
     });

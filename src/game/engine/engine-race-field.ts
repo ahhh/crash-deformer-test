@@ -683,6 +683,9 @@ export abstract class RaceField {
     const { squash, buckle, mode } = car.deform;
     this.place(car, x, z, yaw, y);
     car.crashed = crashed;
+    // A wreck stays one (its net state's `massActive`): its masses run again from the new place, at rest, before the net state lays its
+    // dents on them. The net state sets the flag alone, and a wreck's rigid step and contact rows over masses never armed read NaN.
+    if ((f.deform.flags & 1) !== 0) car.deform.armMasses(car.group, car.velocity, car.angular);
     car.writeNetState(f.deform, f.parts);
     // The net state carries no crumple settings: the car's own again.
     car.deform.squash = squash;

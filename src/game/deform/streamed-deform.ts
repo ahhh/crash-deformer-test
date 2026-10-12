@@ -98,8 +98,8 @@ function plasticRestPoints(c: ShapeCluster): void {
 }
 /** Numbers a cluster's `simState` spends on the skin bake's carried fit (`skinRprev` 9, `skinRotQ` 4). */
 const SKIN_HISTORY = 13;
-/** Numbers `simState` ends with: the cage's two flags (`cageDue`, `skinBaked`). */
-const SIM_BAKE_NUMBERS = 2;
+/** Numbers `simState` ends with: the cage's three flags (`cageDue`, `skinBaked`, `cageExact`). */
+const SIM_BAKE_NUMBERS = 3;
 
 /**
  * `simState`: a shape cluster's plastic rest (q0, cm0, AqqInv, plane normal, `planar`, Sp) and the fit's carried state:
@@ -665,13 +665,15 @@ export class StreamedDeformation extends DeformSolve {
     o = simArray(buf, o, this.crush, write);
     o = simArray(buf, o, this.crushBaked, write);
     o = simArray(buf, o, this.imprint, write);
-    // The sim's bake: whether the cage waits for a fit and whether a bake ever ran.
+    // The sim's bake: whether the cage waits for a fit, whether a bake ever ran and whether the owed fit is exact.
     if (write) {
       this.cageDue = buf[o]! !== 0;
       this.skinBaked = buf[o + 1]! !== 0;
+      this.cageExact = buf[o + 2]! !== 0;
     } else {
       buf[o] = this.cageDue ? 1 : 0;
       buf[o + 1] = this.skinBaked ? 1 : 0;
+      buf[o + 2] = this.cageExact ? 1 : 0;
     }
   }
 
@@ -747,6 +749,7 @@ export class StreamedDeformation extends DeformSolve {
     // Skinned now, LoD or not: a deferred flush would read the hubs after they move on below.
     this.solveCages();
     this.cageDue = true;
+    this.cageExact = true;
     this.skinBaked = true;
     this.flushSkin(geometry, true);
     this.skinOwed = false;

@@ -120,7 +120,7 @@ function speedOf(car: DeformableCar): number {
 
 /** Run a world until every car is slow and contact has been over for `settle` s (or `cap` s); `watch` sees the world before its first frame. */
 function runOut(cars: DeformableCar[], cap: number, settle = 1.5, watch?: (w: CrashWorld) => void): number {
-  const w = makeWorld(cars, false, false);
+  const w = makeWorld(cars, false, false, null);
   watch?.(w);
   let quiet = 0;
   let t = 0;
@@ -158,7 +158,7 @@ export function carDoorPass(scenario: DoorScenario, kph: number, tyres = false, 
   const x = side * (lane.inner + cageHalf().x);
   // Leading face at the ram's start, so both runs cover the same ground.
   launch(b, x, -lane.dir * (RAM.start + cageHalf().z), lane.dir > 0 ? 0 : Math.PI, kph);
-  const w = makeWorld([a, b], false, false);
+  const w = makeWorld([a, b], false, false, null);
   const travel = RAM.start + RAM.end + 2 * cageHalf().z;
   const seconds = travel / (kph / 3.6) + RAM.settle;
   for (let t = 0; t < seconds; t += FRAME) {
@@ -189,7 +189,7 @@ function reversingDoorPass(scenario: DoorScenario, kph: number, tyres = false, s
   else a.setDoorOpen(side, lane.open);
   const b = makeCar();
   b.spawnFacing(side * (lane.inner + cageHalf().x), 0, lane.dir > 0 ? 0 : Math.PI, 0);
-  const w = makeWorld([a, b], false, false);
+  const w = makeWorld([a, b], false, false, null);
   const seconds = (RAM.start + RAM.end + 2 * cageHalf().z) / u + RAM.settle;
   for (let t = 0; t < seconds; t += FRAME) {
     if (tyres) tyresStep(w.cars, FRAME);
@@ -333,6 +333,7 @@ class ForcePress extends CompactorRig {
     const hit = { frontJ: 0, rearJ: 0, hits: 0 };
     const was = this.tau;
     this.tau += dt;
+    car.integrate(dt);
     car.refreshBasis();
     for (const p of this.plates) {
       // the compactor's slab (compactor.ts PLATE), here with a mass and the speed the push has given it
@@ -357,7 +358,7 @@ class ForcePress extends CompactorRig {
       p.u += (deliveredAt(p.given, this.tau) - deliveredAt(p.given, was) - j) / this.kg;
     }
     if (car.deform.massActive) {
-      car.deform.stepStructure(dt);
+      car.deform.stepStructure(dt, car.group.quaternion);
       for (const p of this.plates) strikeCar(car, p.box, dt, false);
       car.syncPose(dt);
     }
@@ -433,6 +434,7 @@ export function pistonStrike(at: Strike, kph: number, kg: number, hardness: numb
  */
 export function carStrike(at: Strike, kph: number, squash?: number, carMoves = false): { a: CarState; b: CarState } {
   const a = parkCar(squash);
+  a.parked = !carMoves;
   const b = makeCar("shape", squash);
   const [x, z, yaw] = at === "front" ? [0, STRIKE_GAP, Math.PI] : at === "rear" ? [0, -STRIKE_GAP, 0] : [CAR_HALF.x + CAR_HALF.z + 0.25, 0.08, -Math.PI / 2];
   if (carMoves) {

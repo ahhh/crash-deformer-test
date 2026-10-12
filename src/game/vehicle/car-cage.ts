@@ -28,7 +28,7 @@ const HALF_Z = 2.4;
 /** Node spacing (m) of the fields. */
 export const CAGE_STEP = 0.05;
 /** The decimation's vertex target: the body and its panels (lids, glass), which keeps the cage near 300 triangles (see docs in the handoff for the fit measured at each). */
-export const CAGE_VERTICES = 200;
+export const CAGE_VERTICES = 220;
 /** The interior's vertex target: what shows through a gone pane (the dash, the headliner, the seats), a few boxes. */
 const INTERIOR_VERTICES = 32;
 /** A node this far (in steps) outside a triangle still takes its height (clamped to the triangle's), so an edge never leaves a gap. */
@@ -322,9 +322,33 @@ function decimate(rest: Float32Array, index: ArrayLike<number>, group: Uint8Arra
     }
   }
 
+  // The nose cap (every body vertex at the rest front z) is the drawn front face, and a head-on crush moves each of its vertices by its own
+  // amount, so which one stands furthest out is not their rest order: none of them may collapse. The tail cap's lower half (the rear
+  // bumper's lip, under the cap's middle) is what a wreck without its rear wheels rests on: none of it may collapse either.
+  let zFront = -Infinity;
+  let zBack = Infinity;
+  for (let v = 0; v < nv; v++) {
+    if (group[reps[v]!] !== 0) continue;
+    zFront = Math.max(zFront, pz[v]!);
+    zBack = Math.min(zBack, pz[v]!);
+  }
+  let tailLow = Infinity;
+  let tailHigh = -Infinity;
+  for (let v = 0; v < nv; v++) {
+    if (group[reps[v]!] !== 0 || pz[v]! >= zBack + 1e-4) continue;
+    tailLow = Math.min(tailLow, py[v]!);
+    tailHigh = Math.max(tailHigh, py[v]!);
+  }
+  const noseCap = new Uint8Array(nv);
+  for (let v = 0; v < nv; v++) {
+    if (group[reps[v]!] !== 0) continue;
+    if (pz[v]! > zFront - 1e-4 || (pz[v]! < zBack + 1e-4 && py[v]! < (tailLow + tailHigh) / 2)) noseCap[v] = 1;
+  }
+
   const tmp = new Float64Array(QUADRIC);
   /** Cost of moving `from` onto `to`: the merged quadric at `to`'s place; Infinity when a neighbouring triangle would fold over. */
   const cost = (from: number, to: number): number => {
+    if (noseCap[from]) return Infinity;
     for (const t of incident[from]!) {
       if (!alive[t]) continue;
       const a = tv[t * 3]!;
@@ -893,17 +917,17 @@ function unpackInputs(inputs: Float64Array, out: CageLive): void {
 const REFIT_EPSILON = CAGE_STEP / 5;
 
 /**
- * Whether `now` differs from `last` (same layout) enough to refit: a mass or a hub more than `REFIT_EPSILON` away, or any panel flag,
+ * Whether `now` differs from `last` (same layout) enough to refit: a mass or a hub more than `epsilon` away, or any panel flag,
  * panel pose, roof clamp or imprint cut at all. The cluster maps and cage coefficients are fitted from the masses, so they move
  * only when a mass does and are not read here.
  */
-function movedSince(style: CageStyle, last: Float64Array, now: Float64Array): boolean {
+function movedSince(style: CageStyle, last: Float64Array, now: Float64Array, epsilon: number): boolean {
   const massEnd = style.massCount * 3;
   const hubStart = massEnd + style.clusterCount * 9;
   const hubEnd = hubStart + style.massCount * HUB_STRIDE;
   const tailStart = last.length - (style.panelCount * 8 + 6);
-  for (let k = 0; k < massEnd; k++) if (Math.abs(now[k]! - last[k]!) > REFIT_EPSILON) return true;
-  for (let k = hubStart; k < hubEnd; k++) if (Math.abs(now[k]! - last[k]!) > REFIT_EPSILON) return true;
+  for (let k = 0; k < massEnd; k++) if (Math.abs(now[k]! - last[k]!) > epsilon) return true;
+  for (let k = hubStart; k < hubEnd; k++) if (Math.abs(now[k]! - last[k]!) > epsilon) return true;
   for (let k = tailStart; k < last.length; k++) if (now[k] !== last[k]) return true;
   return false;
 }
@@ -958,11 +982,12 @@ export class CarCage {
   /**
    * Fits the cage to `live`: a no-op (false) while every mass and hub is within `REFIT_EPSILON` of where the last fit saw it (and no
    * panel or imprint input changed), else the cage's vertices re-skinned and its fields re-rasterised (true, `serial` and `refits` up).
-   * A car back at rest goes back to its style's shared fields. Allocates once, the first time a car leaves rest (its own fields); never again.
+   * With `exact`, any change of an input refits (the bake a crush window ends on, which a client fits fresh). A car back at rest goes back to
+   * its style's shared fields. Allocates once, the first time a car leaves rest (its own fields); never again.
    */
-  refit(live: CageLive): boolean {
+  refit(live: CageLive, exact = false): boolean {
     packInputs(live, this.now);
-    if (this.fitted && !movedSince(this.style, this.last, this.now)) return false;
+    if (this.fitted && !movedSince(this.style, this.last, this.now, exact ? 0 : REFIT_EPSILON)) return false;
     this.last.set(this.now);
     this.fit(this.last);
     return true;
@@ -1187,4 +1212,26 @@ function buildStyle(src: CageSource, step: number): CageStyle {
   placeInterior(style, src.massRest, style.pristine);
   rasterise(style, style.pristine, style.panelsOn, IMPRINT_NONE, 0, 0);
   return style;
+}
+
+/**
+ * `sampleAt`'s query and answer: frame x and z in `SAMPLE[0]`, `SAMPLE[1]`, the value out in `SAMPLE[2]`. A call V8 does not inline
+ * boxes every double it takes or returns, and the per-node loops of `satCars` make thousands of them a frame.
+ */
+export const SAMPLE = new Float64Array(3);
+
+/** `field` (a per-node lattice field of `style`) bilinear at frame (`SAMPLE[0]`, `SAMPLE[1]`) → `SAMPLE[2]`; NaN outside the lattice. */
+export function sampleAt(field: Float32Array, style: CageStyle): void {
+  const fu = (SAMPLE[0]! - style.u0) / style.step;
+  const fv = (SAMPLE[1]! - style.v0) / style.step;
+  const i = Math.floor(fu);
+  const j = Math.floor(fv);
+  if (i < 0 || j < 0 || i + 1 >= style.nu || j + 1 >= style.nv) {
+    SAMPLE[2] = NaN;
+    return;
+  }
+  const a = fu - i;
+  const b = fv - j;
+  const k = j * style.nu + i;
+  SAMPLE[2] = (field[k]! * (1 - a) + field[k + 1]! * a) * (1 - b) + (field[k + style.nu]! * (1 - a) + field[k + style.nu + 1]! * a) * b;
 }

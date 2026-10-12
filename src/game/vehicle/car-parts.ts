@@ -402,7 +402,7 @@ export abstract class CarParts extends CarGlass {
   sampleMotion(): void {
     this.motion[0] = this.velocity.x;
     this.motion[1] = this.velocity.z;
-    this.motion[2] = this.angular.y;
+    this.motion[2] = this.yawRate;
   }
 
   /** The car-frame acceleration since the last sample, capped (`DOOR_ACC_MAX`), into `swingDrive`; zero while the car is in contact (the crash rules own that moment). */
@@ -415,8 +415,8 @@ export abstract class CarParts extends CarGlass {
     const free = this.deform.quietTime() > DOOR_QUIET_S;
     d[0] = free ? THREE.MathUtils.clamp(ax * this.rightFlat.x + az * this.rightFlat.z, -DOOR_ACC_MAX, DOOR_ACC_MAX) : 0;
     d[1] = free ? THREE.MathUtils.clamp(ax * this.fwdFlat.x + az * this.fwdFlat.z, -DOOR_ACC_MAX, DOOR_ACC_MAX) : 0;
-    d[2] = free ? this.angular.y : 0;
-    d[3] = free ? THREE.MathUtils.clamp((this.angular.y - m[2]!) * inv, -DOOR_YAW_ACC_MAX, DOOR_YAW_ACC_MAX) : 0;
+    d[2] = free ? this.yawRate : 0;
+    d[3] = free ? THREE.MathUtils.clamp((this.yawRate - m[2]!) * inv, -DOOR_YAW_ACC_MAX, DOOR_YAW_ACC_MAX) : 0;
     this.sampleMotion();
   }
 

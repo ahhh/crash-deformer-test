@@ -4,7 +4,6 @@ import * as THREE from "three";
 import { DeformableCar } from "../vehicle/car.ts";
 import { COM_Y, G, TOUCH } from "../vehicle/car-air.ts";
 import { CAR_HALF } from "../vehicle/car-mesh.ts";
-import { LIFT_OFF } from "../deform/deform-contact.ts";
 import { JerseyBarrier } from "./engine-props.ts";
 import { FleetRamps, RAMP } from "./fleet-ramps.ts";
 import { collideOn } from "./ramp-collide.test-util.ts";
@@ -13,6 +12,7 @@ import { physicsSlice, sliceSpeed } from "../contact/sat.ts";
 import { paint } from "../vehicle/test-support.ts";
 import { newWorld, stepWorld, type World } from "../engine/world-step.ts";
 import { assignClass, VEHICLE_CLASS_IDS, type VehicleClassId } from "../vehicle/vehicle-classes.ts";
+import { applyDrive, idleDrive } from "../vehicle/car-drive.ts";
 import { droop, SPRINGS } from "../vehicle/car-suspension.ts";
 import { fit, frame } from "../vehicle/ground-probe.test-util.ts";
 
@@ -21,6 +21,8 @@ const FRAME = 1 / 60;
 const REST_LIFT = 0.02;
 /** Long enough for a car wedged between the ramps to stop sliding (main settles at about 6 s). */
 const SETTLE_S = 8;
+/** How far (m) a frame with an end on the ground may drop its origin beyond the speeds: a wreck's origin lands onto its floor band by up to this in a slice. */
+const WRECK_DROP = 0.1;
 const TYRE_CENTRE = 0.32;
 const DEG = 180 / Math.PI;
 /** The springs have settled when no corner is out of its rest length by more than this (m); a landing they took moved them past it. */
@@ -56,6 +58,7 @@ function scene(withSlab: boolean): { ramps: FleetRamps; w: World; car: Deformabl
 function run(w: World, seconds: number, each: () => void, slice?: (h: number) => void): void {
   let acc = 0;
   for (let t = 0; t < seconds; t += FRAME) {
+    for (const c of w.cars) if (c.crashed && c.deform.drivetrainAlive) applyDrive(c, idleDrive(), FRAME);
     acc = Math.min(0.05, acc + FRAME);
     while (acc > 1e-5) {
       const h = physicsSlice(acc, sliceSpeed(w.cars));
@@ -98,10 +101,10 @@ function pair(vA: number, vB: number, dx = 0.4): { w: World; cars: [DeformableCa
  *  - A shove along a ramp's face (two cars meeting, or a car struck): it moves a body along the plan by at most the closing speed of
  *    the pair (a car alone: its own speed) over the frame, and the face under its tyres rises by its slope (`RAMP_SLOPE`) times that
  *    travel; the contact lifts the body out of it in the frame: the same bound again, plus that lift, with no speed to show for it.
- *  - A frame with an end on the ground measures the group's origin, which a wreck's pose (`followGroup`) keeps in a band over
- *    its floor: the frame drops onto the band by up to `LIFT_OFF` in a slice (beyond that the wreck goes aloft instead), so
+ *  - A frame with an end on the ground measures the group's origin, which a wreck's pose keeps in a band over
+ *    its floor: the frame drops onto the band by up to `WRECK_DROP` in a slice (beyond that the wreck goes aloft instead), so
  *    a drop is allowed that much (measured over the cells below: 0.0116 m past the speeds, 16/9/0.4 car B frame 121). A rise
- *    is not: a wreck in flight lands on a wedge's end only from within `LIFT_OFF` and its fall under its top (under that the end is
+ *    is not: a wreck in flight lands on a wedge's end only from within `WRECK_DROP` and its fall under its top (under that the end is
  *    a wall: its frame rose 0.24 m with no speed, and the masses were shoved after it, on main). A snap past that (a struck
  *    flier dropped 1.85 m onto the ground) is still outside.
  */
@@ -143,7 +146,7 @@ function watch(cars: readonly DeformableCar[]): { list: string[]; frame: () => v
         const y = flying ? com : o;
         const dy = y - y0;
         const tol = touch[i] ? TOUCH + REST_LIFT + RAMP_SLOPE * approach * FRAME : 0.02;
-        const lo = (touch[i] ? vmin[i]! - G * hmax : vmin[i]!) * FRAME - tol - (flying ? 0 : LIFT_OFF);
+        const lo = (touch[i] ? vmin[i]! - G * hmax : vmin[i]!) * FRAME - tol - (flying ? 0 : WRECK_DROP);
         const hi = (touch[i] ? Math.max(vmax[i]!, 0) : vmax[i]!) * FRAME + tol;
         if (dy < lo || dy > hi) {
           list.push(`car ${i} frame ${n}: y ${y0.toFixed(3)} → ${y.toFixed(3)}, vy ${vy0.toFixed(2)} → ${c.velocity.y.toFixed(2)} (slices ${vmin[i]!.toFixed(2)}..${vmax[i]!.toFixed(2)})`);
@@ -349,18 +352,24 @@ describe("given a car driven end-on up a ramp, with a slab between the ramps", (
 describe("given the ramps with no slab between them", () => {
   afterEach(() => setGround(null));
 
-  it("when a car is driven end-on at 8 m/s, then it comes down between the ramps at the far one's high end, never launched off the step, and ends on the road there, its origin under a tyre centre's height", (t) => {
+  it("when a car is driven end-on at 8 m/s, then it comes down between the ramps at the far one's high end, never launched off the step, and comes to rest in the gap, its origin between the high ends and its tail no higher than the near lip", (t) => {
     const { w, car } = scene(false);
     car.spawnFacing(0, -14, 0, 8);
     const p = car.group.position;
     let peak = 0;
     // The car leaves the lip at about 6 m/s and meets the far end's wall under its top: it crashes there and falls into the gap
-    // (the ramps' high ends stand 4 m apart, a car is 4.4 m long), wedges and slides, settling a few seconds later, so the end height is read at rest.
+    // (the ramps' high ends stand 4 m apart, a car is 4.4 m long): it wedges between the walls, its tail on the near lip or on the road, and
+    // comes to rest there as friction and its weight decide, a few seconds later.
     run(w, SETTLE_S, () => {
       peak = Math.max(peak, p.y);
     });
-    t.diagnostic(`peak ${peak.toFixed(2)} m, end z ${p.z.toFixed(1)} y ${p.y.toFixed(3)} vy ${car.velocity.y.toFixed(2)} m/s`);
-    assert.ok(peak < RAMP.top + 0.4 && p.y < TYRE_CENTRE, `peak ${peak.toFixed(2)} m, end y ${p.y.toFixed(2)} m`);
+    const tail = car.group.localToWorld(new THREE.Vector3(0, 0, -CAR_HALF.z));
+    const speed = Math.hypot(car.velocity.x, car.velocity.z);
+    t.diagnostic(`peak ${peak.toFixed(2)} m, end z ${p.z.toFixed(1)} y ${p.y.toFixed(3)} tail y ${tail.y.toFixed(3)} speed ${speed.toFixed(3)} m/s`);
+    assert.ok(peak < RAMP.top + 0.4, `peak ${peak.toFixed(2)} m`);
+    assert.ok(Math.abs(p.z) < RAMP.start, `origin z ${p.z.toFixed(2)} m: not in the gap between the high ends (±${RAMP.start.toFixed(2)} m)`);
+    assert.ok(tail.y < RAMP.top + 0.05, `tail ${tail.y.toFixed(3)} m up, over the lip's ${RAMP.top} m`);
+    assert.ok(speed < 0.1, `still moving at ${speed.toFixed(3)} m/s`);
   });
 
   it("when a car is driven square into a ramp's high end, then it stops at the face, never climbing up or through it", (t) => {

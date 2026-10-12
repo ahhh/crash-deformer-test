@@ -19,8 +19,8 @@ function headOn(kph: number, bFirst: boolean): [CrashResult, CrashResult] {
 describe("given two identical cars in a mirror-symmetric head-on", () => {
   // 180 km/h: A's noses came out 0.939 m against B's 0.835 m (engine 0.481 against 0.498 m) while the world stepped A first;
   // at 100–150 km/h the pair was symmetric to 0.01 m.
-  it("when the crash runs at 100 to 200 km/h with either car first in the world's car list, then the two cars' noses (within 0.01 m), engine blocks (within 5 mm) and popped hubs agree", () => {
-    for (const kph of [100, 130, 150, 165, 180, 190, 200]) {
+  for (const kph of [100, 130, 150, 165, 180, 190, 200]) {
+    it(`when the crash runs at ${kph} km/h with either car first in the world's car list, then the two cars' noses (within 0.01 m), engine blocks (within 5 mm) and popped hubs agree`, () => {
       for (const bFirst of [false, true]) {
         const [a, b] = headOn(kph, bFirst);
         const label = `${kph} km/h, ${bFirst ? "B" : "A"} first`;
@@ -29,6 +29,6 @@ describe("given two identical cars in a mirror-symmetric head-on", () => {
         assert.ok(Math.abs(a.engineTravel - b.engineTravel) <= 0.005, `${label}: engine block A ${a.engineTravel.toFixed(3)} m against B ${b.engineTravel.toFixed(3)} m`);
         assert.equal(a.hubsPopped.join(), b.hubsPopped.join(), `${label}: hubs popped A [${a.hubsPopped}] against B [${b.hubsPopped}]`);
       }
-    }
-  });
+    });
+  }
 });

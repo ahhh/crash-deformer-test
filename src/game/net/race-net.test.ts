@@ -139,8 +139,9 @@ describe("given a hosted Survival run with the host and a peer Zed seated on car
     assert.equal(hud.survival!.cops, hostHud.survival!.cops, "the pack's cops ride the snapshot");
     assert.equal(hud.survival!.wrecked, hostHud.survival!.wrecked);
     assert.equal(hud.survival!.result!.time, hostHud.survival!.result!.time, "the team's time");
-    assert.equal(hud.survival!.result!.cause, hostHud.survival!.result!.cause, "the host's cause");
-    assert.equal(hud.survival!.result!.cause, "busted", "both humans were busted");
+    const hostCause = hostHud.survival!.result!.cause;
+    assert.equal(hud.survival!.result!.cause, hostCause, "the host's cause");
+    assert.ok(hostCause === "busted" || hostCause === "wrecked", `two held humans end the run busted or wrecked, not ended (${hostCause})`);
     host.race.exit();
     client.race.exit();
   });

@@ -40,6 +40,8 @@ export const ENGINE_KILL_TRAVEL = 0.15;
 /** A corner crushed to within this of its hub (m) takes the wheel on any real hit, however wide and from whichever end: the
  *  bumper has overrun the tyre (`clampMass`, `hubReach`). Not a press: the compactor's plates ride the hubs back at under 1 m/s. */
 export const HUB_OVERRUN = 0.12;
+/** Sim time (s) a driven wreck's steer turn stays in its reported spin after `applyDrive` set it (`keptSpin`). */
+const DRIVE_TURN_HOLD = 1 / 30;
 
 /** Per-body-style rig: cage boxes / sensor rests (by SENSORS index) that differ
  *  from the platform tables so the cages wrap that style's roof, glass and boot. */
@@ -151,6 +153,8 @@ export abstract class DeformRig {
   skinOwed = false;
   /** The sim baked the skin since the car's cage (`DeformableCar.cage`) was last fitted to it: the cage is fitted from that bake. */
   cageDue = true;
+  /** The next cage fit takes no `REFIT_EPSILON` slack: the crush window's final bake (and a client's net bake) is fitted exactly. Cleared by the fit. */
+  cageExact = false;
   /** The sim has baked the masses since the car was set up: until it has, `massPos` and the cluster maps are empty and the body is its rest shape. */
   skinBaked = false;
   /** The crush window closed since the mesh was last written: a deferred skin is written once anyway. */
@@ -267,16 +271,26 @@ export abstract class DeformRig {
     return Math.abs(corner.rest.z - hub.rest.z) - HUB_OVERRUN;
   }
 
-  /** A driven wreck's masses turned at `rate` rad/s this step (`applyDrive`): positions and velocities rotated together, so no spin of theirs shows it. */
+  /** A driven wreck's body and masses turned at `rate` rad/s this step (`applyDrive`): a position correction, so no spin of the body's shows it (`keptSpin`). */
   driveTurn(rate: number): void {
     this.keptTurn[1] = rate;
     this.keptTurn[2] = this.elapsed;
   }
 
-  /** The turn rate (rad/s) the planted write-back kept over the last timed `followGroup`: a readout (a position correction, not momentum), never `car.angular`. */
-  get keptSpin(): number { return this.keptTurn[3]!; } // prettier-ignore
+  /**
+   * The turn rate (rad/s) the wreck's position corrections made and its body's spin lacks: the planted write-back's over the last timed
+   * `followGroup`, and a driven wreck's steer (held `DRIVE_TURN_HOLD` after `applyDrive` set it). A readout, never `car.angular`; a car's
+   * yaw rate is `DeformableCar.yawRate`.
+   */
+  get keptSpin(): number {
+    const driven = this.drivetrainAlive && this.elapsed - this.keptTurn[2]! < DRIVE_TURN_HOLD ? this.keptTurn[1]! : 0;
+    return this.keptTurn[3]! + driven;
+  }
 
   protected prevYaw = 0;
+  /** The rigid body's velocity and spin (`followGroup`'s arguments, kept: the car's own vectors) the masses ride when the structure is rigid and the wheels are freed against. */
+  protected bodyV = new THREE.Vector3();
+  protected bodyW = new THREE.Vector3();
   /** Share (0–1) of the read pitch/roll the frame takes, and the sim time it was last eased at (followGroup). */
   protected lean = 1;
   protected leanAt = -Infinity;
@@ -307,6 +321,8 @@ export abstract class DeformRig {
   protected bodySin = 0;
   protected readonly bodyC = new THREE.Vector3();
   protected readonly bodyRestC = new THREE.Vector3();
+  /** The car body's up (world) as the structure step began (`stepStructure`'s `frame`): a squeeze's roof goal moves square to it. */
+  protected readonly frameUp = new THREE.Vector3(0, 1, 0);
   squash = DEFAULT_SQUASH;
   buckle = DEFAULT_BUCKLE;
   mode: DeformMode = "shape";
@@ -479,6 +495,7 @@ export abstract class DeformRig {
     this.skinDeferred = false;
     this.skinOwed = false;
     this.cageDue = true;
+    this.cageExact = false;
     this.skinBaked = false;
     this.skinFinal = false;
     this.sliceReadDt = -0;
@@ -525,7 +542,10 @@ export abstract class DeformRig {
     this.bodyCos = 1;
     this.bodySin = 0;
     this.bodyC.set(0, 0, 0);
+    this.bodyV = new THREE.Vector3();
+    this.bodyW = new THREE.Vector3();
     this.bodyRestC.set(0, 0, 0);
+    this.frameUp.set(0, 1, 0);
     this.netPopped = 0;
     this.netFlags = 0;
     this.crush.fill(0);

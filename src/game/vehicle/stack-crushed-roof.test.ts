@@ -4,7 +4,7 @@ import { makeWorld, tickWorld, type CrashWorld } from "../contact/crash-scenario
 import { FACE_TOP } from "../deform/load-crush.ts";
 import { Ground, setGround } from "../world/ground.ts";
 import type { DeformableCar } from "./car.ts";
-import { applyDrive, type DriveInput } from "./car-drive.ts";
+import type { DriveInput } from "./car-drive.ts";
 import { BELLY, buildCar, cellX, cellZ, drawnField, drawnRange, NX, NZ, stepFrames, TOP_PARTS } from "./drawn-body.test-util.ts";
 import { fit } from "./ground-probe.test-util.ts";
 
@@ -61,8 +61,8 @@ function crushedStack(crush: number) {
 function driveOff(w: CrashWorld, c: DeformableCar): { speeds: number[]; airEarly: boolean } {
   const speeds: number[] = [];
   let airEarly = false;
+  w.pedals.set(c, FULL);
   for (let f = 1; f <= 90; f++) {
-    applyDrive(c, FULL, FRAME);
     tickWorld(w, FRAME);
     if (f <= 12 && c.airborne) airEarly = true;
     if (READ_AT.some((s) => s * 60 === f)) speeds.push(Math.hypot(c.velocity.x, c.velocity.z));

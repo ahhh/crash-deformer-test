@@ -118,7 +118,7 @@ the struck car takes). The scene props only move their box; the car meets it thr
   `car.ts` (`setMirrorFold`, `breakMirror`, `loadDoorStop`); the free swing (`swingDoors`) now
   runs in `afterContacts` for every car with an unlatched door. Callers: the Doors ram
   (`DoorRig.hit`), piston heads, and car-car (`partContactPair`, once per slice per close pair
-  right after `collideWith` in `engine.ts fixedStep`, `pair-contact.ts stepCarPair` and the
+  in `engine.ts fixedStep`, `pair-contact.ts stepCarPair` and the
   test copies of `fixedStep`). A car striker is the box `carBox(car)`; what the parts take comes
   off its speed uniformly (all particles alike). The struck car is held, as the ram scene always
   held it: a door or mirror is light against either body. Angled strikers and strikers reaching
@@ -189,8 +189,7 @@ the particle-level split under "Open" below.
   the middle car crushes a fifth of the strikers. The `bidirectional` deform rules (origin pin,
   no planting, re-arm refused) assume the press; they need to work for a free car before car-car
   can share the rule (CrashRealism5's `followGroup` / plant code).
-- **Particle-level contact.** Car-car particles meet through sphere contact
-  (`collideWith`) plus `feedOverlap`; rigs meet through the slab (`projectOutOfBox`). Feeding the
+- **Particle-level contact.** Car-car meets through the pair kernel (`collideWith`'s sphere contact is gone) plus `feedOverlap`; rigs meet through the slab (`projectOutOfBox`). Feeding the
   face overlap through `feedOverlap` in `bodyContact` was tried and moved the piston further from
   car-car (rails 29→32, wings 47→49 mm) and broke the piston wing grading, so it was dropped. The
   remaining per-particle gaps above (engine block, tank, rear axle, bumpers) come from this split.

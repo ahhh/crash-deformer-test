@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import * as THREE from "three";
 import { StreamedDeformation } from "./streamed-deform.ts";
 import { DT, dummyGeom, mass } from "../vehicle/test-support.ts";
+import { stepWreck, type WreckRig } from "./physics-util.test-util.ts";
 
 /**
  * A planted wreck (quiet 0.2 s, its wheels on the ground) keeps what its clamp writes back, turn included: the frame
@@ -11,7 +12,7 @@ import { DT, dummyGeom, mass } from "../vehicle/test-support.ts";
  * the angular momentum (`yawMomentum`) then handed the difference back as a rigid spin on every mass, and the drawn
  * heading ran away (derby seed 269 c8: the axis went 3 → 7.8 rad/s in 0.17 s while the masses' L/I was 1.5).
  */
-function planted(): { d: StreamedDeformation; group: THREE.Group } {
+function planted(): WreckRig {
   const d = new StreamedDeformation(dummyGeom());
   d.mode = "shape";
   const group = new THREE.Group();
@@ -19,12 +20,10 @@ function planted(): { d: StreamedDeformation; group: THREE.Group } {
   const vel = new THREE.Vector3();
   const omega = new THREE.Vector3();
   d.beginCrush(new THREE.Vector3(0, 0.36, 2.06), new THREE.Vector3(0, 0, -1), 0, 0, group, vel, omega);
-  for (let i = 0; i < 20; i++) {
-    d.stepStructure(DT);
-    d.followGroup(group, vel, omega, DT);
-  }
+  const rig = { d, group, vel, omega };
+  for (let i = 0; i < 20; i++) stepWreck(rig, DT);
   assert.ok(d.quietTime() > 0.25, `quiet ${d.quietTime().toFixed(2)} s: not planted`);
-  return { d, group };
+  return rig;
 }
 
 /** Every mass turning rigidly at `w` rad/s about the centroid (v = w (z, −x)), the engine block swinging 3 m/s on top of it. */
@@ -67,9 +66,18 @@ function turnBetween(a: P[], b: P[], ms: number[]): number {
   return Math.atan2(s, c);
 }
 
+/** The angular momentum (kg·m²/s about +y) of masses `ms` at `p` moving at `v`, about their centroid and relative to their mean velocity. */
+function momentum(p: P[], v: P[], ms: number[]): number {
+  const total = ms.reduce((t, x) => t + x, 0);
+  const at = (a: P[], k: 0 | 1): number => a.reduce((t, q, i) => t + q[k] * ms[i]!, 0) / total;
+  const [cx, cz, vx, vz] = [at(p, 0), at(p, 1), at(v, 0), at(v, 1)];
+  return p.reduce((l, q, i) => l + ms[i]! * ((q[1] - cz) * (v[i]![0] - vx) - (q[0] - cx) * (v[i]![1] - vz)), 0);
+}
+
 describe("given a wreck that has sat still on its wheels for over 0.2 s, whose frame is then re-aligned to the engine-to-axle axis", () => {
-  it("when the re-alignment swings the engine block by 1 rad, then the parts' velocities about their centre turn along with the new positions, to within 10 %", () => {
-    const { d, group } = planted();
+  it("when the re-alignment swings the engine block by 1 rad, then the write-back reshapes the wreck and keeps the angular momentum of its parts about their centre to within 0.1 %, with a real momentum to keep (over 1000)", () => {
+    const rig = planted();
+    const { d } = rig;
     spin(d, 2);
     const axle = mass(d, "axleR").world;
     for (const name of ["engineL", "engineR"]) {
@@ -80,29 +88,21 @@ describe("given a wreck that has sat still on its wheels for over 0.2 s, whose f
       e.z = axle.z - dx * Math.sin(1) + dz * Math.cos(1);
     }
     const ms = d.masses.map((q) => q.mass);
-    const total = ms.reduce((t, x) => t + x, 0);
-    const mean = (): P => [d.masses.reduce((t, q) => t + q.vel.x * q.mass, 0) / total, d.masses.reduce((t, q) => t + q.vel.z * q.mass, 0) / total];
-    const [vx0, vz0] = mean();
-    const u0 = d.masses.map((q): P => [q.vel.x - vx0, q.vel.z - vz0]);
-    const p0 = d.masses.map((q): P => [q.world.x, q.world.z]);
-    d.followGroup(group, new THREE.Vector3(), new THREE.Vector3(), 0);
-    const w = turnBetween(p0, d.masses.map((q): P => [q.world.x, q.world.z]), ms);
+    const velocities = (): P[] => d.masses.map((q): P => [q.vel.x, q.vel.z]);
+    const positions = (): P[] => d.masses.map((q): P => [q.world.x, q.world.z]);
+    const p0 = positions();
+    const l0 = momentum(p0, velocities(), ms);
+    d.followGroup(rig.group, new THREE.Vector3(), new THREE.Vector3(), 0);
+    const w = turnBetween(p0, positions(), ms);
     assert.ok(Math.abs(w) > 0.1, `the write-back turned the masses ${w.toFixed(3)} rad: the setup no longer turns them`);
-    const [vx1, vz1] = mean();
-    let err = 0;
-    let norm = 0;
-    for (const [i, q] of d.masses.entries()) {
-      const ex = u0[i]![0] * Math.cos(w) + u0[i]![1] * Math.sin(w);
-      const ez = u0[i]![1] * Math.cos(w) - u0[i]![0] * Math.sin(w);
-      err += q.mass * ((q.vel.x - vx1 - ex) ** 2 + (q.vel.z - vz1 - ez) ** 2);
-      norm += q.mass * (ex * ex + ez * ez);
-    }
-    const off = Math.sqrt(err / norm);
-    assert.ok(off < 0.1, `the velocities about the centroid are ${(off * 100).toFixed(0)} % off a turn of ${w.toFixed(2)} rad with the positions`);
+    const l1 = momentum(positions(), velocities(), ms);
+    assert.ok(Math.abs(l0) > 1000, `no momentum to keep: ${l0.toFixed(0)} kg·m²/s`);
+    assert.ok(Math.abs(l1 / l0 - 1) < 1e-3, `the write-back moved the angular momentum ${l0.toFixed(1)} → ${l1.toFixed(1)} kg·m²/s (it turned the masses ${w.toFixed(2)} rad)`);
   });
 
   it("when the re-alignment swings the engine block by 0.5 rad, then the car's spin velocity carries only the parts' own momentum spin, not the re-alignment's snap, and the shown spin adds that kept turn to within 25 %", () => {
-    const { d, group } = planted();
+    const rig = planted();
+    const { d } = rig;
     const axle = mass(d, "axleR").world;
     for (const name of ["engineL", "engineR"]) {
       const e = mass(d, name).world;
@@ -113,8 +113,8 @@ describe("given a wreck that has sat still on its wheels for over 0.2 s, whose f
     }
     const ms = d.masses.map((q) => q.mass);
     const p0 = d.masses.map((q): P => [q.world.x, q.world.z]);
-    const omega = new THREE.Vector3();
-    d.followGroup(group, new THREE.Vector3(), omega, DT);
+    const omega = rig.omega;
+    stepWreck(rig, DT);
     const w = turnBetween(p0, d.masses.map((q): P => [q.world.x, q.world.z]), ms);
     assert.ok(Math.abs(w) > 0.03, `the write-back turned the masses ${w.toFixed(3)} rad: the setup no longer turns them`);
     const total = ms.reduce((t, x) => t + x, 0);

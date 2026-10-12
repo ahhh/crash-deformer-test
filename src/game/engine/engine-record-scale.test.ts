@@ -19,7 +19,7 @@ const H = 1 / 240;
  * `again`: runs once, `again.at` s in (a second crash staged with the cars as the first left them). The clusters it closed, ranked or not, and the recorder.
  */
 function record(cars: DeformableCar[], barrier: boolean, seconds: number, wall?: number, again?: { at: number; run: () => void }): { clusters: CrashCluster[]; rec: CrashRecorder } {
-  const w = makeWorld(cars, barrier, false);
+  const w = makeWorld(cars, barrier, false, null);
   const rec = new CrashRecorder();
   rec.begin("flat", 0.35, false, cars.length, (i) => `c${i}`, 1);
   const clusters: CrashCluster[] = [];

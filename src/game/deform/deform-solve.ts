@@ -1,11 +1,7 @@
 import * as THREE from "three";
 import { activeGround, NO_FLOOR, type Ground } from "../world/ground.ts";
-import { C_GRIP, C_H, HIT_SIZE, heightGrip, heightIn, PQ_SIZE, PQ_X, PQ_Y, PQ_Z, staticTop } from "../world/surfaces.ts";
+import { heightGrip, heightIn, PQ_SIZE, PQ_X, PQ_Y, PQ_Z, staticTop } from "../world/surfaces.ts";
 import {
-  leftoverCrumple,
-  applyGroundFriction,
-  clampSpeed,
-  CRASH,
   hypot2,
   hypot3,
 } from "./physics-util.ts";
@@ -20,9 +16,7 @@ import {
 import { DeformContact, ENGINE_SLACK } from "./deform-contact.ts";
 import { HUB_OVERRUN, type MassNode } from "./deform-rig.ts";
 import { FACE_TOP } from "./load-crush.ts";
-import { ENGINE_PACK_GAP, GROUND_SKIN, HUB_FLOOR, PLANT_QUIET, POWER_HOLD, TYRE_R, WHEEL_DIAMETER } from "./deform-state.ts";
-import { resistYaw } from "./tyre-yaw.ts";
-import { tiltedRise } from "./hub-plane.ts";
+import { ENGINE_PACK_GAP, PLANT_QUIET, TYRE_R, WHEEL_DIAMETER } from "./deform-state.ts";
 import { holdMomentum, holdPositions, turnVelocities, undoNetTurn } from "./turn-hold.ts";
 import { detSin, detCos } from "../kernel/physics-core.js";
 import { MIN_INERTIA, MIN_INV_MASS, MIN_MASS_SUM, SQUASH_REACH } from "./constants.ts";
@@ -228,19 +222,41 @@ export abstract class DeformSolve extends DeformContact {
       // stroke is the struck end's total (rearmHit), so a node already crushed along it gets less.
       const cabin = m.name === "cell" || m.name === "roof";
       let cap = cabin ? (deep ? 0.72 : 0.12) : Math.min(maxCrush * (0.38 + 0.72 * cw), stroke);
-      if (sideHit && (m.name === "doorL" || m.name === "doorR")) cap = Math.min(cap, m.bands.max);
+      // A side door's crush is its travel against the cell, not against the frame: the rigid body owns the wreck's pose, so the
+      // cell rides inward in the frame during the hit, and a frame-absolute cap and set cut the door's crush by the cell's travel.
+      // A door past its cap is packed on the cell: what the face pushes it past the cap goes to the cell (to the cabin's own cap),
+      // not back into the face, which pushed it in again after every clamp (the 50 km/h wall's door read 0.299 m, band 0.12-0.28).
+      const door = sideHit && (m.name === "doorL" || m.name === "doorR");
+      let into = 0;
+      if (door) {
+        cap = Math.min(cap, m.bands.max);
+        const c = this.at.cell;
+        into = (c.local.x - c.rest.x - c.baseX) * ix + (c.local.z - c.rest.z - c.baseZ) * iz;
+      }
       cap = Math.max(0, cap - Math.max(0, base));
       dx -= bx;
       dz -= bz;
       let along = dx * ix + dz * iz;
       let px = dx - along * ix;
       let pz = dz - along * iz;
-      along = Math.max(-cap, Math.min(cap, along));
+      let rel = along - into;
+      if (door && rel > cap) {
+        const c = this.at.cell;
+        const room = Math.max(0, (deep ? 0.72 : 0.12) - (c.local.x - c.rest.x) * ix - (c.local.z - c.rest.z) * iz);
+        const k = Math.min(rel - cap, room);
+        c.local.x += k * ix;
+        c.local.z += k * iz;
+        c.world.copy(c.local).applyMatrix4(group.matrixWorld);
+        into += k;
+        rel -= k;
+      }
+      along = Math.max(-cap, Math.min(cap, rel));
       if (!cabin && this.hitSpeed >= 0) {
         // Sheet metal keeps its set: only the last SPRINGBACK of crush is elastic.
         if (along - SPRINGBACK > m.crushSet) m.crushSet = along - SPRINGBACK;
         else if (along < m.crushSet) along = m.crushSet;
       }
+      along += into;
       const perp = hypot2(px, pz);
       if (perp > latCap) {
         const k = latCap / perp;
@@ -416,6 +432,11 @@ export abstract class DeformSolve extends DeformContact {
     const maxStep = SHAPE_MAX_STEP * dt * SHAPE_REF_HZ;
     const ix = this.impactInward.x;
     const iz = this.impactInward.z;
+    // The car body's up in the shape frame (turned by the heading fit, `syncShapeFromMasses`).
+    const fu = this.frameUp;
+    const upX = this.bodyCos * fu.x - this.bodySin * fu.z;
+    const upY = Math.max(fu.y, 0.1);
+    const upZ = this.bodySin * fu.x + this.bodyCos * fu.z;
     for (let k = 0; k < iters; k++) {
       this.goalX.fill(0);
       this.goalY.fill(0);
@@ -449,10 +470,14 @@ export abstract class DeformSolve extends DeformContact {
         let gz = this.goalZ[i]! / w;
         if (!Number.isFinite(gx + gy + gz)) continue;
         if (this.bidirectional) {
-          gy = p.y;
           // Plates already pin the bumpers; don't let shape-match shove them deeper.
           // Cabin / rails must still be allowed to yield once the plates pass the hubs.
           if (hub.bumper && Math.abs(gz) < Math.abs(p.z)) gz = p.z;
+          // The roof's squeeze goal keeps its height in the car body's frame. Kept at its height in the world, a pressed car pitched
+          // 0.045 rad had the roof's goal moved 60 mm a frame along the road, which the clamp returned along the body's own axes,
+          // leaving 2.7 mm down the body's up each frame. That sank the held roof 112 mm. With every particle's goal kept in the
+          // body frame, the rails folded 0.193 m instead of 0.213 m at the maximum.
+          gy = hub.name === "roof" ? p.y - ((gx - p.x) * upX + (gz - p.z) * upZ) / upY : p.y;
         } else {
           const along = (gx - p.x) * ix + (gz - p.z) * iz;
           if (along < 0) {
@@ -638,67 +663,49 @@ export abstract class DeformSolve extends DeformContact {
     }
 
     this.stepSuspension(dt);
-
-    // A car under power is driven, not a quiet wreck: the settle rule must not park it.
-    const powered = this.elapsed - this.lastPower < POWER_HOLD;
-    const scuffed = this.drivetrainAlive && leftoverCrumple(this.crumpleTravel()) > 0.28;
-    // One mass's step reads only that mass, so it runs as four loops: in one, the ground queries ran TurboFan
-    // past its inlining budget, and every call left out boxed its doubles (~40 KB per race frame).
     this.sampleGround(this.floorPre, null);
-    // The slide's drag (damping, ground Coulomb on every mass) takes the wreck's translation and its inner motion; its turn is
-    // the tyres' (`tyreYaw`), so the spin the drag took off is handed back first: one yaw torque, not two stacked.
-    const driven = powered && this.drivetrainAlive;
-    const rigid = this.drivetrainAlive; // a car with its drivetrain turns by applyDrive's tyres, not the wreck's
+    // A car with its drivetrain turns by applyDrive's tyres, not the wreck's.
+    const rigid = this.drivetrainAlive;
     if (!rigid) this.yawMomentum(3, false);
-    this.moveMasses(dt, powered);
     this.sampleGround(this.floorPost, this.gripPost);
     this.floorsFresh = true;
-    this.groundMasses(dt, scuffed, driven);
-    if (!rigid) {
-      this.yawMomentum(3, true);
-      if (!this.aloft) resistYaw(this.masses, this.floorPost, this.gripPost, dt);
-    }
+    if (!rigid) this.yawMomentum(3, true);
     // The block's spacing is internal too: its position correction over a turning pair moved 680 of a flying wreck's 730 kg·m²/s.
     this.yawMomentum(2, false);
     this.holdEngineBlock();
     this.yawMomentum(2, true);
     if (!live && !this.bidirectional) {
-      // The body is rigid now: every mass takes the mean velocity, plus the spin it carries unless it is driven (the tyres, not this rule, stop a wreck's).
-      let mx = 0,
-        mz = 0,
-        cx = 0,
+      // The body is rigid now: every mass takes the rigid body's velocity and spin (`followGroup`'s `bodyV`, `bodyW`) about their centroid.
+      let cx = 0,
+        cy = 0,
         cz = 0,
         msum = 0;
       for (let mi = 0; mi < this.masses.length; mi++) {
         const m = this.masses[mi]!;
         if (!m.dynamic) continue;
-        mx += m.vel.x * m.mass;
-        mz += m.vel.z * m.mass;
         cx += m.world.x * m.mass;
+        cy += m.world.y * m.mass;
         cz += m.world.z * m.mass;
         msum += m.mass;
       }
       if (msum > MIN_MASS_SUM) {
-        mx /= msum;
-        mz /= msum;
         cx /= msum;
+        cy /= msum;
         cz /= msum;
-        let l = 0,
-          inertia = 0;
+        // A driven wreck's turn is applyDrive's (its tyres, not this rule, stop a wreck's spin): the body keeps none of its own.
+        if (rigid) this.bodyW.y = 0;
+        const wx = this.bodyW.x;
+        const wy = this.bodyW.y;
+        const wz = this.bodyW.z;
         for (let mi = 0; mi < this.masses.length; mi++) {
           const m = this.masses[mi]!;
           if (!m.dynamic) continue;
           const rx = m.world.x - cx;
+          const ry = m.world.y - cy;
           const rz = m.world.z - cz;
-          l += m.mass * (rz * m.vel.x - rx * m.vel.z);
-          inertia += m.mass * (rx * rx + rz * rz);
-        }
-        const w = !rigid && inertia > MIN_INERTIA ? l / inertia : 0;
-        for (let mi = 0; mi < this.masses.length; mi++) {
-          const m = this.masses[mi]!;
-          if (!m.dynamic) continue;
-          m.vel.x = mx + w * (m.world.z - cz);
-          m.vel.z = mz - w * (m.world.x - cx);
+          m.vel.x = this.bodyV.x + wy * rz - wz * ry;
+          m.vel.y = this.bodyV.y + wz * rx - wx * rz;
+          m.vel.z = this.bodyV.z + wx * ry - wy * rx;
         }
       }
     }
@@ -706,14 +713,6 @@ export abstract class DeformSolve extends DeformContact {
       if (this.mode === "shape") this.foldCabin(dt);
       else this.nudgeLatticeRails(dt);
     }
-  }
-
-  /** The slide's ground drag past the slices (`bleedAfterSlide`) takes a wreck's translation and inner motion, never its turn: that is `resistYaw`'s. */
-  override dragGround(dt: number, amount: number): void {
-    if (this.drivetrainAlive) return super.dragGround(dt, amount);
-    this.yawMomentum(3, false);
-    super.dragGround(dt, amount);
-    this.yawMomentum(3, true);
   }
 
   /** A course's ground (hills, bridge decks; 0 and grip 1 on the flat pad) under every dynamic mass on its own
@@ -768,116 +767,6 @@ export abstract class DeformSolve extends DeformContact {
     }
   }
 
-  /**
-   * The wheels' contact on a wreck's masses: each one's is its hub's (`sampleGround`'s last read under its tyre, the
-   * `floorPost` and `gripPost` a keyframe restores; none since the crash armed the masses, `beginCrush`: read now, where they
-   * stand, as `armMasses` reads at arming). Into `hit` (`HIT_SIZE` doubles per wheel, `WHEEL_POS` order) the rise
-   * its tyre needs where its hub now stands (`NO_FLOOR` popped or over nothing) and the grip under it; returns the wheels
-   * whose hub is on its ground, bit i: within `GROUND_SKIN` of its `HUB_FLOOR`, as `dragGround` slides it.
-   */
-  hubContact(hit: Float64Array): number {
-    // Unread, a wreck struck on its four wheels read none on the ground: its drive idled a step (a cop wall-struck after its
-    // slice's read, race-finish seed 8), where the intact car it was had them all down.
-    if (!this.floorsFresh) this.sampleGround(this.floorPost, this.gripPost);
-    let mask = 0;
-    for (let i = 0; i < 4; i++) {
-      const m = i === 0 ? this.at.hubFL : i === 1 ? this.at.hubFR : i === 2 ? this.at.hubRL : this.at.hubRR;
-      const f = this.floorPost[m.index]!;
-      const o = i * HIT_SIZE;
-      if (m.popped || f === NO_FLOOR) {
-        hit[o + C_H] = NO_FLOOR;
-        continue;
-      }
-      hit[o + C_H] = f + TYRE_R - m.world.y;
-      hit[o + C_GRIP] = this.gripPost[m.index]!;
-      if (m.world.y - f <= HUB_FLOOR + GROUND_SKIN) mask |= 1 << i;
-    }
-    return mask;
-  }
-
-  /** Gravity, damping, the speed clamp and the move of every dynamic mass (`stepMassSlice`). */
-  private moveMasses(dt: number, powered: boolean): void {
-    const quiet = this.quietTime();
-    for (let i = 0; i < this.masses.length; i++) {
-      const m = this.masses[i]!;
-      if (!m.dynamic) continue;
-      // Past the fleet disc's rim, or the body in flight (`aloft`): gravity alike on every mass and no ground
-      // rules, so the car falls whole.
-      if (this.floorPre[i] === NO_FLOOR || this.aloft) {
-        m.vel.y -= 9.6 * dt;
-        clampSpeed(m.vel);
-        m.world.addScaledVector(m.vel, dt);
-        continue;
-      }
-      if (m.hub) m.vel.y -= 9.6 * dt;
-      else if (m.vel.y < 0) m.vel.y *= Math.pow(0.12, dt);
-      // During contact: almost no extra damping so crumple can run.
-      // After the last collision, ease into rest over a few seconds.
-      let rate = 0.988;
-      if (!this.drivetrainAlive && quiet > 0.12) {
-        const t = Math.max(0, Math.min(1, (quiet - 0.12) / 1.8));
-        const s = t * t * (3 - 2 * t);
-        rate = (1 - s) * 0.96 + s * 0.18;
-      }
-      m.vel.multiplyScalar(Math.pow(rate, dt));
-      clampSpeed(m.vel);
-      if (quiet > 2.4 && !powered && m.vel.lengthSq() < 0.08) m.vel.set(0, 0, 0);
-      m.world.addScaledVector(m.vel, dt);
-      if (!Number.isFinite(m.world.x + m.world.y + m.world.z)) {
-        m.world.copy(m.rest);
-        m.vel.set(0, 0, 0);
-      }
-    }
-  }
-
-  /**
-   * Floor, ceiling and ground drag of every dynamic mass after its move (`floorPost`, `gripPost`). A driven car
-   * (`driven`: under power, drivetrain alive) gets no drag: its tyres are applyDrive's, whose Δv already scrubs the
-   * sideways slip, and a sliding wreck's 0.75 g on top held a dented car under ~60 km/h in the gear buckets' top gears.
-   */
-  private groundMasses(dt: number, scuffed: boolean, driven: boolean): void {
-    const quiet = this.quietTime();
-    for (let i = 0; i < this.masses.length; i++) {
-      const m = this.masses[i]!;
-      // Fell past the rim, or this step carried it past (`floor + k` is -Infinity): no ground rules.
-      if (!m.dynamic || this.floorPre[i] === NO_FLOOR) continue;
-      const floor = this.floorPost[i]!;
-      if (floor === NO_FLOOR) continue;
-      // In flight only a mass that came down onto its ground meets it (held, as on the ground); the rest fly.
-      if (this.aloft && m.world.y >= floor + (m.hub ? HUB_FLOOR : 0.16)) continue;
-      const grip = this.gripPost[i]!;
-      const hub = m.hub;
-      // One drag call site: two left TurboFan's budget short and boxed `mu`.
-      let mu = 0;
-      let drag = true;
-      if (hub) {
-        if (m.world.y < floor + HUB_FLOOR) {
-          m.world.y = floor + HUB_FLOOR;
-          if (m.vel.y < 0) m.vel.y = 0;
-        }
-        mu = (!this.drivetrainAlive ? CRASH.muSlide : scuffed ? CRASH.muScuff : CRASH.muSlide) * grip;
-      } else {
-        if (m.world.y < floor + 0.16) {
-          m.world.y = floor + 0.16;
-          if (m.vel.y < 0) m.vel.y *= -0.22;
-        }
-        if (quiet > 0.12) {
-          const grab = Math.max(0, Math.min(1, (quiet - 0.12) / 0.45));
-          mu = CRASH.muSlide * grab * grip;
-        } else if (m.world.y < floor + 0.16) mu = CRASH.muScuff * grip;
-        else drag = false;
-      }
-      if (drag && !driven) applyGroundFriction(m.vel, dt, mu, true);
-      if (m.world.y > floor + 3.4) {
-        m.world.y = floor + 3.4;
-        m.vel.y = 0;
-      }
-      if (!hub && !this.bidirectional && m.world.y > floor + 0.22) {
-        m.vel.y = Math.max(-2.2, Math.min(3, m.vel.y));
-      }
-    }
-  }
-
   /** A3: the block is one casting — engineL/engineR keep their rest spacing and share their
    *  velocity along it (mass-weighted), whatever the crumple does around them. */
   private holdEngineBlock(): void {
@@ -916,7 +805,7 @@ export abstract class DeformSolve extends DeformContact {
     const c = 260;
     for (let si = 0; si < this.suspension.length; si++) {
       const [hub, mount] = this.suspension[si]!;
-      const restDy = tiltedRise(this.pose[12]!, this.pose[13]!, hub.rest.x - mount.rest.x, hub.rest.y - mount.rest.y, hub.rest.z - mount.rest.z);
+      const restDy = hub.rest.y - mount.rest.y;
       const dy = hub.world.y - mount.world.y - restDy;
       const dv = hub.vel.y - mount.vel.y;
       const f = (-k * dy - c * dv) * dt;

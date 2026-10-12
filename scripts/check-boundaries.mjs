@@ -58,7 +58,7 @@ const HOT = {
   "src/game/vehicle/loose-dent.ts": ["recordDent", "applyDents", "carve"],
   "src/game/deform/streamed-deform.ts": ["pullSensorsFromMasses", "bakeLocalSkin", "solveCages", "capCageCorners", "fitCagesToMasses"],
   "src/game/deform/deform-state.ts": ["stepCrush", "bakeSkin", "update", "flushSkin"],
-  "src/game/deform/deform-contact.ts": ["stepStructure", "collideWith"],
+  "src/game/deform/deform-contact.ts": ["stepStructure"],
   "src/game/deform/deform-solve.ts": ["stepMassSlice", "stepShapeMatch", "stepBeams", "stepSuspension"],
   "src/game/contact/sat.ts": ["physicsSlice", "sliceSpeed", "satCars", "deepestIn", "outlineNormal", "clipCarToBarrier"],
   "src/game/contact/cage-outline.ts": ["sampleField", "worldBand", "bandsMeet"],

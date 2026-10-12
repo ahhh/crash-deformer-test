@@ -39,6 +39,12 @@ const JUMP_CREST = 1;
 const JUMP_HALF_WIDTH = 2.5;
 const JUMP_X = 15;
 const JUMP_Z = 14;
+/**
+ * How far (m) each jump stands in from (`JUMP_X`, `JUMP_Z`) along the axis cars enter it by, where its long entry run reaches out:
+ * the ground reads its 1 m nodes bilinearly, so a rise node raises the floor up to √2 m beyond it, and at 0 a jump's foot (29.73 m
+ * out) stood within that of the spawn ring's inner edge (30.58 m: a 27-car field's corner 1.4 mm up it).
+ */
+const JUMP_PULL = 0.5;
 
 const concrete = SURFACE.concrete;
 
@@ -46,15 +52,16 @@ export const DERBY_PLATEAUS: readonly Plateau[] = [
   // The table-top: 9 x 9 m flat top, 1.8 m up, on grade 0.26 sides.
   { x: 0, z: 0, halfX: 4.5, halfZ: 4.5, height: 1.8, run: [7, 7, 7, 7], round: 1.5, top: concrete },
   // North-east: enter from the wall side (+z), launch toward -z.
-  { x: JUMP_X, z: JUMP_Z, halfX: JUMP_HALF_WIDTH, halfZ: JUMP_CREST, height: JUMP_HEIGHT, run: [JUMP_SIDE, JUMP_SIDE, JUMP_LIP, JUMP_ENTRY], round: JUMP_ROUND, top: concrete },
+  { x: JUMP_X, z: JUMP_Z - JUMP_PULL, halfX: JUMP_HALF_WIDTH, halfZ: JUMP_CREST, height: JUMP_HEIGHT, run: [JUMP_SIDE, JUMP_SIDE, JUMP_LIP, JUMP_ENTRY], round: JUMP_ROUND, top: concrete },
   // South-east: enter from +x, launch toward -x.
-  { x: JUMP_X, z: -JUMP_Z, halfX: JUMP_CREST, halfZ: JUMP_HALF_WIDTH, height: JUMP_HEIGHT, run: [JUMP_LIP, JUMP_ENTRY, JUMP_SIDE, JUMP_SIDE], round: JUMP_ROUND, top: concrete },
+  { x: JUMP_X - JUMP_PULL, z: -JUMP_Z, halfX: JUMP_CREST, halfZ: JUMP_HALF_WIDTH, height: JUMP_HEIGHT, run: [JUMP_LIP, JUMP_ENTRY, JUMP_SIDE, JUMP_SIDE], round: JUMP_ROUND, top: concrete },
   // South-west: enter from -z, launch toward +z.
-  { x: -JUMP_X, z: -JUMP_Z, halfX: JUMP_HALF_WIDTH, halfZ: JUMP_CREST, height: JUMP_HEIGHT, run: [JUMP_SIDE, JUMP_SIDE, JUMP_ENTRY, JUMP_LIP], round: JUMP_ROUND, top: concrete },
+  { x: -JUMP_X, z: -JUMP_Z + JUMP_PULL, halfX: JUMP_HALF_WIDTH, halfZ: JUMP_CREST, height: JUMP_HEIGHT, run: [JUMP_SIDE, JUMP_SIDE, JUMP_ENTRY, JUMP_LIP], round: JUMP_ROUND, top: concrete },
   // North-west: enter from -x, launch toward +x.
-  { x: -JUMP_X, z: JUMP_Z, halfX: JUMP_CREST, halfZ: JUMP_HALF_WIDTH, height: JUMP_HEIGHT, run: [JUMP_ENTRY, JUMP_LIP, JUMP_SIDE, JUMP_SIDE], round: JUMP_ROUND, top: concrete },
-  // The pit plateau, west: a flat 8 x 6 m top 1 m up.
-  { x: -21, z: 0, halfX: 4, halfZ: 3, height: 1, run: [3, 3, 3, 3], round: 1.5, top: concrete },
+  { x: -JUMP_X + JUMP_PULL, z: JUMP_Z, halfX: JUMP_CREST, halfZ: JUMP_HALF_WIDTH, height: JUMP_HEIGHT, run: [JUMP_ENTRY, JUMP_LIP, JUMP_SIDE, JUMP_SIDE], round: JUMP_ROUND, top: concrete },
+  // The pit plateau, west: a flat 8 x 6 m top 1 m up, its outer foot a grid cell's reach inside the spawn ring (at -21 its node at
+  // x = -29 stood 29.27 m out).
+  { x: -20.5, z: 0, halfX: 4, halfZ: 3, height: 1, run: [3, 3, 3, 3], round: 1.5, top: concrete },
   // The scrap hump, south: low cover, 0.8 m up.
   { x: 0, z: -21, halfX: 2.5, halfZ: 2.5, height: 0.8, run: [3, 3, 3, 3], round: 1.5, top: concrete },
 ];

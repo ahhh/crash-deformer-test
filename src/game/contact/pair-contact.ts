@@ -1,16 +1,18 @@
 import * as THREE from "three";
 import type { DeformableCar } from "../vehicle/car.ts";
+import { REARM_QUIET_S } from "../vehicle/car-core.ts";
 import { armPairWithRows, MU_BODY, rowsClosing, WALL_CRUSH } from "../vehicle/car-air.ts";
 import type { MassNode } from "../deform/deform-rig.ts";
 import { leftoverCrumple, satPushCap, hypot2, CRASH } from "../deform/physics-util.ts";
 import { satCars } from "./sat.ts";
 import { bandsMeet, OUTLINE_REACH } from "./cage-outline.ts";
-import { strikeCar, faceDepth, carRow, takeRow, type ContactBox } from "./external-contact.ts";
+import { strikeCar, faceDepth, carRow, takeRow, moveAsOneBody, type ContactBox } from "./external-contact.ts";
 import { bodyContact, BODY_SIZE, BODY_VX, BODY_VZ, BODY_W, BODY_X, BODY_Z, CT_DEPTH, CT_E, CT_JMAX, CT_MU, CT_NX, CT_NZ, CT_SIZE, CT_X, CT_Z, OUT_EBS_A, OUT_EBS_B, OUT_PUSH_A, OUT_PUSH_B, OUT_SIZE } from "./body-contact.ts";
 import { ARM_CLOSING, PAIR_MU, SOLID_E } from "./constants.ts";
-import { FOOT_HALF_L } from "../vehicle/car-mesh.ts";
+import { CAR_HALF, FOOT_HALF_L } from "../vehicle/car-mesh.ts";
 import { SOLID_AT_REST } from "../world/constants.ts";
 import { detSin, detCos } from "../kernel/physics-core.js";
+import { PUSH_SPEED } from "../deform/push-budget.ts";
 
 const _v = new THREE.Vector3();
 const _w = new THREE.Vector3();
@@ -30,7 +32,9 @@ const _hit: PairHit = { impulse: 0, contact: new THREE.Vector3(), normal: new TH
 export function impulseCar(car: DeformableCar, nx: number, ny: number, nz: number, j: number): void {
   if (j === 0) return;
   if (car.deform.massActive) {
+    car.deform.markMotion();
     car.deform.applyImpulse(nx, ny, nz, j);
+    car.deform.takeMotion(car.velocity, car.angular);
     return;
   }
   const inv = 1 / car.deform.totalMass;
@@ -39,10 +43,18 @@ export function impulseCar(car: DeformableCar, nx: number, ny: number, nz: numbe
   car.velocity.z += nz * j * inv;
 }
 
+/**
+ * Move `car` `amount` m along the unit (nx, ny, nz) to clear an overlap. A wreck's body moves the whole amount and its masses by their
+ * share (`separateAlong`: the crumple zone's masses stay on the contact plane, so the leftover penetration is plastic crush in the body
+ * frame); it takes no speed.
+ */
 export function pushCar(car: DeformableCar, nx: number, ny: number, nz: number, amount: number): void {
   if (car.deform.massActive) {
-    car.deform.separateAlong(nx, ny, nz, Math.min(amount, 0.09));
-    car.deform.followGroup(car.group, car.velocity, car.angular, 0);
+    const d = Math.min(amount, 0.09);
+    car.group.position.x += nx * d;
+    car.group.position.y += ny * d;
+    car.group.position.z += nz * d;
+    car.deform.separateAlong(nx, ny, nz, d);
     car.refreshBasis();
     return;
   }
@@ -103,6 +115,27 @@ function shoveWreck(car: DeformableCar, nx: number, nz: number, d: number): void
 }
 
 /**
+ * How far (m) a slice may push a wreck out along the unit (nx, nz), out of a face: what the slice could have sunk it by (the fastest
+ * footprint corner's speed into the face, the car's turn included, and the slice's other position corrections into it) and the
+ * solver's push-out speed (`PUSH_SPEED`).
+ */
+function sinkReach(car: DeformableCar, nx: number, nz: number, dt: number): number {
+  const v = car.velocity;
+  const w = car.angular.y;
+  const f = car.fwdFlat;
+  const r = car.rightFlat;
+  let corner = 0;
+  for (let k = 0; k < 4; k++) {
+    const sl = k & 1 ? FOOT_HALF_L : -FOOT_HALF_L;
+    const sw = k & 2 ? CAR_HALF.x : -CAR_HALF.x;
+    const rx = f.x * sl + r.x * sw;
+    const rz = f.z * sl + r.z * sw;
+    corner = Math.max(corner, -((v.x + w * rz) * nx + (v.z - w * rx) * nz));
+  }
+  return (corner + PUSH_SPEED) * dt + Math.max(0, -car.deform.pushedAlong(nx, nz));
+}
+
+/**
  * `car` met a fixed solid (a race wall, a prop, a ramp's flank) whose car-side face is `face` (`solidFace`), its footprint
  * `pen` deep along the unit normal (nx, nz). A hard hit (past `WALL_CRUSH` into the face) or a wreck meets it as the range's
  * jersey slab does (`bodyContact`): the first touch starts the crash, a fresh hard one re-arms a wreck's, the masses are held
@@ -129,11 +162,18 @@ export function wallBounce(car: DeformableCar, face: ContactBox, nx: number, nz:
       if (over > 0) shoveWreck(car, nx, nz, over);
       // The drawn body (the cage's vertices, `faceDepth`) is pushed out as the slab pushes it: while the car drives in as far as the
       // crumple of the face it is struck on (`faceTravel`, as the pair's own crush reads it) left allows (`0.4 · leftover`), at rest to
-      // the skin, so a wreck a car pins against the solid is never left in it.
+      // the skin, so a wreck a car pins against the solid is never left in it. A slice pushes out what the slice could sink the body by
+      // (its fastest footprint corner's speed into the face, the car's turn included, and what the slice's other corrections moved it
+      // in) and the solver's push-out speed (`PUSH_SPEED`) for the rest: the room falls to the skin the slice the car stops driving in,
+      // and that whole depth pushed out at once moved a derby wreck 0.43 m in 6 ms at 6.6 m/s (zip bound 3·v·h + 5 cm). Held to the
+      // centroid's speed alone, a swung car's corner went 0.11 m past a prop's far face.
       const drive = Math.max(0, Math.min(1, (into - SOLID_AT_REST) / (WALL_CRUSH - SOLID_AT_REST)));
       const room = WALL_SKIN + (0.4 * leftoverCrumple(car.deform.faceTravel()) - WALL_SKIN) * drive;
       const sunk = faceDepth(car, face) - room;
-      if (sunk > 0) shoveWreck(car, fx, fz, Math.min(sunk + 0.004, Math.max(pen, satPushCap(dt))));
+      // A hit armed this slice starts with what the car drove in before the face was met (a truck at 55 m/s: 0.39 m of its drawn body
+      // in a 0.79 m deep footprint), pushed out as far as the footprint is in.
+      const reach = sinkReach(car, fx, fz, dt);
+      if (sunk > 0) shoveWreck(car, fx, fz, Math.min(sunk + 0.004, car.deform.sinceHit() <= 0 ? Math.max(pen, reach) : reach));
       return;
     }
     if (pen < WALL_HOLD) return;
@@ -185,7 +225,7 @@ export function wallBounce(car: DeformableCar, face: ContactBox, nx: number, nz:
  */
 function pushApart(carA: DeformableCar, carB: DeformableCar, nx: number, nz: number, depth: number, dt: number): void {
   _dir.set(nx, 0, nz);
-  loadPair(carA, carB, _dir, carA.group.position, 0, 0);
+  loadPair(carA, carB, _dir, carA.group.position, 0, 0, 0);
   pairContact[CT_DEPTH] = depth;
   bodyContact(pairRows, 0, BODY_SIZE, pairContact, pairResult);
   const aAmt = pairResult[OUT_PUSH_A]!;
@@ -220,14 +260,17 @@ const pairRows = new Float64Array(2 * BODY_SIZE);
 const pairContact = new Float64Array(CT_SIZE);
 const pairResult = new Float64Array(OUT_SIZE);
 
+/** The pair's face speeds along the normal (A along `n`, B along `-n`): where the plastic exchange at the contact point leaves each car's point (`faceSpeeds`). */
+const faces = new Float64Array(2);
+
 /**
  * Both cars of the pair as rows of `pairRows` (`carRow`: each a rigid body in plan, its velocity the mean of the masses still closing
- * on the other's, those moving along the normal slower than the pair's common speed `vc`) and the contact at `p` along the unit `n`
- * (out of B into A), plastic, with the friction of sheet metal on sheet metal and at most `maxJ` of normal impulse.
+ * on the other's, those moving along the normal slower than that car's face speed `faceA`, `faceB`) and the contact at `p` along the
+ * unit `n` (out of B into A), plastic, with the friction of sheet metal on sheet metal and at most `maxJ` of normal impulse.
  */
-function loadPair(carA: DeformableCar, carB: DeformableCar, n: THREE.Vector3, p: THREE.Vector3, vc: number, maxJ: number): void {
-  carRow(pairRows, 0, carA, n.x, n.z, Infinity);
-  carRow(pairRows, BODY_SIZE, carB, -n.x, -n.z, Infinity);
+function loadPair(carA: DeformableCar, carB: DeformableCar, n: THREE.Vector3, p: THREE.Vector3, faceA: number, faceB: number, maxJ: number): void {
+  carRow(pairRows, 0, carA, n.x, n.z, faceA);
+  carRow(pairRows, BODY_SIZE, carB, -n.x, -n.z, faceB);
   pairContact[CT_X] = p.x;
   pairContact[CT_Z] = p.z;
   pairContact[CT_NX] = n.x;
@@ -236,6 +279,23 @@ function loadPair(carA: DeformableCar, carB: DeformableCar, n: THREE.Vector3, p:
   pairContact[CT_E] = 0;
   pairContact[CT_MU] = PAIR_MU;
   pairContact[CT_JMAX] = maxJ;
+}
+
+/**
+ * `faces` ← the speed each car's contact point has after the pair's whole plastic exchange at `p` (every mass one body), along the
+ * normal into the car: the speed the contact masses are driven to, the point's own, not the centres' common speed (a hit off a car's
+ * centre trades less of that car's centre speed, and the point leaves at the speed the spin adds to it).
+ */
+function faceSpeeds(carA: DeformableCar, carB: DeformableCar, n: THREE.Vector3, p: THREE.Vector3): void {
+  loadPair(carA, carB, n, p, Infinity, Infinity, Infinity);
+  bodyContact(pairRows, 0, BODY_SIZE, pairContact, pairResult);
+  for (let c = 0; c < 2; c++) {
+    const o = c * BODY_SIZE;
+    const rx = p.x - pairRows[o + BODY_X]!;
+    const rz = p.z - pairRows[o + BODY_Z]!;
+    const w = pairRows[o + BODY_W]!;
+    faces[c] = (c === 0 ? 1 : -1) * ((pairRows[o + BODY_VX]! + w * rz) * n.x + (pairRows[o + BODY_VZ]! - w * rx) * n.z);
+  }
 }
 
 /**
@@ -254,8 +314,8 @@ function crushForce(d: DeformableCar["deform"]): number {
  * car one body: every mass at the rigid motion of its car, as a spent structure is, so no internal speed is left to crush the
  * structure further (200 km/h head-on: clamped masses at ±8 m/s that a quiet wreck let go 0.2 s later).
  */
-function exchangePair(carA: DeformableCar, carB: DeformableCar, n: THREE.Vector3, p: THREE.Vector3, vc: number, maxJ: number): void {
-  loadPair(carA, carB, n, p, vc, maxJ);
+function exchangePair(carA: DeformableCar, carB: DeformableCar, n: THREE.Vector3, p: THREE.Vector3, maxJ: number): void {
+  loadPair(carA, carB, n, p, faces[0]!, faces[1]!, maxJ);
   const axv = pairRows[BODY_VX]!;
   const azv = pairRows[BODY_VZ]!;
   const aw = pairRows[BODY_W]!;
@@ -263,26 +323,11 @@ function exchangePair(carA: DeformableCar, carB: DeformableCar, n: THREE.Vector3
   const bzv = pairRows[BODY_SIZE + BODY_VZ]!;
   const bw = pairRows[BODY_SIZE + BODY_W]!;
   if (bodyContact(pairRows, 0, BODY_SIZE, pairContact, pairResult) === 0) return;
-  takeRow(carA, pairRows, 0, axv, azv, aw, n.x, n.z, Infinity);
-  takeRow(carB, pairRows, BODY_SIZE, bxv, bzv, bw, -n.x, -n.z, Infinity);
+  takeRow(carA, pairRows, 0, axv, azv, aw, n.x, n.z, faces[0]!);
+  takeRow(carB, pairRows, BODY_SIZE, bxv, bzv, bw, -n.x, -n.z, faces[1]!);
   if (maxJ === Infinity) {
-    moveAsOneBody(carA, 0);
-    moveAsOneBody(carB, BODY_SIZE);
-  }
-}
-
-/** Every dynamic mass of `car` takes the rigid motion of the row at `o` of `pairRows` (its velocity and spin about its centre): momentum and angular momentum kept, the internal motion gone. */
-function moveAsOneBody(car: DeformableCar, o: number): void {
-  if (!car.deform.massActive) return;
-  const vx = pairRows[o + BODY_VX]!;
-  const vz = pairRows[o + BODY_VZ]!;
-  const w = pairRows[o + BODY_W]!;
-  const cx = pairRows[o + BODY_X]!;
-  const cz = pairRows[o + BODY_Z]!;
-  for (const q of car.deform.masses) {
-    if (!q.dynamic) continue;
-    q.vel.x = vx + w * (q.world.z - cz);
-    q.vel.z = vz - w * (q.world.x - cx);
+    moveAsOneBody(carA, pairRows, 0);
+    moveAsOneBody(carB, pairRows, BODY_SIZE);
   }
 }
 
@@ -372,44 +417,54 @@ export function resolveCarPair(carA: DeformableCar, carB: DeformableCar, dt: num
   // What the pair met with: the rows of the rigid step that met it this slice have traded part of it already (read before `armPairWithRows` takes them).
   const met = Math.max(closing, rowsClosing(carA, carB));
 
-  const mA = carA.deform.totalMass;
-  const mB = carB.deform.totalMass;
-  // Where the contact masses of both cars are driven to along the normal, and what the exchange ends at: the pair's common speed.
-  const vc = (mA * carA.velocity.dot(n) + mB * carB.velocity.dot(n)) / (mA + mB);
+  // Where the contact masses of both cars are driven to along the normal: the speed each car's contact point has once the plastic
+  // exchange at the patch is done (the pair's common speed when the hit goes through both centres).
+  faceSpeeds(carA, carB, n, _p);
+  // A wreck that had been quiet and refused the hit (a brush too soft to re-arm, `rearmHit`): its quiet clock is left running, so the
+  // harder hit the same contact grows into (a car shoved on past it) still finds the wreck quiet and arms. Notified, it would be a
+  // contact already on and never arm: the contact would stay as soft as its first slice.
+  let brushA = false;
+  let brushB = false;
   if (closing > ARM_CLOSING) {
     // Equivalent barrier speed: each car takes the share of the pair's plastic exchange the kernel gives it at the contact point (a hit
     // through both centres: the closing times the other's mass share). The rows of the rigid step that met this pair in this slice (a
     // car's nose on the other's top) read the same contact from before their exchange: it is armed once, at the larger reading, as it
     // stood before it (`armPairWithRows`).
     // Before notifyContact: a wreck's re-arm reads how long it has been quiet.
-    loadPair(carA, carB, n, _p, vc, 0);
+    loadPair(carA, carB, n, _p, faces[0]!, faces[1]!, 0);
     bodyContact(pairRows, 0, BODY_SIZE, pairContact, pairResult);
     const shareA = pairResult[OUT_EBS_A]!;
     const shareB = pairResult[OUT_EBS_B]!;
+    const idleA = carA.deform.quietTime() >= REARM_QUIET_S;
+    const idleB = carB.deform.quietTime() >= REARM_QUIET_S;
     if (!armPairWithRows(carA, carB, _p, n, closing, shareA, shareB)) {
-      carA.applyImpact(_p, n, closing, shareA);
-      carB.applyImpact(_p, _w.copy(n).negate(), closing, shareB);
+      brushA = !carA.applyImpact(_p, n, closing, shareA) && idleA;
+      brushB = !carB.applyImpact(_p, _w.copy(n).negate(), closing, shareB) && idleB;
     }
   }
 
   // Overlap after the wreck has settled is not a new hit — notifying every
   // slice zeroed quietTime and disabled damping for the whole clip.
   if (closing > CRASH.grazeMps) {
-    carA.deform.notifyContact();
-    carB.deform.notifyContact();
+    if (!brushA) carA.deform.notifyContact();
+    if (!brushB) carB.deform.notifyContact();
   }
 
   pairMomentum(carA, carB, _momentum);
   const preA = momentumAlong(carA, n.x, n.z);
   const preB = momentumAlong(carB, -n.x, -n.z);
-  // Each car's contact masses are driven to the pair's common speed along the normal (a fixed face at 0 stopped a T-bone bullet's nose
-  // dead while the struck car got no momentum; end-on the common speed is 0 for equal cars, the fixed face's).
+  // Each car's contact masses are driven to its contact point's speed along the normal (a fixed face at 0 stopped a T-bone bullet's nose
+  // dead while the struck car got no momentum).
   // The crush a hit feeds scales with the depth of the overlap, and the drawn bodies' contact begins where their surfaces do (the
   // cage): a hit's first slice is as deep as the closing travelled after the touch, anywhere up to the slice's whole travel, so the
-  // feed is never less than that travel (`closing * dt`).
-  const fed = Math.max(hit, closing * dt);
-  carA.deform.feedOverlap(_p, n, fed, Math.max(0, closing), dt, vc);
-  carB.deform.feedOverlap(_p, _w.copy(n).negate(), fed, Math.max(0, closing), dt, -vc);
+  // feed is never less than that travel (`closing * dt`). The overlap is the two faces' together: each structure crushes its half.
+  const fed = Math.max(hit, closing * dt) / 2;
+  if (carA.deform.massActive) carA.deform.markMotion();
+  carA.deform.feedOverlap(_p, n, fed, Math.max(0, closing), dt, faces[0]!);
+  if (carA.deform.massActive) carA.deform.takeMotion(carA.velocity, carA.angular);
+  if (carB.deform.massActive) carB.deform.markMotion();
+  carB.deform.feedOverlap(_p, _w.copy(n).negate(), fed, Math.max(0, closing), dt, faces[1]!);
+  if (carB.deform.massActive) carB.deform.takeMotion(carB.velocity, carB.angular);
   // The momentum (N·s) the feed took off each car's closing along the normal: the structure's force already at work this slice.
   const killed = 0.5 * (momentumAlong(carA, n.x, n.z) - preA + momentumAlong(carB, -n.x, -n.z) - preB);
   const spent = carA.crashed && carB.crashed && Math.min(carA.deform.strokeUsed(), carB.deform.strokeUsed()) >= PACKED_STROKE;
@@ -426,7 +481,7 @@ export function resolveCarPair(carA: DeformableCar, carB: DeformableCar, dt: num
     // spent or too slow to crush.
     const crushes = closing > CRASH.grazeMps && !spent && !(stiffA && stiffB);
     const force = Math.min(stiffA ? Infinity : crushForce(carA.deform), stiffB ? Infinity : crushForce(carB.deform));
-    exchangePair(carA, carB, n, _p, vc, crushes ? Math.max(0, force * dt - Math.max(0, killed)) : Infinity);
+    exchangePair(carA, carB, n, _p, crushes ? Math.max(0, force * dt - Math.max(0, killed)) : Infinity);
   }
   // The crush layer's kills are the lattice's, not an exchange: the pair's momentum is the one it had, the kernel's impulse the only
   // thing that moved it between the cars.

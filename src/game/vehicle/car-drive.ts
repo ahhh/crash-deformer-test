@@ -1,5 +1,5 @@
+import * as THREE from "three";
 import type { DeformableCar } from "./car.ts";
-import { wreckContact } from "./car-air.ts";
 import { blankIntent, readIntent, shapeDrive, type DriveFeel } from "./drive-input.ts";
 import type { PadState } from "./gamepad.ts";
 import { hypot2 } from "../deform/physics-util.ts";
@@ -80,6 +80,10 @@ const _dmg: Drivability = { stage: "healthy", power: 1, top: 1, pull: 0 };
 const _grip = new Float64Array(2);
 /** driveMasses' turn (cos, sin) and Δv (x, z): passed as doubles, all four were boxed per call. */
 const _turn = new Float64Array(4);
+/** The yaw a wreck's steer turns its body by. */
+const _yaw = new THREE.Quaternion();
+/** The point (x, z) driveMasses turned the masses about. */
+const turnAt = new Float64Array(2);
 /** [0]: the realism `_assist` was last filled for (NaN: never). */
 const _assistFor = new Float64Array([NaN]);
 /**
@@ -188,9 +192,6 @@ export function applyDrive(car: DeformableCar, input: DriveInput, dt: number, to
   const throttle = pedal(input.throttle, -1, THROTTLE_STEPS);
   const command = pedal(input.steer, -1, THROTTLE_STEPS);
   const brake = pedal(input.brake, 0, BRAKE_STEPS);
-  // A wreck on its masses touches what its hubs do now (`wreckContact`), not what it touched when it was armed between two
-  // slices (a hit after the slice's own read, or a car wrecked before the step): a keyframe restores the same, so a replay drives the same.
-  if (car.deform.massActive) wreckContact(car);
   // No wheel within its springs' reach of a surface (flight, a belly on a roof): the car keeps its ballistic velocity and spin.
   // A side hit past the crash sensor cuts the fuel (`DeformableCar.stallOnSideHit`) for a few seconds: the same no-drive as a dead drivetrain, then it restarts.
   const stalled = car.stalledS > 0;
@@ -315,21 +316,25 @@ export function applyDrive(car: DeformableCar, input: DriveInput, dt: number, to
     return;
   }
 
-  // Crashed: the masses carry the pose and followGroup re-measures yaw and velocity (writing angular.y alone never turned a wreck).
-  // Yaw the body and push every mass: a cabin-only kick (kickCore) gets
-  // averaged away by the unkicked crumple masses on a quiet wreck, and the
-  // settle clamp then parks the car for good.
+  // Crashed: the rigid body is the wreck's pose (`stepFree`), its spin the masses' real spin (`followGroup`). The steer turns the body and
+  // its masses together about the masses' centre, a position correction that leaves the crush in the body frame and the spin as it is.
   // A freewheeling car (`neutral`) is not a sliding wreck either: its tyres are applyDrive's, so it is kept under power.
   if (want !== 0 || d.neutral) car.deform.notifyPower();
   _turn[0] = c;
   _turn[1] = s;
   _turn[2] = nvx - vx;
   _turn[3] = nvz - vz;
-  driveMasses(car.deform.masses, _turn);
+  if (driveMasses(car.deform.masses, _turn)) {
+    const g = car.group;
+    const px = g.position.x - turnAt[0]!;
+    const pz = g.position.z - turnAt[1]!;
+    g.position.x = turnAt[0]! + px * c + pz * s;
+    g.position.z = turnAt[1]! - px * s + pz * c;
+    g.quaternion.premultiply(_yaw.set(0, detSin(dyaw / 2), 0, detCos(dyaw / 2)));
+  }
   car.deform.driveTurn(yawRate);
   car.velocity.x = nvx;
   car.velocity.z = nvz;
-  car.angular.y = yawRate;
   car.speed = car.velocity.length();
 }
 
@@ -341,12 +346,12 @@ type DriveMass = {
 };
 
 /**
- * Rigid yaw (cos `turn[0]`, sin `turn[1]`) of every dynamic mass about their centre of mass, its positions and its velocities
- * relative to the mean alike (the body's internal motion, spin included, turns with it: turning positions alone left the
- * velocities behind, and a steered spinning wreck lost or gained angular momentum with no torque), plus a shared Δv
- * (`turn[2]`, `turn[3]`).
+ * Rigid yaw (cos `turn[0]`, sin `turn[1]`) of every dynamic mass about their centre of mass (left in `turnAt`: x, z), its positions and
+ * its velocities relative to the mean alike (the body's internal motion, spin included, turns with it: turning positions alone left the
+ * velocities behind, and a steered spinning wreck lost or gained angular momentum with no torque), plus a shared Δv (`turn[2]`, `turn[3]`).
+ * Returns false when there is no mass to turn.
  */
-function driveMasses(masses: readonly DriveMass[], turn: Float64Array): void {
+function driveMasses(masses: readonly DriveMass[], turn: Float64Array): boolean {
   const c = turn[0]!;
   const s = turn[1]!;
   const ax = turn[2]!;
@@ -365,9 +370,11 @@ function driveMasses(masses: readonly DriveMass[], turn: Float64Array): void {
     vz += n.vel.z * n.mass;
     m += n.mass;
   }
-  if (m <= 1e-8) return;
+  if (m <= 1e-8) return false;
   cx /= m;
   cz /= m;
+  turnAt[0] = cx;
+  turnAt[1] = cz;
   vx /= m;
   vz /= m;
   for (let ni = 0; ni < masses.length; ni++) {
@@ -382,6 +389,7 @@ function driveMasses(masses: readonly DriveMass[], turn: Float64Array): void {
     n.vel.x = vx + ux * c + uz * s + ax;
     n.vel.z = vz - ux * s + uz * c + az;
   }
+  return true;
 }
 
 export const BOOST = { full: 1.6, recharge: 4.5, takedown: 0.4 };

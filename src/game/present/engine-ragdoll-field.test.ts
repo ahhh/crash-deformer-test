@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import * as THREE from "three";
 import "../kernel/rapier-node.test-util.ts";
 import type { RigidBody } from "@dimforge/rapier3d-simd";
-import { launch, makeCar, makeWorld, tickWorld } from "../contact/crash-scenarios.test-util.ts";
+import { FREEWHEEL, launch, makeCar, makeWorld, tickWorld } from "../contact/crash-scenarios.test-util.ts";
 import { blankEjection } from "../vehicle/ejection.ts";
 import type { DeformableCar } from "../vehicle/car.ts";
 import { RagdollSystem } from "./engine-ragdoll.ts";
@@ -92,7 +92,7 @@ describe("given 32 cars driving around the middle of an open field and drivers t
   it("when a car comes at a dummy lying 40 m ahead of it at 25 m/s, then it strikes him and shoves him at least 3 m", async () => {
     const car = makeCar("shape", 0.32, 0.45);
     launch(car, -40, 0, Math.PI / 2, 0, 0);
-    const w = makeWorld([car], false, false);
+    const w = makeWorld([car], false, false, FREEWHEEL);
     const ragdolls = new RagdollSystem(new THREE.Scene(), () => {}, () => {});
     await ragdolls.preload();
     const frame = () => {

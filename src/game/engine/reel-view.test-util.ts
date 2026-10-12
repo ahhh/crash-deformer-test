@@ -352,13 +352,22 @@ export function stage(track: Track, a: World["cars"][number], b: World["cars"][n
   put(track, b, pt.x - nx * 3, pt.z - nz * 3, Math.atan2(nx, nz), 4);
 }
 
-/** The player's seat floors it, wheel straight: a staged crash's car that the seat drives keeps its speed into the hit. */
+/**
+ * The player's seat floors it, wheel straight: a staged crash's car that the seat drives keeps its speed into the hit, and comes off the
+ * gas once it meets the other car (a wreck the seat kept flooring drove on into a second, harder crash 2.6 s later, and that crash's
+ * clip cut the staged hit's short of its post-roll).
+ */
 function floor(w: World): void {
   const i = w.seat.intent;
   i.wheel = 0;
   i.gas = 1;
   i.brake = 0;
   i.handbrake = false;
+  w.onPairContact = (a, b) => {
+    if (a !== w.seat.carIndex && b !== w.seat.carIndex) return;
+    i.gas = 0;
+    w.onPairContact = null;
+  };
 }
 
 /** A race recorded: the clips its recorder kept and the recorder second (`CrashRecorder.now`) each staged crash began at. */

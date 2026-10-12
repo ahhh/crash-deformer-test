@@ -11,7 +11,7 @@ import type { DeformMode } from "../deform/deform-rig.ts";
 import { mass, paint } from "../vehicle/test-support.ts";
 import { newWorld, stepWorld, type World } from "../engine/world-step.ts";
 import { EjectionWatch, type Ejection } from "../vehicle/ejection.ts";
-import { applyDrive, type DriveInput } from "../vehicle/car-drive.ts";
+import { applyDrive, idleDrive, type DriveInput } from "../vehicle/car-drive.ts";
 import { layOnGround } from "../vehicle/car-air.ts";
 import type { SimPacer } from "../engine/sim-pace.ts";
 
@@ -87,6 +87,8 @@ export type CrashWorld = {
   preContact: Map<DeformableCar, THREE.Vector3>;
   /** Where each car's hulls first reached the held slab's face (`HeldBarrier.touch`). */
   touch: Map<DeformableCar, THREE.Vector3>;
+  /** Each car's own input, applied before every slice as the engine's drive call does. A car with none takes the world's `drive` (`makeWorld`: the zero input, `idleDrive`, unless the scenario states another), except a car a scene stands `parked` (`DeformableCar.parked`), which the engine gives no drive call until a driver's input comes. */
+  pedals: Map<DeformableCar, DriveInput>;
   /** Every driver the sim threw out so far (`world.ejection`, drained each step), and a hook for the engine's own use of them (the ragdolls). */
   ejections: Ejection[];
   onEject: ((e: Ejection) => void) | null;
@@ -450,46 +452,64 @@ export function run(w: CrashWorld, probes: Probe[], after: number): void {
   }
 }
 
-export function makeWorld(cars: DeformableCar[], barrier: boolean, slomo: boolean): CrashWorld {
+/**
+ * The engine's step over `cars`. `drive` is the input every car without its own (`pedals`) takes in each slice, as the engine's
+ * drive call gives a car its controller's: the zero input a driverless car gets (a derby's dead AI, a race's `coast`), `FREEWHEEL`
+ * for a crash test run in neutral, or `null` for a sandbox scene car that nobody drives (the engine makes no drive call for it).
+ */
+export function makeWorld(cars: DeformableCar[], barrier: boolean, slomo: boolean, drive: DriveInput | null = IDLE): CrashWorld {
   const preContact = new Map<DeformableCar, THREE.Vector3>();
   const slab = barrier ? new HeldBarrier(new THREE.Scene(), new THREE.Group()) : null;
   const world = newWorld(cars, slab);
-  world.beforeSlice = () => {
-    for (const car of cars) if (!car.crashed) preContact.set(car, (preContact.get(car) ?? new THREE.Vector3()).copy(car.group.position));
+  const pedals = new Map<DeformableCar, DriveInput>();
+  world.beforeSlice = (h) => {
+    for (const car of cars) {
+      const pedal = pedals.get(car) ?? (car.parked ? null : drive);
+      if (pedal) applyDrive(car, pedal, h);
+      if (!car.crashed) preContact.set(car, (preContact.get(car) ?? new THREE.Vector3()).copy(car.group.position));
+    }
     return false;
   };
   world.ejection = new EjectionWatch();
-  return { cars, acc: 0, clock: phaseClock(), slomo, preContact, touch: slab?.touch ?? new Map(), world, ejections: [], onEject: null };
+  return { cars, acc: 0, clock: phaseClock(), slomo, preContact, touch: slab?.touch ?? new Map(), pedals, world, ejections: [], onEject: null };
+}
+
+/** Momentum (kg·m/s) of `c`'s dynamic masses along its heading. */
+function alongHeading(c: DeformableCar): number {
+  let p = 0;
+  for (const m of c.deform.masses) if (m.dynamic) p += m.mass * (m.vel.x * c.fwdFlat.x + m.vel.z * c.fwdFlat.z);
+  return p;
 }
 
 /**
- * `cars` hold full throttle (`applyDrive`, every slice) from the slice a car first crashes, for `seconds`: a driver who
- * keeps the gas down through the hit. Returns the speed (m/s) the drive added to each car's masses along its heading,
- * filled as the world runs.
+ * `cars` hold full throttle (their `pedals`, every slice) from the slice a car first crashes, for `seconds`: a driver who
+ * keeps the gas down through the hit, then back to the pedals they had. Returns the speed (m/s) the drive added to each
+ * car's masses along its heading, filled as the world runs.
  */
 export function holdThrottle(w: CrashWorld, cars: DeformableCar[], seconds: number): number[] {
   const added = cars.map(() => 0);
   const inner = w.world.beforeSlice!;
+  const own = cars.map((c) => w.pedals.get(c));
   let since = -1;
   w.world.beforeSlice = (h) => {
     if (since < 0 && w.cars.some((c) => c.crashed)) since = 0;
-    if (since >= 0 && since < seconds) {
-      since += h;
-      for (const [i, c] of cars.entries()) {
-        const fx = c.fwdFlat.x;
-        const fz = c.fwdFlat.z;
-        let before = 0;
-        let after = 0;
-        for (const m of c.deform.masses) if (m.dynamic) before += m.mass * (m.vel.x * fx + m.vel.z * fz);
-        applyDrive(c, { throttle: 1, steer: 0, brake: 0, ebrake: false, boost: false }, h);
-        for (const m of c.deform.masses) if (m.dynamic) after += m.mass * (m.vel.x * fx + m.vel.z * fz);
-        added[i]! += (after - before) / c.deform.totalMass;
-      }
+    const held = since >= 0 && since < seconds;
+    if (held) since += h;
+    for (const [i, c] of cars.entries()) {
+      const pedal = held ? GAS : own[i];
+      if (pedal) w.pedals.set(c, pedal);
+      else w.pedals.delete(c);
     }
-    return inner(h);
+    const before = cars.map(alongHeading);
+    const out = inner(h);
+    if (held) for (const [i, c] of cars.entries()) added[i]! += (alongHeading(c) - before[i]!) / c.deform.totalMass;
+    return out;
   };
   return added;
 }
+
+/** A broadside car's gap (m) to the face at the start: its tyres' lateral grip stops a sideways slide in 0.5 m, so it is staged at the face. */
+const SIDE_RUN_IN = 0.05;
 
 export type WallApproach = "front" | "rear" | "side";
 
@@ -503,13 +523,10 @@ export function runWall(speedKph: number, overlap = 1, approach: WallApproach = 
   const car = opts.car ?? makeCar(opts.mode, opts.squash, opts.buckle);
   const z = approach !== "side" && overlap < 1 ? BARRIER_HALF.z + 0.88 * (1 - 2 * overlap) : 0;
   const yaw = approach === "front" ? -Math.PI / 2 : approach === "rear" ? Math.PI / 2 : 0;
-  if (car.crashed) {
-    // Struck end 0.5 m off the face: a wreck coasting in from the spawn mark bleeds most of `v`.
-    relaunchDamaged(car, BARRIER_HALF.x + 0.5 + strikeReach(car, approach), z, yaw, -v, 0);
-  } else {
-    launch(car, approach === "side" ? 2.6 : 6.2, z, yaw, -v, 0);
-  }
-  const w = makeWorld([car], true, opts.slomo ?? false);
+  const runIn = approach === "side" ? SIDE_RUN_IN : 0.5;
+  if (car.crashed) relaunchDamaged(car, BARRIER_HALF.x + runIn + strikeReach(car, approach), z, yaw, -v, 0);
+  else launch(car, approach === "side" ? BARRIER_HALF.x + runIn + strikeReach(car, approach) : 6.2, z, yaw, -v, 0);
+  const w = makeWorld([car], true, opts.slomo ?? false, FREEWHEEL);
   const probe = new Probe(car, car.velocity);
   run(w, [probe], opts.after ?? 1.5);
   return probe.finish();
@@ -525,10 +542,14 @@ export function strikeReach(car: DeformableCar, approach: WallApproach): number 
   return -minX;
 }
 
+/** The zero input a driverless car gets in the engine. */
+const IDLE = idleDrive();
+/** Full throttle, no steer: a driver keeping the gas down. */
+const GAS: DriveInput = { throttle: 1, steer: 0, brake: 0, ebrake: false, boost: false };
 /** A parked car's pedals: on its brake. */
-const PARKED: DriveInput = { throttle: 0, steer: 0, brake: 1, ebrake: false, boost: false };
-/** A launched car's pedals: freewheeling, so it meets the other at its launch speed less the road's drag. */
-const FREEWHEEL: DriveInput = { throttle: 0, steer: 0, brake: 0, ebrake: false, boost: false, neutral: true };
+export const PARKED: DriveInput = { throttle: 0, steer: 0, brake: 1, ebrake: false, boost: false };
+/** A staged car's pedals in a crash test, which runs in neutral: it meets the other at its launch speed less the road's drag, and a wreck coasts on (on the zero input its drive's engine braking would stop it in under a second). */
+export const FREEWHEEL: DriveInput = { throttle: 0, steer: 0, brake: 0, ebrake: false, boost: false, neutral: true };
 
 /**
  * Two-car hit. `head-on`: full overlap, nose to nose along X. `t-bone`: car B
@@ -550,11 +571,7 @@ export function runPair(kphA: number, kphB: number, kind: "head-on" | "t-bone" =
   layOnGround(a);
   layOnGround(b);
   const w = makeWorld([a, b], false, opts.slomo ?? false);
-  const recordPreContact = w.world.beforeSlice!;
-  w.world.beforeSlice = (h) => {
-    for (const car of w.cars) if (!car.crashed) applyDrive(car, car.spawnSpeed === 0 ? PARKED : FREEWHEEL, h);
-    return recordPreContact(h);
-  };
+  for (const car of w.cars) w.pedals.set(car, car.spawnSpeed === 0 ? PARKED : FREEWHEEL);
   const dirA = kind === "head-on" ? new THREE.Vector3(1, 0, 0) : new THREE.Vector3(-1, 0, 0);
   const pa = new Probe(a, dirA);
   const pb = new Probe(b, new THREE.Vector3(-1, 0, 0));

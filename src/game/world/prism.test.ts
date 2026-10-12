@@ -1,6 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { armSolids, C_DEPTH, C_H, C_NX, C_NY, C_NZ, HIT_SIZE, KNOCK, MOUNT, pointContact, PQ_SIZE, PQ_VX, PQ_VZ, PQ_X, PQ_Y, PQ_Z, STEP_MAX, Surface, WALL } from "./surfaces.ts";
+import { armSolids, C_DEPTH, C_H, C_NX, C_NY, C_NZ, HIT_SIZE, KNOCK, MOUNT, pointContact, PQ_BODY, PQ_SIZE, PQ_VX, PQ_VZ, PQ_X, PQ_Y, PQ_Z, STEP_MAX, Surface, WALL } from "./surfaces.ts";
+import "./ground.ts";
 import { CLASSES } from "../vehicle/vehicle-classes.ts";
 import { TYRE_R } from "../deform/deform-state.ts";
 import { ENTRY_WINDOW, SOLID_AT_REST } from "./constants.ts";
@@ -17,12 +18,13 @@ function solids(...specs: Parameters<Surface["addPrism"]>[0][]): Surface {
 const q = new Float64Array(PQ_SIZE);
 const out = new Float64Array(HIT_SIZE);
 
-function ask(x: number, y: number, z: number, vx = 0, vz = 0): Float64Array {
+function ask(x: number, y: number, z: number, vx = 0, vz = 0, body = false): Float64Array {
   q[PQ_X] = x;
   q[PQ_Y] = y;
   q[PQ_Z] = z;
   q[PQ_VX] = vx;
   q[PQ_VZ] = vz;
+  q[PQ_BODY] = body ? 1 : 0;
   pointContact(q, -1, out);
   return out;
 }
@@ -50,12 +52,23 @@ describe("given a box prism in the scene's solids", () => {
     armSolids(null);
   });
 
-  it("when a point is in it no deeper than the step a tyre mounts then it stands on the top: the same box is a kerb for a tyre and a wall for a hull point", () => {
+  it("when a point is in it no deeper than the step a tyre mounts then it stands on the top if it is a tyre's or no deeper under it than the face it is in is deep: a body point in a side face is in a wall", () => {
     solids(BOX);
     const kerb = ask(0.9, 1 - STEP_MAX * 0.9, 0);
     assert.equal(kerb[C_H], 1);
-    const wall = ask(0.9, 1 - STEP_MAX * 1.1, 0);
+    const wall = ask(0.9, 1 - STEP_MAX * 0.9, 0, 0, 0, true);
     assert.equal(wall[C_H], -Infinity);
+    assert.equal(wall[C_NY], 0);
+    assert.ok(Math.abs(wall[C_DEPTH]! - 0.1) < 1e-12, `depth ${wall[C_DEPTH]}`);
+    const beyond = ask(0.9, 1 - STEP_MAX * 1.1, 0);
+    assert.equal(beyond[C_H], -Infinity);
+    armSolids(null);
+  });
+
+  it("when a body point is under the top by less than the face it is in is deep then it stands on the top", () => {
+    solids(BOX);
+    const hit = ask(0.2, 1 - 0.002, 0.3, 0, 0, true);
+    assert.equal(hit[C_H], 1);
     armSolids(null);
   });
 

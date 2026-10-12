@@ -120,7 +120,7 @@ function fallAcceleration(): number {
     car.spawnFacing(0, 0, 0, 0);
     car.group.position.y = 500;
     car.airborne = true;
-    const w = makeWorld([car], false, false);
+    const w = makeWorld([car], false, false, null);
     let t = 0;
     w.world.afterCar = (_c, h) => void (t += h);
     tickWorld(w, FRAME);
@@ -266,7 +266,7 @@ function fall(face: Face, y: number, windowed: boolean): Fall {
   const g = fallAcceleration();
   const car = hang(face, y);
   const releaseTiltDeg = tiltOf(car, face);
-  const w = makeWorld([car], false, false);
+  const w = makeWorld([car], false, false, null);
   const run = startRun(car);
   const state = { landing: null as Landing | null, fell: 0, prev: 0, crush: null as Crush | null };
   w.world.afterCar = (c, h) => {

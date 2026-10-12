@@ -1072,8 +1072,9 @@ const _face = new Float64Array(F_SIZE);
 
 /**
  * Prism patch `i` at the point: a floor candidate (`_s[S_H]`, the top's height and its slope) where the point is inside the
- * plan and over the base, for a point not deeper under the top than a tyre mounts (`P_REACH`) or one that came in through the
- * top (`exitFace`: it landed); else the face it entered by as the side answer if that is the deepest so far (`S_SDEPTH`).
+ * plan and over the base, for a tyre not deeper under the top than it mounts (`P_REACH`), a body point (`PQ_BODY`: a cage vertex, a
+ * belly row) no deeper under it than the face it is in is deep, or a point that came in through the top (`exitFace`: it landed); else
+ * the face it entered by as the side answer if that is the deepest so far (`S_SDEPTH`).
  * NaN: no candidate, outside the plan or under the base (a body passes beneath).
  */
 function prismAt(s: Surface, i: number, q: Float64Array): void {
@@ -1098,16 +1099,23 @@ function prismAt(s: Surface, i: number, q: Float64Array): void {
   _s[S_H] = top;
   _s[S_CG0] = P[o + PR_GU]! * c + P[o + PR_GW]! * sn;
   _s[S_CG1] = -P[o + PR_GU]! * sn + P[o + PR_GW]! * c;
-  _s[S_CREACH] = P[o + P_REACH]!;
-  if (top - y <= P[o + P_REACH]!) return;
+  const mounts = P[o + P_REACH]!;
+  const body = q[PQ_BODY] === 1;
+  const under = top - y;
+  _s[S_CREACH] = mounts;
+  if (under <= (body ? 0 : mounts)) return;
   const entered = exitFace(P, o, x, y, z, q[PQ_VX]!, q[PQ_VY]!, q[PQ_VZ]!, _face);
   if (entered === IN_TOP) _s[S_CREACH] = Infinity;
-  else if (entered === IN_SIDE && _face[F_DEPTH]! > _s[S_SDEPTH]!) {
-    _s[S_SDEPTH] = _face[F_DEPTH]!;
-    _s[S_SNX] = _face[F_NX]!;
-    _s[S_SNZ] = _face[F_NZ]!;
-    _s[S_SPATCH] = i;
-    live.side = s;
+  else if (entered === IN_SIDE) {
+    if (body && under <= mounts && under <= _face[F_DEPTH]!) return;
+    _s[S_CREACH] = 0;
+    if (_face[F_DEPTH]! > _s[S_SDEPTH]!) {
+      _s[S_SDEPTH] = _face[F_DEPTH]!;
+      _s[S_SNX] = _face[F_NX]!;
+      _s[S_SNZ] = _face[F_NZ]!;
+      _s[S_SPATCH] = i;
+      live.side = s;
+    }
   }
 }
 
@@ -1266,11 +1274,13 @@ export function heightGrip(): number {
 export const PQ_X = 0;
 export const PQ_Z = 1;
 export const PQ_Y = 2;
-export const PQ_SIZE = 6;
+export const PQ_SIZE = 7;
 /** The point's own velocity (m/s): the face it came in through is the one this opposes (`exitFace`); 0 for a point at rest or one that never asks a wall. */
 export const PQ_VX = 3;
 export const PQ_VZ = 4;
 export const PQ_VY = 5;
+/** 1 for a point of a body's own shape (a cage vertex, a belly row): a prism's side it is in answers the face, however shallow; 0 (a tyre) mounts a step within the prism's reach under its top. */
+export const PQ_BODY = 6;
 
 /**
  * The surface at plan (x, z) of the query point `q` (`PQ_X`, `PQ_Z`, `PQ_Y`) under a body asking from height y (`Infinity`: the

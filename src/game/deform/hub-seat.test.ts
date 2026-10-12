@@ -18,6 +18,11 @@ class Seat extends StreamedDeformation {
   seat(): void {
     this.seatHubs();
   }
+
+  ride(vx: number, vz: number, w: number): void {
+    this.bodyV.set(vx, 0, vz);
+    this.bodyW.set(0, w, 0);
+  }
 }
 
 function wreck(): Seat {
@@ -41,14 +46,22 @@ function centroid(d: Seat): [number, number] {
   return [x / m, z / m];
 }
 
-/** Every mass moving as one rigid body turning `w` rad/s about the masses' centroid (v = w (z, −x)). */
+/** Every mass moving as one rigid body turning `w` rad/s about the masses' centroid (v = w (z, −x)), the body they ride: its spin `w` and the velocity of the frame masses' centroid (the one `seatHubs` measures from). */
 function spinRigid(d: Seat, w: number): void {
   const [cx, cz] = centroid(d);
+  let vx = 0;
+  let vz = 0;
+  let mass = 0;
   for (const q of d.masses) {
     q.vel.x = w * (q.world.z - cz);
     q.vel.y = 0;
     q.vel.z = -w * (q.world.x - cx);
+    if (!q.dynamic || q.hub) continue;
+    vx += q.vel.x * q.mass;
+    vz += q.vel.z * q.mass;
+    mass += q.mass;
   }
+  d.ride(vx / mass, vz / mass, w);
 }
 
 /** Angular momentum about the centroid (y), all masses. */

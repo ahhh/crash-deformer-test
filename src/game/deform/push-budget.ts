@@ -54,6 +54,11 @@ export class PushBudget {
     this.z += dz;
   }
 
+  /** The net translation (m) the slice at `elapsed` took along the unit (nx, nz) so far (0 in a slice that took none). */
+  along(elapsed: number, nx: number, nz: number): number {
+    return this.at === elapsed ? this.x * nx + this.z * nz : 0;
+  }
+
   /** The most (m) a slice's net translation reaches by pushes, at slice length `dt` with the touching cars at `touchSpeed`. */
   private static reach(dt: number, touchSpeed: number): number {
     return Math.min(satPushCap(dt), (PUSH_SPEED + TOUCH_GAIN * touchSpeed) * dt);

@@ -102,7 +102,7 @@ function spawnAtBarrier(z: number, speed: number, mode: DeformMode): DeformableC
 
 /** `simSec` of the engine's step against the held slab, in steps of at most `frameDt` (tiny wall frames are slomo). */
 function runFor(car: DeformableCar, simSec: number, frameDt: number): void {
-  const w = makeWorld([car], true, false).world;
+  const w = makeWorld([car], true, false, null).world;
   let t = 0;
   while (t < simSec) {
     const h = physicsSlice(Math.min(frameDt, simSec - t), car.speed);
@@ -215,7 +215,7 @@ describe("given the top speed any driven car can reach (every class's top speed 
           b.spawnFacing(start, 0, -Math.PI / 2, 0);
           b.velocity.set(-v, 0, 0);
           b.speed = v;
-          const w = makeWorld([a, b], false, false);
+          const w = makeWorld([a, b], false, false, null);
           let worst = kind === "head-on" ? Infinity : -Infinity;
           for (let f = 0; f < 90; f++) {
             tickWorld(w);

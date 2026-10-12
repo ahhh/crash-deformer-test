@@ -1,7 +1,8 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { SimPacer } from "../engine/sim-pace.ts";
-import { launch, makeWorld, tickWorld } from "./crash-scenarios.test-util.ts";
+import { stepWorld } from "../engine/world-step.ts";
+import { FREEWHEEL, launch, makeWorld, tickWorld } from "./crash-scenarios.test-util.ts";
 import { classCar } from "../vehicle/ejection.test-util.ts";
 
 /**
@@ -52,5 +53,31 @@ describe("given a sedan driving its nose into a parked sedan's right door at 20 
       }
     }
     assert.deepEqual(apart, []);
+  });
+});
+
+/** A sedan at 56 km/h into the rigid wall, stepped at 1/120 s with the contact cut to slices of `fine` s (the pacer's floor): how far its nose crumples (m). */
+function wallNose(fine: number): number {
+  const car = classCar("sedan");
+  launch(car, 6.2, 0, -Math.PI / 2, -56 / 3.6, 0);
+  const w = makeWorld([car], true, false, FREEWHEEL);
+  const d = car.deform;
+  const length = (): number => (d.massLocal("bumperFL").z + d.massLocal("bumperFR").z) / 2 - d.massLocal("cell").z;
+  const before = length();
+  w.world.fine = fine;
+  for (let i = 0; i < 180; i++) {
+    stepWorld(w.world, 1 / 120);
+    car.stepBreakage(1 / 120);
+  }
+  const nose = before - length();
+  car.dispose();
+  return nose;
+}
+
+describe("given a sedan driving into the rigid wall at 56 km/h in 1/120 s steps", () => {
+  it("when the hit is cut into 2 slices of 1/240 s or 3 of 1/360 s, then the nose crumples the same to within 1 cm", () => {
+    const coarse = wallNose(1 / 240);
+    const fine = wallNose(1 / 360);
+    assert.ok(Math.abs(coarse - fine) <= 0.01, `nose ${coarse.toFixed(3)} m in 2 slices, ${fine.toFixed(3)} m in 3`);
   });
 });

@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { applyDrive, type DriveInput } from "./car-drive.ts";
 import { DeformableCar } from "./car.ts";
 import { UNDERSIDE } from "./car-suspension.ts";
+import { sampleField } from "../contact/cage-outline.ts";
 import { layOnGround } from "./car-air.ts";
 import { assignClass, CLASSES, type VehicleClassId } from "./vehicle-classes.ts";
 import { paint } from "./test-support.ts";
@@ -220,11 +221,17 @@ export function fit(car: DeformableCar, ground: Ground): Fit {
       overlapAt = name;
     }
   };
-  for (const [x, z, h] of UNDERSIDE) probe(`under(${x},${z})`, x, h, z);
+  // The stock underside is the intact car's drawn underside; a wreck's is the cage's own bottom (a crushed nose stands up off the stock
+  // keel, and no drawn body is at a point the cage bottom has no node over), the height the rigid step rests its belly rows at.
+  car.refitCage();
+  const wreck = car.deform.massActive;
+  for (const [x, z, h] of UNDERSIDE) {
+    const drawn = wreck ? sampleField(car.cage.fields.bottom, car.cage.style, x, z) : h;
+    if (!Number.isNaN(drawn)) probe(`under(${x},${z})`, x, drawn, z);
+  }
   for (const [x, y, z] of BUMPERS) probe(`bumper(${x > 0 ? "+" : "-"}x,${z > 0 ? "front" : "rear"})`, x, y, z);
   // The cage's vertices (the drawn body's points the rigid step meets surfaces with, in the body's frame), so a car on its side or
   // roof is judged on the points it lies on.
-  car.refitCage();
   const cagePos = car.cage.fields.pos;
   for (let i = 0; i < car.cage.style.vertexCount; i++) {
     const x = cagePos[i * 3]!;

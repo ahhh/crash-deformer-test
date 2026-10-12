@@ -22,7 +22,7 @@ export function readCarPose(car: DeformableCar, f: CarFrame): void {
   f.vx = car.velocity.x;
   f.vy = car.velocity.y;
   f.vz = car.velocity.z;
-  f.wy = car.angular.y;
+  f.wy = car.yawRate;
   f.crashed = car.crashed;
   f.vaporized = car.vaporized;
   f.falling = car.falling;

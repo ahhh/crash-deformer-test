@@ -2,7 +2,7 @@ import { afterEach, describe, it } from "node:test";
 import assert from "node:assert/strict";
 import * as THREE from "three";
 import { DeformableCar } from "./car.ts";
-import { applyDrive, type DriveInput } from "./car-drive.ts";
+import type { DriveInput } from "./car-drive.ts";
 import { assignClass } from "./vehicle-classes.ts";
 import { COM_Y, CONTACT_HZ, G } from "./car-air.ts";
 import { paint } from "./test-support.ts";
@@ -85,9 +85,9 @@ function drive(ground: Ground, z: number, yaw: number, y: number, times: readonl
   const c = sedan(0, z, yaw, y);
   const w = makeWorld([c], false, false);
   settle(w, 3);
+  w.pedals.set(c, FULL);
   const run: Run = { speeds: [], z: [] };
   for (let f = 1; f <= times[times.length - 1]! / FRAME; f++) {
-    applyDrive(c, FULL, FRAME);
     tickWorld(w, FRAME);
     if (times.some((t) => Math.round(t / FRAME) === f)) {
       run.speeds.push(Math.hypot(c.velocity.x, c.velocity.z));
@@ -149,9 +149,9 @@ function driveOnRoof(cls: "sedan" | "monster", times: readonly number[], under: 
   const w = makeWorld(cars, false, false);
   settle(w, 5);
   const rest = upper.group.position.y;
+  w.pedals.set(upper, FULL);
   const run: Run = { speeds: [], z: [] };
   for (let f = 1; f <= times[times.length - 1]! / FRAME; f++) {
-    applyDrive(upper, FULL, FRAME);
     tickWorld(w, FRAME);
     if (times.some((t) => Math.round(t / FRAME) === f)) {
       run.speeds.push(Math.hypot(upper.velocity.x, upper.velocity.z));
@@ -223,10 +223,8 @@ function flight(ground: Ground, top: number): { time: number; fell: number; stra
     clock += h;
     return inner(h);
   };
-  for (let f = 0; f < 4 / FRAME && !landed; f++) {
-    applyDrive(c, FULL, FRAME);
-    tickWorld(w, FRAME);
-  }
+  w.pedals.set(c, FULL);
+  for (let f = 0; f < 4 / FRAME && !landed; f++) tickWorld(w, FRAME);
   assert.ok(landed, "the sedan never left the top and landed");
   return { time: lastAir, fell, stray, vy0 };
 }

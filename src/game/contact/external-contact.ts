@@ -212,8 +212,11 @@ const result = new Float64Array(OUT_SIZE);
  * Row 0 of `rows`: the car as one rigid body in plan, read off its masses (a car that is no wreck moves as its group does): mass, yaw
  * inertia and centre of its masses, and the spin their velocities have about it. What closes on the face is the structure still
  * driving into it (a nose held on the face is at rest on it, and the face's impulse cannot reach it): the row's velocity is the mean of
- * the masses moving into the face faster than `faceVn` along the normal, so the cabin piling into the stopped nose is the closing the
- * crush force acts on, and `shiftBody` gives the increment to those masses alone. With none driving, or no wreck, it is every mass.
+ * the masses moving into the face faster than `faceVn` along the normal, taken back to the centre by the body's spin (a rigid wreck
+ * turning at `w` has those masses `w × r` off its centre's velocity, which the kernel adds again at the contact: left in, a spinning
+ * rigid body closed on its partner by its own turn every slice, whatever the slice's length), so the cabin piling into the stopped
+ * nose is the closing the crush force acts on, and `shiftBody` gives the increment to those masses alone. With none driving, or no
+ * wreck, it is every mass.
  */
 export function carRow(out: Float64Array, o: number, car: DeformableCar, nx: number, nz: number, faceVn: number): void {
   const masses = car.deform.masses;
@@ -224,6 +227,8 @@ export function carRow(out: Float64Array, o: number, car: DeformableCar, nx: num
   let px = 0;
   let pz = 0;
   let drivingMass = 0;
+  let drivingPX = 0;
+  let drivingPZ = 0;
   let drivingX = 0;
   let drivingZ = 0;
   for (let i = 0; i < masses.length; i++) {
@@ -238,6 +243,8 @@ export function carRow(out: Float64Array, o: number, car: DeformableCar, nx: num
       drivingMass += m.mass;
       drivingX += m.mass * m.vel.x;
       drivingZ += m.mass * m.vel.z;
+      drivingPX += m.mass * m.world.x;
+      drivingPZ += m.mass * m.world.z;
     }
   }
   cx /= mass;
@@ -259,9 +266,12 @@ export function carRow(out: Float64Array, o: number, car: DeformableCar, nx: num
   out[o + BODY_I] = inertia;
   out[o + BODY_X] = cx;
   out[o + BODY_Z] = cz;
-  out[o + BODY_VX] = driving ? drivingX / drivingMass : meanX;
-  out[o + BODY_VZ] = driving ? drivingZ / drivingMass : meanZ;
-  out[o + BODY_W] = live ? spin / inertia : car.angular.y;
+  const w = live ? spin / inertia : car.angular.y;
+  // The driving masses' mean velocity is the body's at their centroid: referred to the centre, a rigid spinning wreck presents no closing of its own.
+  const lever = driving ? drivingMass : 1;
+  out[o + BODY_VX] = driving ? drivingX / drivingMass - w * (drivingPZ / lever - cz) : meanX;
+  out[o + BODY_VZ] = driving ? drivingZ / drivingMass + w * (drivingPX / lever - cx) : meanZ;
+  out[o + BODY_W] = w;
   out[o + BODY_HARD] = 1;
 }
 
@@ -274,11 +284,29 @@ export function takeRow(car: DeformableCar, rows: Float64Array, o: number, vx: n
   const dvx = rows[o + BODY_VX]! - vx;
   const dvz = rows[o + BODY_VZ]! - vz;
   const dw = rows[o + BODY_W]! - w;
-  if (car.deform.massActive) return car.deform.shiftBody(dvx, dvz, dw, rows[o + BODY_X]!, rows[o + BODY_Z]!, nx, nz, refVn);
+  if (car.deform.massActive) return car.deform.shiftBody(car.velocity, car.angular, dvx, dvz, dw, rows[o + BODY_X]!, rows[o + BODY_Z]!, nx, nz, refVn);
   car.velocity.x += dvx;
   car.velocity.z += dvz;
   car.angular.y += dw;
   return (dvx * nx + dvz * nz) * rows[o + BODY_M]!;
+}
+
+/** Every dynamic mass of `car` takes the rigid motion of the row at `o` of `rows` (its velocity and spin about its centre): momentum and angular momentum kept, the internal motion gone. */
+export function moveAsOneBody(car: DeformableCar, rows: Float64Array, o: number): void {
+  if (!car.deform.massActive) return;
+  const vx = rows[o + BODY_VX]!;
+  const vz = rows[o + BODY_VZ]!;
+  const w = rows[o + BODY_W]!;
+  const cx = rows[o + BODY_X]!;
+  const cz = rows[o + BODY_Z]!;
+  car.velocity.x = vx;
+  car.velocity.z = vz;
+  car.angular.y = w;
+  for (const q of car.deform.masses) {
+    if (!q.dynamic) continue;
+    q.vel.x = vx + w * (q.world.z - cz);
+    q.vel.z = vz - w * (q.world.x - cx);
+  }
 }
 
 /** Row 1 of `rows`: the striker box on rails (no spin of its own), its mass (`Infinity` kinematic) and the hardness of its face. */
@@ -316,6 +344,7 @@ function exchange(car: DeformableCar, box: ContactBox, depth: number, maxJ: numb
   const j = bodyContact(rows, 0, STRIKER, contact, result);
   if (j === 0) return 0;
   const taken = takeRow(car, rows, 0, vx, vz, w, _n.x, _n.z, box.vx * _n.x + box.vz * _n.z);
+  if (maxJ === Infinity) moveAsOneBody(car, rows, 0);
   return car.deform.massActive ? taken : j;
 }
 
@@ -327,6 +356,9 @@ const faceRows = new Float64Array(2 * BODY_SIZE);
 const faceContact = new Float64Array(CT_SIZE);
 const faceResult = new Float64Array(OUT_SIZE);
 
+/** [0]: the deepest mass (m) past the face in the last `holdOnFace` call, as it met them; -Infinity when none was inside. */
+const holdDepth = new Float64Array(1);
+
 /**
  * The rigid slab (centre `cx`/`cz`, half extents `hx`/`hz`, rotated by `yaw`) at rest in the frame the masses' velocities are in: each
  * mass inside it is one kernel contact (`bodyContact`: the mass a point body, the slab kinematic; plastic, no friction) along the
@@ -335,7 +367,10 @@ const faceResult = new Float64Array(OUT_SIZE);
  */
 export function holdOnFace(d: DeformableCar["deform"], cx: number, cz: number, hx: number, hz: number, yaw: number, ends: boolean): number {
   const n = d.faceHits(cx, cz, hx, hz, yaw, ends, faceHits, faceWho);
-  if (n === 0) return 0;
+  if (n === 0) {
+    holdDepth[0] = -Infinity;
+    return 0;
+  }
   const masses = d.masses;
   faceRows[BODY_SIZE + BODY_M] = Infinity;
   faceRows[BODY_SIZE + BODY_I] = Infinity;
@@ -352,6 +387,8 @@ export function holdOnFace(d: DeformableCar["deform"], cx: number, cz: number, h
   faceContact[CT_MU] = 0;
   faceContact[CT_JMAX] = Infinity;
   let taken = 0;
+  holdDepth[0] = -Infinity;
+  for (let i = 0; i < n; i++) holdDepth[0] = Math.max(holdDepth[0]!, faceHits[i * FACE_ROW + 4]!);
   for (let i = 0; i < n; i++) {
     const o = i * FACE_ROW;
     const m = masses[faceWho[i]!]!;
@@ -381,9 +418,11 @@ export function holdOnFace(d: DeformableCar["deform"], cx: number, cz: number, h
  * the lever of the point and the striker's mass and face hardness are in it). The particles are held on the face in the striker's
  * frame (`holdOnFace`, the barrier's slab) and, with `crush`, the face's momentum exchange (`bodyContact`) is limited by the
  * structure's crush force over the slice, which spends the hit's stroke, and gives the car its spin from the lever.
+ * `rigid` (a face closing no faster than the crush law's graze, `CRASH.grazeMps`) makes the exchange rigid and every mass takes the
+ * car's rigid motion, as the pair's exchange does below the graze (`exchangePair`).
  * Returns the momentum (N·s) the car took off the striker along its travel.
  */
-export function strikeCar(car: DeformableCar, box: ContactBox, dt: number, crush: boolean, arm = crush): number {
+export function strikeCar(car: DeformableCar, box: ContactBox, dt: number, crush: boolean, arm = crush, rigid = false): number {
   const d = car.deform;
   const fx = detSin(box.yaw);
   const fz = detCos(box.yaw);
@@ -398,6 +437,7 @@ export function strikeCar(car: DeformableCar, box: ContactBox, dt: number, crush
   bodyHit.z = _p.z;
   bodyHit.nx = fx;
   bodyHit.nz = fz;
+  let onset = false;
   // The hit's equivalent barrier speed is read before the face takes anything off the particles' speed.
   let armable = arm && closing > ARM_CLOSING && (box.fixed || !car.crashed);
   let barrierSpeed = 0;
@@ -405,13 +445,14 @@ export function strikeCar(car: DeformableCar, box: ContactBox, dt: number, crush
     exchange(car, box, Math.max(0, overlap), 0);
     barrierSpeed = result[OUT_EBS_A]!;
     if (near) {
-      car.applyImpact(_p, _n, closing, barrierSpeed);
+      onset = car.applyImpact(_p, _n, closing, barrierSpeed);
       armable = false;
     }
   }
   let taken = 0;
   let held = false;
   if (d.massActive) {
+    d.markMotion();
     const ub = box.vx * fx + box.vz * fz;
     shiftVelocities(car, -fx * ub, -fz * ub);
     // The slab's thin axis (`holdOnFace` x) is the striker's travel.
@@ -426,18 +467,33 @@ export function strikeCar(car: DeformableCar, box: ContactBox, dt: number, crush
       bodyHit.touching = true;
       // A wreck coming back for another hit touches the face with its particles while its shrunken hulls are clear of it: the fresh hit
       // arms here (before the contact is marked: a re-arm needs the quiet time the wreck has had).
-      if (armable) car.applyImpact(_p, _n, closing, barrierSpeed);
+      if (armable) {
+        d.takeMotion(car.velocity, car.angular);
+        car.applyImpact(_p, _n, closing, barrierSpeed);
+        d.markMotion();
+      }
       if (crush || arm) d.notifyContact();
       // A fixed solid's hulls are fed as crush for as long as they overlap it (the barrier slab's own rule). A striker that moves (a
       // piston head, a press plate) feeds them only until a particle reaches its face: from then on the structure's stroke (`exchange`)
       // spends the hit, and feeding the overlap as well crushes the corner twice (wing 0.188 m against 0.029 m on the corner piston).
-      if (crush && overlap > 0 && (box.fixed || d.faceContacts === 0)) d.feedOverlap(_p, _n, overlap, closing, dt);
+      // A fixed solid no particle reaches (a 0.4 m arm tip between the sedan's bumper particles) has the hulls alone to crush the nose: the
+      // slab holds particles on its face, so every metre the car goes on past it is crush, and the hulls' overlap is the whole of that
+      // here (the tip's 0.409 m of block travel against the slab's 0.499 at 55 m/s, the pair's 0.4 + 0.35·squash share fed).
+      if (crush && overlap > 0 && (box.fixed || d.faceContacts === 0)) d.feedOverlap(_p, _n, overlap, closing, dt, 0, box.fixed && d.faceContacts === 0);
     }
     shiftVelocities(car, fx * ub, fz * ub);
+    d.takeMotion(car.velocity, car.angular);
   }
   if (crush && held) {
     const ebs = Math.max(0, d.hitSpeedValue);
-    taken += exchange(car, box, Math.max(0, overlap), ((d.totalMass * ebs * ebs) / (2 * Math.max(0.05, d.hitStroke()))) * dt);
+    // The slice that arms the hit starts the stroke at the masses' first touch of the face, not at the slice's end: the arm waits for the
+    // hull to be within a slice of the face, and the masses (armed at the slice's start, `unstep`) met it earlier, by the depth they are in
+    // at that start (`holdDepth`) and the slice's own travel. The stroke spends that time, so where the grid cut the contact does not move it.
+    // With no mass in the face the hull's own overlap reads the touch.
+    const deepest = holdDepth[0]!;
+    const inContact = onset && closing > 0 ? (deepest > -Infinity ? Math.max(0, dt + deepest / closing) : Math.min(dt, Math.max(0, dt + overlap / closing))) : dt;
+    const maxJ = rigid ? Infinity : ((d.totalMass * ebs * ebs) / (2 * Math.max(0.05, d.hitStroke()))) * inContact;
+    taken += exchange(car, box, Math.max(0, overlap), maxJ);
   }
   return taken;
 }

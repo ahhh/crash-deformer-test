@@ -9,6 +9,7 @@ import { armCrushRows, contactHz } from "../vehicle/car-air.ts";
 import { CarSurfaces } from "../vehicle/car-surfaces.ts";
 import { armTops } from "../world/surfaces.ts";
 import { STOCK_PAINT } from "../vehicle/constants.ts";
+import { FINE_SLICE } from "./sim-pace.ts";
 
 /**
  * Everything one physics step touches besides the cars. The engine fills it per scene; a headless harness
@@ -47,9 +48,9 @@ export type World = {
   shape: number;
   /** A recorded `shape` the next `stepWorld` runs to the letter (a highlight replay); −1: the cars decide, as live. */
   plan: number;
-  /** The slice (s) the pacer's 1/240 s floor takes now (`SimPacer.fine`), which a step with a hit about to land is cut to; 0 where no pacer steps the world (a harness, a replay: the recorded `shape` decides there). */
+  /** The slice (s) the pacer's 1/240 s floor takes now (`SimPacer.fine`), which a step in contact is cut to; 0 where no pacer steps the world (a harness: contact is cut to `FINE_SLICE`; a replay: the recorded `shape` decides). */
   fine: number;
-  /** Steps `stepWorld` cut into more slices than it would have taken because a hit was about to land (to `fine`), counted up for ever (the bench reads differences). */
+  /** Steps in contact that `stepWorld` ran in more slices than a step of that length out of contact takes (1, or 2 above 12 ms), counted up for ever where `fine` is set (the bench reads differences). */
   fineCuts: number;
 };
 
@@ -104,6 +105,19 @@ function collectNear(cars: readonly DeformableCar[]): number {
   return k;
 }
 
+/** Two cars on one level within `resolveCarPair`'s reach (5.2 m, 27 m^2 of plan): their step is in contact, as a car at the barrier's is. */
+function carsInReach(cars: readonly DeformableCar[]): boolean {
+  const count = collectNear(cars);
+  for (let k = 0; k < count; k += 2) {
+    const a = cars[near.pairs[k]!]!;
+    const b = cars[near.pairs[k + 1]!]!;
+    const dx = a.group.position.x - b.group.position.x;
+    const dz = a.group.position.z - b.group.position.z;
+    if (dx * dx + dz * dz <= 27 && bandsMeet(a, b) && !a.falling && !b.falling) return true;
+  }
+  return false;
+}
+
 /**
  * One fixed step of the world (`dt` from `physicsSlice`), split into 1–8 slices: integrate or pose, part contact, one pass over the
  * slice's contacts (slab, car pairs), then the structure step, slab clip and `afterContacts` per car. The pair loops visit the
@@ -126,8 +140,7 @@ export function stepWorld(w: World, dt: number): void {
   let slices: number;
   if (w.plan >= 0) slices = (w.plan & 7) + 1;
   else {
-    slices = nearWall && dt > 0.006 ? 3 : dt > 0.012 ? 2 : 1;
-    // A step is solved at the rate a car in it asks for (`contactHz`): a body in flight touching something. A hit about to land (the pairs are marked here, the solids by the course's collide pass of the step before) is solved in slices no longer than the pacer's fine floor takes (`fine`).
+    // Contact (the barrier's reach, a car in reach, a hit about to land: the pairs are marked here, the solids by the course's collide pass of the step before) is solved in slices of the pacer's fine floor (`fine`, `FINE_SLICE` where none is set), whatever the step: one law for a hit at the 1/120 s step and at the 1/240 s one. A step is solved at the rate a car in it asks for (`contactHz`): a body in flight touching something.
     if (w.fine > 0) {
       const count = collectNear(cars);
       markApproaches(cars, near.pairs, count);
@@ -139,14 +152,25 @@ export function stepWorld(w: World, dt: number): void {
       hz = Math.max(hz, contactHz(car));
       hit = hit || car.nearHit;
     }
+    const quiet = dt > 0.012 ? 2 : 1;
+    const cut = Math.min(8, Math.ceil(dt / (w.fine > 0 ? w.fine : FINE_SLICE) - 1e-6));
+    const contact = cut !== quiet && (hit || nearWall || carsInReach(cars));
+    slices = contact ? cut : quiet;
     if (dt * hz > slices + 1e-6) slices = Math.min(8, Math.ceil(dt * hz - 1e-6));
-    if (hit && w.fine > 0 && Math.min(8, Math.ceil(dt / w.fine - 1e-6)) > slices) w.fineCuts++;
-    if (hit && w.fine > 0) slices = Math.max(slices, Math.min(8, Math.ceil(dt / w.fine - 1e-6)));
+    if (contact && w.fine > 0 && slices > quiet) w.fineCuts++;
   }
   // Read once: this step's collide passes mark the next.
   for (let i = 0; i < n; i++) cars[i]!.nearHit = false;
   const h = dt / slices;
   strongest.clear();
+  // Every roof stands where its car's state puts it as the step begins: a car stepped before its neighbour reads that neighbour's roof, which a keyframe does not hold.
+  w.surfaces.cars = cars;
+  for (let ci = 0; ci < n; ci++) {
+    cars[ci]!.slot = ci;
+    cars[ci]!.surfaces = w.surfaces;
+    cars[ci]!.group.updateWorldMatrix(false, false);
+    w.surfaces.sync(ci, cars[ci]!);
+  }
 
   for (let i = 0; i < slices; i++) {
     if (w.beforeSlice?.(h)) continue;
@@ -157,17 +181,18 @@ export function stepWorld(w: World, dt: number): void {
       car.deform.beginSlice(h);
       car.surfaces = w.surfaces;
       car.slot = ci;
-      // A wreck its masses hand to flight here (`syncPose`) flies this slice: handed over before the masses took it,
-      // and left at that, it lost the slice's motion.
-      if (car.deform.massActive) car.syncPose(h);
-      if (!car.deform.massActive) {
-        car.integrate(h);
+      // A wreck is its rigid body's: `integrate` steps the body and carries its masses.
+      const wreck = car.deform.massActive;
+      car.integrate(h);
+      if (!wreck) {
         if (car.deform.massActive) car.syncPose(h);
         else car.refreshBasis();
       }
-      // The cars stepped after this one see its roof where it is now.
-      w.surfaces.sync(ci, car);
     }
+    // Every roof moves to where its car now is once all the cars have stepped: each car stepped against the roofs as the slice began,
+    // whichever order the list has them in. Synced as each car stepped, the cars after it read its new roof and those before it its
+    // old one, and a mirror-symmetric 150 km/h head-on came out 10.6 mm apart by which car was first.
+    for (let ci = 0; ci < n; ci++) w.surfaces.sync(ci, cars[ci]!);
 
     const pairs = collectNear(cars);
     const nearList = near.pairs;
@@ -181,8 +206,7 @@ export function stepWorld(w: World, dt: number): void {
       const dz = ca.group.position.z - cb.group.position.z;
       // Cars at different heights (one flying over the other, on a bridge over it) never touch; nor does a fake falling off the fleet disc.
       if (dx * dx + dz * dz > 28 || !bandsMeet(ca, cb) || ca.falling || cb.falling) continue;
-      const masses = (ca.deform.massActive || cb.deform.massActive) && ca.deform.collideWith(cb.deform, h);
-      if (partContactPair(ca, cb, h) || masses) w.partTouch?.(a, b);
+      if (partContactPair(ca, cb, h)) w.partTouch?.(a, b);
     }
 
     // One pass over the slice's contacts: the barrier, then every near pair through the one kernel, then the barrier's clip; accuracy
@@ -221,7 +245,7 @@ export function stepWorld(w: World, dt: number): void {
 
     for (let ci = 0; ci < n; ci++) {
       const car = cars[ci]!;
-      if (car.deform.massActive) car.deform.stepStructure(h);
+      if (car.deform.massActive) car.deform.stepStructure(h, car.group.quaternion);
       if (car.deform.massActive) car.syncPose(h);
       if (barrier) barrier.clip(car);
       car.afterContacts(h);

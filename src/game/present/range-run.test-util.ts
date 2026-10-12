@@ -1,13 +1,14 @@
 import * as THREE from "three";
 import "../kernel/rapier-node.test-util.ts";
 import type { RigidBody } from "@dimforge/rapier3d-simd";
-import { makeWorld, tickWorld } from "../contact/crash-scenarios.test-util.ts";
+import { FREEWHEEL, makeWorld, tickWorld } from "../contact/crash-scenarios.test-util.ts";
 import { INITIAL_HUD } from "../hud/hud-store.ts";
 import { holdForThrow, PRE_IMPACT_LEAD, preImpact, type PhaseClock } from "../match/phase.ts";
 import type { DRIVER_CARS } from "../match/types.ts";
 import { JerseyBarrier } from "../scenes/engine-props.ts";
 import { RANGE } from "../scenes/range.ts";
 import { DeformableCar } from "../vehicle/car.ts";
+import type { DriveInput } from "../vehicle/car-drive.ts";
 import type { Ejection } from "../vehicle/ejection.ts";
 import { paint } from "../vehicle/test-support.ts";
 import { armKill, assignClass, HANDLING, killClass } from "../vehicle/vehicle-classes.ts";
@@ -64,8 +65,8 @@ export type Control = {
   released?: (sys: RagdollSystem, car: DeformableCar, e: Ejection) => void;
   /** Runs after every engine frame the dummy is live. */
   frame?: (sys: RagdollSystem, bodies: readonly RigidBody[]) => void;
-  /** Runs before every physics slice of `h` sim seconds, as the engine's driven car takes its input (`applyDrive`). */
-  slice?: (car: DeformableCar, h: number) => void;
+  /** Runs before every physics slice of `h` sim seconds: the input the driver gives the car in it (none: the range's neutral). */
+  slice?: (car: DeformableCar, h: number) => DriveInput | undefined;
 };
 
 /** Wall seconds a run may last; wall seconds after the hit with nobody thrown before it is called a no-throw. */
@@ -154,11 +155,13 @@ export async function rangeThrow(type: DriverCar, control: Control = {}, frameDt
   car.spawnFacing(-RANGE.run, 0, Math.PI / 2, RANGE.kph / 3.6);
   const barrier = new JerseyBarrier(new THREE.Scene(), new THREE.Group());
   barrier.orient(car.group.position, false);
-  const w = makeWorld([car], false, true);
+  const w = makeWorld([car], false, true, FREEWHEEL);
   w.world.barrier = barrier;
   const inner = w.world.beforeSlice!;
   w.world.beforeSlice = (h) => {
-    control.slice?.(car, h);
+    const input = control.slice?.(car, h);
+    if (input) w.pedals.set(car, input);
+    else w.pedals.delete(car);
     return inner(h);
   };
   const sys = new RagdollSystem(new THREE.Scene(), () => holdForThrow(w.clock), () => {});

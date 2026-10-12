@@ -77,6 +77,8 @@ function lot(withB: boolean): Lot {
     cars.push(b);
   }
   const w = newWorld(cars);
+  // The three slices a step takes with two cars in reach, on open road too: the stop's last slice (v0 h / 2 moved, v0² / 2a owed) differs with the slice, so only one cut compares the two lots.
+  w.plan = 2;
   const part = a["parts"].find((p) => p.name === "bumperF")!;
   a["detachPart"](part, 0, new THREE.Vector3());
   part.angular.set(0, 0, 0);

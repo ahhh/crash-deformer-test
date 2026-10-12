@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import "../kernel/rapier-node.test-util.ts";
-import { launch, makeCar, makeWorld, tickWorld } from "../contact/crash-scenarios.test-util.ts";
+import { FREEWHEEL, launch, makeCar, makeWorld, tickWorld } from "../contact/crash-scenarios.test-util.ts";
 import { armKill, DEFAULT_REALISM } from "../vehicle/vehicle-classes.ts";
 import { THROW_ONSET } from "../match/phase.ts";
 import { RANGE } from "../scenes/range.ts";
@@ -40,7 +40,7 @@ export async function rangeWall(secs: number): Promise<Pose> {
   const car = makeCar("shape", 0.32, 0.45);
   armKill(car.deform, "sedan", DEFAULT_REALISM, "default");
   launch(car, -RANGE.run, 0, Math.PI / 2, RANGE.kph / 3.6, 0);
-  const w = makeWorld([car], true, false);
+  const w = makeWorld([car], true, false, FREEWHEEL);
   w.clock.slomoAt = THROW_ONSET;
   const sys = new RagdollSystem(new THREE.Scene(), () => {}, () => {});
   w.onEject = (e) => sys.launch(e, [car]);
@@ -76,7 +76,7 @@ export async function headOn(mps: number, secs: number): Promise<Pose[]> {
   const b = fleetCar();
   launch(a, -5, 0, Math.PI / 2, mps, 0);
   launch(b, 5, 0, -Math.PI / 2, -mps, 0);
-  const w = makeWorld([a, b], false, true);
+  const w = makeWorld([a, b], false, true, FREEWHEEL);
   tickWorld(w);
   w.clock.slomoAt = THROW_ONSET;
   const sys = new RagdollSystem(new THREE.Scene(), () => {}, () => {});

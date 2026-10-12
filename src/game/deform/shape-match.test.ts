@@ -20,6 +20,7 @@ import {
 import { StreamedDeformation } from "./streamed-deform.ts";
 import { makeCar, runWall, type CrashResult } from "../contact/crash-scenarios.test-util.ts";
 import { CAGES, MASS_SPECS, SHAPE_CLUSTERS } from "../kernel/rig-spec.ts";
+import { stepWreck } from "./physics-util.test-util.ts";
 
 const FRAME = 1 / 60;
 
@@ -64,16 +65,16 @@ function node(d: StreamedDeformation, name: string): StreamedDeformation["masses
 /** One wall frame against the car-local plane normal `nLocal`, contact centred between two masses. */
 function wallFrame(r: Rig, dt: number, overlap: number, a = "bumperFL", b = "bumperFR", contactX?: number, nLocal = new THREE.Vector3(0, 0, -1)): void {
   const n = nLocal.clone().applyAxisAngle(THREE.Object3D.DEFAULT_UP, r.yaw);
-  r.d.notifyContact();
-  const pa = node(r.d, a).world;
-  const pb = node(r.d, b).world;
-  const contact = new THREE.Vector3(contactX ?? (pa.x + pb.x) * 0.5, (pa.y + pb.y) * 0.5, (pa.z + pb.z) * 0.5);
-  const closing = Math.max(0, -r.vel.dot(n));
-  r.d.feedOverlap(contact, n, overlap, closing, dt);
-  const leftover = closing * 0.18;
-  if (leftover > 0.3) r.d.applyImpulse(n.x, n.y, n.z, leftover * r.d.totalMass * dt * 4);
-  r.d.stepStructure(dt);
-  r.d.followGroup(r.group, r.vel, r.omega, dt);
+  stepWreck(r, dt, () => {
+    r.d.notifyContact();
+    const pa = node(r.d, a).world;
+    const pb = node(r.d, b).world;
+    const contact = new THREE.Vector3(contactX ?? (pa.x + pb.x) * 0.5, (pa.y + pb.y) * 0.5, (pa.z + pb.z) * 0.5);
+    const closing = Math.max(0, -r.vel.dot(n));
+    r.d.feedOverlap(contact, n, overlap, closing, dt);
+    const leftover = closing * 0.18;
+    if (leftover > 0.3) r.d.applyImpulse(n.x, n.y, n.z, leftover * r.d.totalMass * dt * 4);
+  });
   r.d.stepCrush(dt);
   r.d.update(r.geom);
 }
@@ -515,11 +516,12 @@ describe("given a car's crash deformation (StreamedDeformation, the object that 
     d.beginCrush(new THREE.Vector3(0, 0.36, 2.06), new THREE.Vector3(0, 0, -1), 16, 16, group, vel, new THREE.Vector3());
     const fl = d.masses.find((m) => m.name === "bumperFL")!;
     const z0 = fl.local.z;
+    const rig = { d, group, vel, omega: new THREE.Vector3() };
     for (let i = 0; i < 24; i++) {
-      d.notifyContact();
-      d.feedOverlap(fl.world, new THREE.Vector3(0, 0, -1), 0.1, 16, 1 / 60);
-      d.stepStructure(1 / 60);
-      d.followGroup(group, vel, new THREE.Vector3(), 1 / 60);
+      stepWreck(rig, 1 / 60, () => {
+        d.notifyContact();
+        d.feedOverlap(fl.world, new THREE.Vector3(0, 0, -1), 0.1, 16, 1 / 60);
+      });
       d.stepCrush(1 / 60);
       d.update(geom);
     }
@@ -611,10 +613,10 @@ describe("given a car's crash deformation (StreamedDeformation, the object that 
       const fl = node(r.d, "bumperFL");
       const n = new THREE.Vector3(0, 0, -1).applyAxisAngle(THREE.Object3D.DEFAULT_UP, yaw);
       for (let i = 0; i < 24; i++) {
-        r.d.notifyContact();
-        r.d.feedOverlap(fl.world, n, 0.1, 16, FRAME);
-        r.d.stepStructure(FRAME);
-        r.d.followGroup(r.group, r.vel, r.omega, FRAME);
+        stepWreck(r, FRAME, () => {
+          r.d.notifyContact();
+          r.d.feedOverlap(fl.world, n, 0.1, 16, FRAME);
+        });
         r.d.stepCrush(FRAME);
         r.d.update(r.geom);
       }
@@ -630,10 +632,10 @@ describe("given a car's crash deformation (StreamedDeformation, the object that 
       const c = node(r.d, "cell").world.clone();
       const turn = new THREE.Quaternion().setFromAxisAngle(THREE.Object3D.DEFAULT_UP, yaw);
       for (const m of r.d.masses) m.world.sub(c).applyQuaternion(turn).add(c);
+      r.group.quaternion.premultiply(turn);
+      r.group.position.sub(c).applyQuaternion(turn).add(c);
       for (let i = 0; i < 10; i++) {
-        r.d.notifyContact();
-        r.d.stepStructure(FRAME);
-        r.d.followGroup(r.group, r.vel, r.omega, FRAME);
+        stepWreck(r, FRAME, () => r.d.notifyContact());
       }
       return r.d.masses.flatMap((a, i) => r.d.masses.slice(i + 1).map((b) => a.world.distanceTo(b.world)));
     };
