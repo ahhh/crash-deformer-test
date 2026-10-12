@@ -196,6 +196,7 @@ export class CarSurfaces extends Surface {
       this.nearOf = -1;
     }
     const p = skip >= 0 && skip < m ? this.cars[skip]!.group.position : null;
+    this.alwaysStale = true;
     if (p !== null && Math.abs(p.x - x) < REACH - span && Math.abs(p.z - z) < REACH - span) {
       if (skip !== this.nearOf) {
         this.carCount = this.reach(p.x, p.z, skip, this.carList);

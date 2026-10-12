@@ -134,6 +134,9 @@ const INDEX_FROM = 8;
 const CELL = 8;
 /** A patch wider than this many cells is tested by every query instead of listed per cell. */
 const WIDE = 64;
+/** The most cells the `always` index grids (past it the always patches are all scanned, as before the index). */
+const A_CELLS_MAX = 65536;
+const _ab = new Int32Array(4);
 /** Half the plan (m) an unbounded patch's box spans. */
 const WORLD = 1e9;
 
@@ -261,7 +264,20 @@ export class Surface {
    */
   plainOne = -1;
   plainOutside = -1;
+  /** `plainOne`'s patch is bounded or a disc: `find` tests its box and disc first (`plainChecked`). */
+  plainChecks = false;
   plainCells = new Int32Array(0);
+  /** The `always` index (`indexAlways`), rebuilt on the next `offerAll` after a patch moved: cell (`ax0`, `az0`, `anx`, `anz`; `anx` 0: none) → `aList[aStart[c]..aStart[c+1])`; `aWide[0..aNWide)` scanned outside it. */
+  alwaysStale = true;
+  ax0 = 0;
+  az0 = 0;
+  anx = 0;
+  anz = 0;
+  aStart = new Int32Array(0);
+  aList = new Int32Array(0);
+  aFill = new Int32Array(0);
+  aWide = new Int32Array(0);
+  aNWide = 0;
   /** The plan raster `staticTop` reads (built on first use): per `RASTER` m square from (`rasterX0`, `rasterZ0`), `rasterNx` wide, the highest any patch but the moving ones stands over it. */
   raster = EMPTY64;
   rasterX0 = 0;
@@ -604,10 +620,90 @@ export class Surface {
 
   /** Patch `i` changed: after the seal no cell reads it as plain (`unplain`); after the raster was built it is read one by one from now on, the raster built again without it. */
   private moved(i: number): void {
+    this.alwaysStale = true;
     this.unplain(i);
     if (!this.rasterBuilt || this.moving.includes(i)) return;
     this.moving.push(i);
     this.rasterBuilt = false;
+  }
+
+  /**
+   * The `always` index (`alwaysStale`): the patches whose box is small (`WIDE` cells or less) listed per `CELL` over their boxes'
+   * union (`aStart`/`aList`, in `always` order with the wide ones in every cell, so a query visits the candidates in the order the
+   * full scan does); outside that union, and when the union is too big to grid, every query scans `aWide` (the wide ones; every
+   * one when there is no grid). A disabled patch (empty box) is listed nowhere.
+   */
+  indexAlways(): void {
+    const P = this.p;
+    this.alwaysStale = false;
+    let minX = Infinity;
+    let maxX = -Infinity;
+    let minZ = Infinity;
+    let maxZ = -Infinity;
+    let small = 0;
+    for (let k = 0; k < this.nAlways; k++) {
+      const o = this.always[k]! * P_STRIDE;
+      if (!(P[o + P_MINX]! <= P[o + P_MAXX]!) || P[o + P_MAXX]! - P[o + P_MINX]! > WIDE * CELL || P[o + P_MAXZ]! - P[o + P_MINZ]! > WIDE * CELL) continue;
+      small++;
+      minX = Math.min(minX, P[o + P_MINX]!);
+      maxX = Math.max(maxX, P[o + P_MAXX]!);
+      minZ = Math.min(minZ, P[o + P_MINZ]!);
+      maxZ = Math.max(maxZ, P[o + P_MAXZ]!);
+    }
+    const ax0 = Math.floor(minX / CELL);
+    const az0 = Math.floor(minZ / CELL);
+    const anx = Math.floor(maxX / CELL) - ax0 + 1;
+    const anz = Math.floor(maxZ / CELL) - az0 + 1;
+    if (this.aWide.length < this.nAlways) this.aWide = new Int32Array(this.always.length);
+    if (small === 0 || anx * anz > A_CELLS_MAX) {
+      this.anx = 0;
+      this.aNWide = 0;
+      for (let k = 0; k < this.nAlways; k++) {
+        const o = this.always[k]! * P_STRIDE;
+        if (P[o + P_MINX]! <= P[o + P_MAXX]!) this.aWide[this.aNWide++] = this.always[k]!;
+      }
+      return;
+    }
+    this.ax0 = ax0;
+    this.az0 = az0;
+    this.anx = anx;
+    this.anz = anz;
+    const cells = anx * anz;
+    this.aNWide = 0;
+    const start = this.aStart.length === cells + 1 ? this.aStart.fill(0) : (this.aStart = new Int32Array(cells + 1));
+    const bounds = (k: number): number => {
+      const o = this.always[k]! * P_STRIDE;
+      if (!(P[o + P_MINX]! <= P[o + P_MAXX]!)) return -1;
+      if (P[o + P_MAXX]! - P[o + P_MINX]! > WIDE * CELL || P[o + P_MAXZ]! - P[o + P_MINZ]! > WIDE * CELL) return cells;
+      _ab[0] = Math.floor(P[o + P_MINX]! / CELL) - ax0;
+      _ab[1] = Math.floor(P[o + P_MAXX]! / CELL) - ax0;
+      _ab[2] = Math.floor(P[o + P_MINZ]! / CELL) - az0;
+      _ab[3] = Math.floor(P[o + P_MAXZ]! / CELL) - az0;
+      return (_ab[1]! - _ab[0]! + 1) * (_ab[3]! - _ab[2]! + 1);
+    };
+    let listed = 0;
+    for (let k = 0; k < this.nAlways; k++) {
+      const n = bounds(k);
+      if (n < 0) continue;
+      listed += n;
+      if (n === cells) {
+        this.aWide[this.aNWide++] = this.always[k]!;
+        for (let c = 0; c < cells; c++) start[c + 1]!++;
+      } else for (let j = _ab[2]!; j <= _ab[3]!; j++) for (let i = _ab[0]!; i <= _ab[1]!; i++) start[j * anx + i + 1]!++;
+    }
+    for (let c = 0; c < cells; c++) start[c + 1]! += start[c]!;
+    if (this.aList.length < listed) this.aList = new Int32Array(Math.max(listed, 2 * this.aList.length));
+    if (this.aFill.length < cells) this.aFill = new Int32Array(cells);
+    const fill = this.aFill;
+    for (let c = 0; c < cells; c++) fill[c] = start[c]!;
+    const list = this.aList;
+    for (let k = 0; k < this.nAlways; k++) {
+      const n = bounds(k);
+      if (n < 0) continue;
+      const i = this.always[k]!;
+      if (n === cells) for (let c = 0; c < cells; c++) list[fill[c]!++] = i;
+      else for (let j = _ab[2]!; j <= _ab[3]!; j++) for (let x = _ab[0]!; x <= _ab[1]!; x++) list[fill[j * anx + x]!++] = i;
+    }
   }
 
   /** Narrow patch `i`'s box (after `setFrame`) to the square of half width `r` about plan (cx, cz): a roof's reach about its car. */
@@ -679,8 +775,12 @@ export class Surface {
   seal(): void {
     this.sealed = true;
     this.indexBoxes();
+    this.alwaysStale = true;
     // The plain cells: the one candidate a plain grid.
     this.plainOutside = this.nAlways === 1 && this.plain(this.always[0]!) ? this.always[0]! : -1;
+    // One patch bounded or a disc (the fleet's pad) and nothing else: its box and disc are tested before its grid (`plainChecked`).
+    this.plainChecks = this.plainOutside === -1 && this.cellList.length === 0 && this.nAlways === 1 && this.plain(this.always[0]!, true);
+    if (this.plainChecks) this.plainOutside = this.always[0]!;
     if (this.cellList.length === 0) {
       this.plainOne = this.plainOutside;
       return;
@@ -699,14 +799,16 @@ export class Surface {
   /**
    * Whether patch `i` is a grid `plainOffer` reads as `offer` does: level and unturned (its frame's x, y and z the world's, its
    * origin's height not −0, so the frame's zero terms change no bit of the height), unbounded (its box the whole plan, so its nodes
-   * alone bound it), the world's, no disc, no per-node factors, unchanged since the seal.
+   * alone bound it), the world's, no disc, no per-node factors, unchanged since the seal. `bounded`: its box and disc may be any
+   * (`plainChecked` tests them).
    */
-  private plain(i: number): boolean {
+  private plain(i: number, bounded = false): boolean {
     const qo = i * Q_STRIDE;
     const o = i * P_STRIDE;
     const P = this.p;
     const level = P[o + P_AX] === 1 && P[o + P_AX + 1] === 0 && P[o + P_AX + 2] === 0 && P[o + P_BX + 1] === 1 && P[o + P_CX] === 0 && P[o + P_CX + 1] === 0 && P[o + P_CX + 2] === 1;
-    return level && !Object.is(P[o + P_OY], -0) && this.q[qo + Q_UNB] === 1 && this.q[qo + Q_KIND] === GRID && this.q[qo + Q_DYN] === 0 && this.q[qo + Q_OWNER] === -1 && P[o + P_RAD2] === 0 && this.auxs[i]!.length === 0;
+    const open = bounded || (this.q[qo + Q_UNB] === 1 && P[o + P_RAD2] === 0);
+    return level && open && !Object.is(P[o + P_OY], -0) && this.q[qo + Q_KIND] === GRID && this.q[qo + Q_DYN] === 0 && this.q[qo + Q_OWNER] === -1 && this.auxs[i]!.length === 0;
   }
 
   /** Patch `i` changed after the seal (`Q_DYN`): no cell reads it as plain from then on, every one that did tests its candidates. */
@@ -1122,14 +1224,28 @@ function prismAt(s: Surface, i: number, q: Float64Array): void {
 /**
  * `offer` and `gridAt` for plain grid patch `i` of `s` (`Surface.plain`), the point's one candidate on `s` and the query's first (`find`
  * on the static surface right after the best is reset, so any height that reaches is the best): the same height to the bit, the point
- * in its grid kept for `plainRest`. False past the grid's nodes (its base terrain's hills), where `offer` answers.
+ * in its grid kept for `plainRest`. With `plainChecks`, off the patch's box or disc no candidate, as `offer` and `gridAt` answer there;
+ * false past the grid's nodes (its base terrain's hills), where `offer` answers.
  */
 function plainOffer(s: Surface, i: number, q: Float64Array): boolean {
   const P = s.p;
   const o = i * P_STRIDE;
   const qo = i * Q_STRIDE;
-  const fu = (q[PQ_X]! - P[o + P_OX]! - P[o + P_U0]!) / P[o + P_STEP]!;
-  const fv = (q[PQ_Z]! - P[o + P_OZ]! - P[o + P_V0]!) / P[o + P_STEPV]!;
+  const x = q[PQ_X]!;
+  const z = q[PQ_Z]!;
+  if (s.plainChecks) {
+    if (x < P[o + P_MINX]! || x > P[o + P_MAXX]! || z < P[o + P_MINZ]! || z > P[o + P_MAXZ]!) return true;
+    const rad2 = P[o + P_RAD2]!;
+    if (rad2 > 0) {
+      const dx = x - P[o + P_OX]!;
+      const dz = z - P[o + P_OZ]!;
+      if (dx * dx + dz * dz > rad2) return true;
+    }
+  }
+  const dx = x - P[o + P_OX]!;
+  const dz = z - P[o + P_OZ]!;
+  const fu = (dx - P[o + P_U0]!) / P[o + P_STEP]!;
+  const fv = (dz - P[o + P_V0]!) / P[o + P_STEPV]!;
   const nu = s.q[qo + Q_NU]!;
   if (fu < 0 || fv < 0 || fu >= nu - 1 || fv >= s.q[qo + Q_NV]! - 1) return false;
   const ci = Math.floor(fu);
@@ -1186,8 +1302,15 @@ function find(s: Surface, q: Float64Array, skip: number, need: number): void {
 
 /** `find` over every candidate patch. */
 function offerAll(s: Surface, q: Float64Array, skip: number, need: number): void {
-  const always = s.always;
-  for (let k = 0; k < s.nAlways; k++) offer(s, always[k]!, q, skip, need);
+  if (s.nAlways > 0) {
+    if (s.alwaysStale) s.indexAlways();
+    const ci = Math.floor(q[PQ_X]! / CELL) - s.ax0;
+    const cj = Math.floor(q[PQ_Z]! / CELL) - s.az0;
+    if (ci >= 0 && cj >= 0 && ci < s.anx && cj < s.anz) {
+      const c = cj * s.anx + ci;
+      for (let k = s.aStart[c]!; k < s.aStart[c + 1]!; k++) offer(s, s.aList[k]!, q, skip, need);
+    } else for (let k = 0; k < s.aNWide; k++) offer(s, s.aWide[k]!, q, skip, need);
+  }
   if (s.cellList.length === 0) return;
   const ci = Math.floor(q[PQ_X]! / CELL) - s.cx0;
   const cj = Math.floor(q[PQ_Z]! / CELL) - s.cz0;
