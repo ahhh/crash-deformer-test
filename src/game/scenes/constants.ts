@@ -17,3 +17,19 @@ export const LAB_PRESET = { pad: "pad", wall: "wall", cards: "cards", glass: "gl
 export const PISTON_SHOT = { speedKph: 40, massKg: 1500, hopSeconds: 6.5 } as const;
 /** Face-up: the car's up axis within about 25 degrees of vertical (`matrixWorld` Y component). */
 export const UPRIGHT = 0.9;
+
+/**
+ * The derby arena every field plays in (`scenes/derby-ground.ts` builds it, `derby-arena.ts` draws it): one fixed size, a ring
+ * wall of `wallPieces` flat boxes whose inner faces stand `radius` m from the middle, a 1 m ground grid reaching `gridHalf` m each way.
+ * `spawnInset`: `layoutDerby`'s ring sits this far inside the wall, and 32 cars side by side on it keep 6.4 m.
+ */
+export const DERBY_ARENA = {
+  radius: 38,
+  wallThickness: 1,
+  wallHeight: 10,
+  wallPieces: 48,
+  wallMitre: 0.3,
+  gridHalf: 40,
+  spawnInset: 5.2,
+  packPitch: 8,
+} as const;

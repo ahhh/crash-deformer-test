@@ -43,7 +43,7 @@ async function system(track: Track, loaded = true): Promise<RagdollSystem> {
   if (loaded) await sys.preload();
   setGround(track.ground());
   sys.setCourse(track, placeProps(track), null);
-  sys.update(FRAME, [], true, false, 0, null);
+  sys.update(FRAME, [], true, false, null);
   return sys;
 }
 
@@ -56,7 +56,7 @@ function run(sys: RagdollSystem, seconds: number, cars: DeformableCar[], each: (
   const up = new THREE.Vector3();
   const q = new THREE.Quaternion();
   for (let f = 0; f < Math.round(seconds / FRAME); f++) {
-    sys.update(FRAME, cars, true, false, 0, null);
+    sys.update(FRAME, cars, true, false, null);
     if (!sys.propAt(0, p, v)) continue;
     const r = bodyOf(sys).rotation();
     each(p, up.copy(UP).applyQuaternion(q.set(r.x, r.y, r.z, r.w)));
@@ -131,7 +131,7 @@ describe("given a knockable prop standing in the infield of a course", () => {
       let stopped = -1;
       let slept = -1;
       for (let f = 1; f <= Math.round(10 / FRAME); f++) {
-        sys.update(FRAME, [], true, false, 0, null);
+        sys.update(FRAME, [], true, false, null);
         if (body.isSleeping()) {
           slept = f * FRAME;
           break;
@@ -189,7 +189,7 @@ describe("given a course whose props a car knocks before the dummies' physics ha
     sys.knockProp(0, -1, 11, 4.5, 0);
     const p = new THREE.Vector3();
     const v = new THREE.Vector3();
-    sys.update(FRAME, [], true, false, 0, null);
+    sys.update(FRAME, [], true, false, null);
     assert.equal(sys.propAt(0, p, v), false, "it flew before the physics was in");
     await sys.preload();
     let farthest = -Infinity;
@@ -214,10 +214,10 @@ describe("given a course with a knocked prop lying where it fell", () => {
     const spot = placeProps(track)[0]!;
     assert.ok(Math.hypot(at.x - spot.x, at.y - spot.y - PREFABS.crate.size[1] / 2, at.z - spot.z) < 1e-4, `it stands at ${at.x}, ${at.y}, ${at.z}`);
     setGround(null);
-    sys.update(FRAME, [], true, false, 0, null);
+    sys.update(FRAME, [], true, false, null);
     const away = sys["world"]!.colliders.len();
     setGround(track.ground());
-    sys.update(FRAME, [], true, false, 0, null);
+    sys.update(FRAME, [], true, false, null);
     const back = sys["world"]!.colliders.len();
     sys.dispose();
     assert.ok(away < standing, `the props stayed in the physics off their course (${away} colliders, ${standing} on it)`);
@@ -230,7 +230,7 @@ function drive(sys: RagdollSystem, car: DeformableCar, x: number, z: number, dx:
   const yaw = Math.atan2(dx, dz);
   for (let f = 0; f < Math.round(seconds / FRAME); f++) {
     launch(car, x + dx * speed * f * FRAME, z + dz * speed * f * FRAME, yaw, dx * speed, dz * speed);
-    each(() => sys.update(FRAME, [car], true, false, 0, null));
+    each(() => sys.update(FRAME, [car], true, false, null));
   }
 }
 
@@ -239,7 +239,7 @@ async function restingCrate(): Promise<{ sys: RagdollSystem; at: THREE.Vector3 }
   const sys = await system(course("crate", 60, 60));
   sys.knockProp(0, -1, 11, 4.5, 0);
   const at = new THREE.Vector3();
-  for (let f = 0; f < Math.round(10 / FRAME) && !bodyOf(sys).isSleeping(); f++) sys.update(FRAME, [], true, false, 0, null);
+  for (let f = 0; f < Math.round(10 / FRAME) && !bodyOf(sys).isSleeping(); f++) sys.update(FRAME, [], true, false, null);
   sys.propAt(0, at, new THREE.Vector3());
   return { sys, at };
 }
@@ -283,7 +283,7 @@ describe("given a cone lying asleep against the foot of a course's road wall, wh
       const body = bodyOf(sys);
       const own = sys["props"]["own"][0]!;
       sys.knockProp(0, 0, ROAD.left.x * 12, 2, ROAD.left.z * 12);
-      for (let f = 0; f < Math.round(10 / FRAME) && !body.isSleeping(); f++) sys.update(FRAME, [], true, false, 0, null);
+      for (let f = 0; f < Math.round(10 / FRAME) && !body.isSleeping(); f++) sys.update(FRAME, [], true, false, null);
       const lay = new THREE.Vector3();
       sys.propAt(0, lay, new THREE.Vector3());
       const lying = deepestInStatics(world, own);
@@ -450,7 +450,7 @@ describe("given a cone standing on a course's infield, knocked off by a car's bu
       let sink = Infinity;
       let peak = start;
       for (let f = 0; f < 24; f++) {
-        sys.update(1 / 480, [], true, false, 0, null);
+        sys.update(1 / 480, [], true, false, null);
         const p = body.translation();
         sink = Math.min(sink, lowestPoint("cone", body) - ground.heightAt(p.x, p.z, p.y));
         peak = Math.max(peak, p.y);
@@ -485,7 +485,7 @@ describe("given a cone knocked over by a car's bumper, lying asleep where it cam
       const sys = await system(track);
       sys.knockProp(0, 0, 11, 4.5, 0);
       const body = bodyOf(sys);
-      for (let f = 0; f < Math.round(10 / FRAME) && !body.isSleeping(); f++) sys.update(FRAME, [], true, false, 0, null);
+      for (let f = 0; f < Math.round(10 / FRAME) && !body.isSleeping(); f++) sys.update(FRAME, [], true, false, null);
       const at = new THREE.Vector3();
       sys.propAt(0, at, new THREE.Vector3());
       const yaw = (testCase.headingDeg * Math.PI) / 180;

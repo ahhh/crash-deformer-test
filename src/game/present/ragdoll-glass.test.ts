@@ -55,7 +55,7 @@ async function strikes(name: GlassName, up: number, along: number, pose: Pose, t
   const cars = [own, car];
   const ragdolls = new RagdollSystem(new THREE.Scene(), () => {}, () => {});
   await ragdolls.preload();
-  ragdolls.update(FRAME, cars, true, false, 0, null);
+  ragdolls.update(FRAME, cars, true, false, null);
   const { centre, out } = paneFrame(car, name);
   const side = Math.abs(out.x) > 0.5;
   const across = (side ? new THREE.Vector3(0, 0, 1) : new THREE.Vector3(1, 0, 0)).addScaledVector(out, -(side ? out.z : out.x)).normalize();
@@ -74,7 +74,7 @@ async function strikes(name: GlassName, up: number, along: number, pose: Pose, t
     const normal: number[] = [];
     const apart: number[] = [];
     for (let f = 0; f < FOLLOW; f++) {
-      ragdolls.update(STEP, cars, true, false, 0, null);
+      ragdolls.update(STEP, cars, true, false, null);
       const v = torso.linvel();
       const t = torso.translation();
       normal.push(v.x * out.x + v.y * out.y + v.z * out.z);

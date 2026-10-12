@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import { DerbyBrain, DERBY_RULES, type AiCar } from "./derby-ai.ts";
 import { runField } from "./derby-field.test-util.ts";
 import { DerbyMatch, heatLimit } from "../match/derby.ts";
-import { clipToDerbyBowl, DERBY_RADIUS, derbyRadius } from "../scenes/derby-arena.ts";
+import { DERBY_RADIUS } from "../scenes/derby-arena.ts";
+import { DerbyGround } from "../scenes/derby-ground.ts";
 import { layoutDerby, type DerbySlot } from "../scenes/fleet.ts";
 import { CAR_HALF } from "../vehicle/car-mesh.ts";
 import { aiCar as car, decide } from "../vehicle/test-support.ts";
@@ -147,19 +148,22 @@ function hullsOverlap(a: DerbySlot, b: DerbySlot): boolean {
   return true;
 }
 
-describe("given derby fields of 2 to 32 cars laid out in a bowl sized to the field", () => {
-  it("when each field is laid out, then no two spawn hulls overlap, every spawn is inside the bowl, the bowl only grows with the field and stays the standard size up to 10 cars", () => {
-    let prev = 0;
+describe("given derby fields of 2 to 32 cars laid out in the one fixed arena", () => {
+  it("when each field is laid out, then it has one slot per car, every spawn is inside the wall with the car's half length to spare, no two spawn hulls overlap and every spawn stands on flat floor", () => {
+    const ground = new DerbyGround();
     for (let n = 2; n <= 32; n++) {
-      const r = derbyRadius(n);
-      assert.ok(r >= prev, `bowl shrank at ${n}: ${r.toFixed(2)} < ${prev.toFixed(2)}`);
-      prev = r;
-      if (n <= 10) assert.equal(r, DERBY_RADIUS, `${n} cars must keep today's bowl`);
-      const slots = layoutDerby(n, r, () => 0.37);
+      const slots = layoutDerby(n, DERBY_RADIUS, () => 0.37);
       assert.equal(slots.length, n);
       for (let i = 0; i < n; i++) {
         const s = slots[i]!;
-        assert.equal(clipToDerbyBowl(s.x, s.z, 0, 0, CAR_HALF.z, r).hit, false, `${n} cars: car ${i} spawns in the wall`);
+        assert.ok(Math.hypot(s.x, s.z) + CAR_HALF.z < DERBY_RADIUS, `${n} cars: car ${i} spawns in the wall`);
+        for (const lengthSide of [-1, 1]) {
+          for (const widthSide of [-1, 1]) {
+            const cornerX = s.x + lengthSide * CAR_HALF.z * Math.sin(s.yaw) + widthSide * CAR_HALF.x * Math.cos(s.yaw);
+            const cornerZ = s.z + lengthSide * CAR_HALF.z * Math.cos(s.yaw) - widthSide * CAR_HALF.x * Math.sin(s.yaw);
+            assert.equal(ground.heightAt(cornerX, cornerZ), 0, `${n} cars: car ${i} spawns on a rise`);
+          }
+        }
         for (let j = i + 1; j < n; j++) assert.ok(!hullsOverlap(s, slots[j]!), `${n} cars: ${i} and ${j} spawn on top of each other`);
       }
     }

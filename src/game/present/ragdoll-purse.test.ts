@@ -40,7 +40,7 @@ const bits = (n: number) => n.toString(2).replaceAll("0", "").length;
 /** Steps `r` one `STEP` at a time until set 0's things burst out; the steps it took. */
 function untilBurst(r: RagdollSystem): number {
   for (let n = 1; n < 200; n++) {
-    r.update(STEP, [], true, true, 0, null);
+    r.update(STEP, [], true, true, null);
     if (purses(r)["burstAt"][0]) return n;
   }
   throw new Error("the purse never burst");
@@ -75,13 +75,13 @@ describe("given a thrown crash-test dummy driver who may carry a handbag (a woma
   it("when a man is thrown, or a policewoman is thrown, then no handbag and no items appear", async () => {
     const man = await system(seedWhere(false));
     throwOut(man);
-    for (let n = 0; n < 60; n++) man.update(STEP, [], true, true, 0, null);
+    for (let n = 0; n < 60; n++) man.update(STEP, [], true, true, null);
     assert.equal(purses(man).active(0), false);
     assert.equal(bodiesOf(man).some((b) => b.isEnabled()), false);
     man.dispose();
     const cop = await system(seedWhere(true));
     throwOut(cop, 0, true);
-    for (let n = 0; n < 60; n++) cop.update(STEP, [], true, true, 0, null);
+    for (let n = 0; n < 60; n++) cop.update(STEP, [], true, true, null);
     assert.equal(purses(cop).active(0), false, "a policewoman carries no purse");
     assert.equal(bodiesOf(cop).some((b) => b.isEnabled()), false);
     cop.dispose();
@@ -92,7 +92,7 @@ describe("given a thrown crash-test dummy driver who may carry a handbag (a woma
     throwOut(r);
     let low = Infinity;
     for (let n = 0; n < 8 * 120; n++) {
-      r.update(STEP, [], true, true, 0, null);
+      r.update(STEP, [], true, true, null);
       for (const b of bodiesOf(r)) if (b.isEnabled()) low = Math.min(low, b.translation().y);
     }
     assert.ok(low > -0.05, `lowest centre ${low.toFixed(3)} m: nothing fell through the ground`);
@@ -118,7 +118,7 @@ describe("given a thrown crash-test dummy driver who may carry a handbag (a woma
       };
       try {
         throwOut(r);
-        for (let n = 0; n < 150; n++) r.update(STEP, [], true, true, 0, null);
+        for (let n = 0; n < 150; n++) r.update(STEP, [], true, true, null);
       } finally {
         Math.random = real;
       }
@@ -177,7 +177,7 @@ describe("given a thrown crash-test dummy driver who may carry a handbag (a woma
     let still = 0;
     for (let wall = 0; wall < 14 && still < 3; wall += 1 / 60) {
       tickWorld(w, 1 / 60);
-      r.update((1 / 60) * w.clock.timeScale, [car], true, true, 0, new THREE.Group());
+      r.update((1 / 60) * w.clock.timeScale, [car], true, true, new THREE.Group());
       const d = r["dolls"].find((x) => x.live);
       if (!d) continue;
       for (const b of bodiesOf(r)) if (b.isEnabled()) spin = Math.max(spin, Math.hypot(b.angvel().x, b.angvel().y, b.angvel().z));

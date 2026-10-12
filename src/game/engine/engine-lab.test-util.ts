@@ -46,7 +46,7 @@ export async function labDollRig(layout: LabLayout | LabPresetId): Promise<LabRi
 export function runLab(r: LabRig, seconds: number): void {
   for (let t = 0; t < seconds - 1e-9; t += FRAME) {
     tickWorld(r.w, FRAME);
-    r.dolls?.update(FRAME * r.w.clock.timeScale, r.cars, true, true, 0, null);
+    r.dolls?.update(FRAME * r.w.clock.timeScale, r.cars, true, true, null);
   }
 }
 

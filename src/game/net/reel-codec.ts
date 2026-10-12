@@ -97,10 +97,11 @@ import { makeSnapshot, MAX_NET_CARS, MSG, NET_VERSION, readEjection, readSnapsho
  * stopped player car is read at its own speed and a drop-in may reuse an in-view wreck, so a replayed Survival pack moves differently; 60: a car
  * standing on another's top within the surface store's reach is not a plan hit, so a replayed stack moves differently; 61: a wedged
  * traffic car backs off, so a replayed city race's traffic moves differently; 62: 60's standing rule is withdrawn, so a replayed
- * stack moves as it did at 59; 63: a wrecked Survival cop stops driving and a cop brakes in time to stop beside a stopped player car.
+ * stack moves as it did at 59; 63: a wrecked Survival cop stops driving and a cop brakes in time to stop beside a stopped player car;
+ * 64: the derby is fought in the new arena (baked rises, prism wall and props), so a replayed derby moves differently.
  * A saved clip also records `NET_VERSION` (its snapshots' layout).
  */
-const REPLAY_VERSION = 63;
+const REPLAY_VERSION = 64;
 /** Bounds a decoder enforces (a clip is ≤ 13 s at ≤ 300 steps/s, ≤ 15 keyframes). */
 const MAX_STEPS = 8192;
 const MAX_KEYS = 64;

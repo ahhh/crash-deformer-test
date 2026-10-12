@@ -67,7 +67,7 @@ describe("given 32 cars driving around the middle of an open field and drivers t
         for (let k = 0; k < testCase.thrown; k++) throwOut(ragdolls, cars, k);
         for (let f = 0; f < frames; f++) {
           drive((f + 1) * FRAME);
-          ragdolls.update(FRAME, cars, true, false, 60, null);
+          ragdolls.update(FRAME, cars, true, false, null);
           perFrame(f);
         }
       };
@@ -97,7 +97,7 @@ describe("given 32 cars driving around the middle of an open field and drivers t
     await ragdolls.preload();
     const frame = () => {
       tickWorld(w);
-      ragdolls.update(FRAME, [car], true, false, 0, null);
+      ragdolls.update(FRAME, [car], true, false, null);
     };
     frame();
     ragdolls["spawn"]({ car: 5, p: new THREE.Vector3(0, 0.3, 0), q: new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.PI / 2), v: new THREE.Vector3(), w: new THREE.Vector3(), age: 0, cop: false, rides: true });

@@ -32,7 +32,7 @@ async function system(ground: Ground | null, track: Track | null): Promise<Ragdo
   await sys.preload();
   setGround(ground);
   if (track) sys.setCourse(track, placeProps(track), null);
-  sys.update(FRAME, [], true, false, 0, null);
+  sys.update(FRAME, [], true, false, null);
   return sys;
 }
 
@@ -50,7 +50,7 @@ function throwFrom(sys: RagdollSystem, p: THREE.Vector3, v: THREE.Vector3, lie: 
 function run(sys: RagdollSystem, secs: number, each: (part: V3, f: number) => void): void {
   const d = dollsOf(sys)[0]!;
   for (let f = 0; f < Math.round(secs / FRAME); f++) {
-    sys.update(FRAME, [], true, false, 0, null);
+    sys.update(FRAME, [], true, false, null);
     for (const b of d.bodies) each(b.translation(), f);
   }
 }
@@ -309,10 +309,10 @@ describe("given the ragdoll world after throws on a course, the corkscrew and th
     for (const [ground, at] of [[track.ground(), [-150, -80]], [new Corkscrew(new THREE.Scene()), [0, -30]], [new FleetRamps(new THREE.Scene()), [0, 0]]] as const) {
       setGround(ground);
       // The course's standing props are bodies while its ground is the active one, and go with it.
-      sys.update(FRAME, [], true, false, 0, null);
+      sys.update(FRAME, [], true, false, null);
       const base = colliders(sys);
       for (let n = 0; n < 2; n++) throwFrom(sys, new THREE.Vector3(at[0], 2 + n, at[1]), new THREE.Vector3(8, 0, 0), null);
-      sys.update(FRAME, [], true, false, 0, null);
+      sys.update(FRAME, [], true, false, null);
       peaks.push(colliders(sys) - base);
       sys.reset();
       assert.equal(colliders(sys), base, `after a reset on ${ground.constructor.name}`);

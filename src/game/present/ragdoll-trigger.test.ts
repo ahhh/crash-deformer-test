@@ -51,7 +51,7 @@ describe("given thrown drivers (dummies that are cosmetic: the cars move the sam
         for (let f = 0; f < 240; f++) {
           tickWorld(w);
           tickWorld(wPlain);
-          ragdolls.update(FRAME, cars, true, sandbox, 0, null);
+          ragdolls.update(FRAME, cars, true, sandbox, null);
         }
         assert.ok(scene.getObjectByName("ragdolls")!.visible, "the dummies fly in every mode");
         ragdolls.dispose();
@@ -97,7 +97,7 @@ describe("given a head-on crash between two fleet cars whose physics engine for 
     for (let f = 0; f < 150; f++) {
       if (f === late) await ragdolls.preload();
       tickWorld(w);
-      ragdolls.update(FRAME, cars, true, true, 0, null);
+      ragdolls.update(FRAME, cars, true, true, null);
     }
     const out = scene.getObjectByName("ragdolls")!.visible;
     ragdolls.dispose();
@@ -154,7 +154,7 @@ function wrongCabinEntries(w: CrashWorld, ragdolls: RagdollSystem, facing: (slot
   const wrong: string[] = [];
   for (let f = 0; f < 120; f++) {
     tickWorld(w);
-    ragdolls.update(FRAME, w.cars, true, true, 0, null);
+    ragdolls.update(FRAME, w.cars, true, true, null);
     for (const [s, d] of ragdolls["dolls"].entries()) {
       if (!d.live) continue;
       const car = facing(s);

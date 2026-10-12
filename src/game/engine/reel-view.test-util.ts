@@ -212,7 +212,7 @@ export async function reelViews(w: World, clips: readonly HighlightClip[], scene
     let last: { cam: string; p: THREE.Vector3 } | null = null;
     for (let k = -1; k * FRAME < wall; k++) {
       const dt = reel.frame(FLIGHT_S + k * FRAME) ?? 0;
-      ragdolls.update(dt, w.live(), true, false, 0, null);
+      ragdolls.update(dt, w.live(), true, false, null);
       rode = false;
       cut = false;
       reel.aim(camera, FRAME, crashDirect);

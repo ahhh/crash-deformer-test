@@ -2,6 +2,7 @@
 
 import { hypot2, detSin, detCos } from "../kernel/physics-core.js";
 import { FLEET_STYLE_IDS, type CarStyleId } from "../vehicle/car-variants.ts";
+import { DERBY_ARENA } from "./constants.ts";
 import { CLASSES, STYLE_CLASS, type VehicleClassId } from "../vehicle/vehicle-classes.ts";
 
 /** Car pool size: the per-car typed arrays (derby/race AI, race, traffic), wheel batch and lamp pool are sized for it,
@@ -125,14 +126,19 @@ export function layoutFleet(
   return slots;
 }
 
-/** Spread round the bowl, each car stopped and facing its centre (the start lights hold them until green). */
+/**
+ * Round the arena's spawn ring, each car stopped and facing its centre (the start lights hold them until green). Neighbours stand
+ * `DERBY_ARENA.packPitch` m apart at most: a small field starts in one bunch on the ring, so it meets quickly across the arena; a full
+ * one is spread round it.
+ */
 export function layoutDerby(count: number, radius: number, rng: () => number = Math.random): DerbySlot[] {
   const n = Math.max(1, Math.min(MAX_CARS, Math.round(count) || 1));
   const slots: DerbySlot[] = [];
-  const r = Math.max(5.5, radius - 5.2);
+  const r = Math.max(5.5, radius - DERBY_ARENA.spawnInset);
   const spin = rng() * Math.PI * 2;
+  const step = Math.min((Math.PI * 2) / n, DERBY_ARENA.packPitch / r);
   for (let i = 0; i < n; i++) {
-    const a = spin + (i / n) * Math.PI * 2;
+    const a = spin + i * step;
     slots.push({ x: detSin(a) * r, z: detCos(a) * r, yaw: a + Math.PI });
   }
   return slots;

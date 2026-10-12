@@ -1,12 +1,13 @@
 import * as THREE from "three";
 import { DerbyMatch, heatLimit, snapshotAiCar, type DerbyDecided } from "../match/derby.ts";
-import { clipDerbyCar, derbyRadius } from "../scenes/derby-arena.ts";
+import { DERBY_RADIUS } from "../scenes/derby-arena.ts";
+import { arenaWorld, leaveArena } from "../scenes/derby-arena.test-util.ts";
 import { applyDrive } from "../vehicle/car-drive.ts";
 import { fleetStyle, layoutDerby } from "../scenes/fleet.ts";
 import { DeformableCar } from "../vehicle/car.ts";
 import { CAR_HALF } from "../vehicle/car-mesh.ts";
 import { physicsSlice } from "../contact/sat.ts";
-import { newWorld, stepWorld } from "../engine/world-step.ts";
+import { stepWorld } from "../engine/world-step.ts";
 import { armKill, assignClass, carClass, CLASSES, HANDLING, type VehicleClassId } from "../vehicle/vehicle-classes.ts";
 import { INITIAL_HUD } from "../hud/hud-store.ts";
 import { aggressive, ScootWatch, type ScootShare } from "./derby-scoot.test-util.ts";
@@ -70,7 +71,7 @@ const MOVE_GAP = 1;
 export type FieldWatch = { step?: (cars: DeformableCar[], t: number, h: number, running: (i: number) => boolean) => void; pair?: (a: number, b: number) => void };
 
 /**
- * A derby of `n` AI cars through the engine's stack (`stepWorld` with the derby's hit credit and bowl,
+ * A derby of `n` AI cars through the engine's stack (`stepWorld` with the derby's hit credit and arena,
  * cars dressed as `dressCar` does at the game's defaults), at the default slider, to the end of the heat.
  * `playerClass` is car 0's class (the HUD's player class, the sedan by default).
  * Spins: |yaw rate| > 5 rad/s for > 0.2 s in the first 2 min, split by a car contact in the 0.3 s before the spin began.
@@ -78,6 +79,14 @@ export type FieldWatch = { step?: (cars: DeformableCar[], t: number, h: number, 
  * by the attacker's face. Moves: swings, J-turns and sideswipes, each a manoeuvre (`MOVE_GAP`).
  */
 export function runField(n: number, seed: number, playerClass?: VehicleClassId, on?: FieldWatch): Field {
+  try {
+    return runFieldHeat(n, seed, playerClass, on);
+  } finally {
+    leaveArena();
+  }
+}
+
+function runFieldHeat(n: number, seed: number, playerClass?: VehicleClassId, on?: FieldWatch): Field {
   const scene = new THREE.Scene();
   const cars = Array.from(
     { length: n },
@@ -85,15 +94,13 @@ export function runField(n: number, seed: number, playerClass?: VehicleClassId, 
   );
   let s = seed;
   const rng = () => ((s = (s * 16807) % 2147483647) - 1) / 2147483646;
-  const radius = derbyRadius(n);
-  const slots = layoutDerby(n, radius, rng);
+  const slots = layoutDerby(n, DERBY_RADIUS, rng);
   const match = new DerbyMatch();
   match.begin(
     cars.map((_, i) => ({ id: i, name: `c${i}` })),
     { seed },
   );
-  const w = newWorld(cars);
-  w.afterCar = (c) => clipDerbyCar(c, radius);
+  const { world: w } = arenaWorld(cars);
   for (const [i, c] of cars.entries()) {
     c.spawnFacing(slots[i]!.x, slots[i]!.z, slots[i]!.yaw, 0);
     c.deform.squash = INITIAL_HUD.squash;

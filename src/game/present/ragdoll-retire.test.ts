@@ -14,7 +14,7 @@ const _p = new THREE.Vector3();
 
 /** `seconds` of the dummies' frames in a race beside `cars`. */
 function run(r: RagdollSystem, cars: readonly DeformableCar[], seconds: number): void {
-  for (let t = 0; t < seconds; t += FRAME) r.update(FRAME, cars, true, false, 0, null);
+  for (let t = 0; t < seconds; t += FRAME) r.update(FRAME, cars, true, false, null);
 }
 
 describe("given the dummies' world, where a car's stand-in is taken out while it is still moving", () => {

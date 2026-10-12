@@ -37,7 +37,7 @@ async function race(withProps: boolean): Promise<Run> {
     frames = n + 1;
     if (!sys) return;
     if (n === 0) sys.setCourse(w.race["track"]!, w.race["placed"], null);
-    sys.update(FRAME, w.live(), true, false, 0, null);
+    sys.update(FRAME, w.live(), true, false, null);
   });
   const state = w.live().flatMap((c) => [...c.group.position.toArray(), ...c.group.quaternion.toArray(), ...c.velocity.toArray()]);
   const knocked = w.race["knocked"].reduce((n, k) => n + k, 0);

@@ -122,7 +122,7 @@ const ROWS: Record<keyof Transients, Row> = {
       await r.ragdolls.preload();
       for (let f = 0; f < 60; f++) {
         tickWorld(w);
-        r.ragdolls.update(1 / 60, [a, b], true, true, 0, null);
+        r.ragdolls.update(1 / 60, [a, b], true, true, null);
       }
     },
     left: (r) => {

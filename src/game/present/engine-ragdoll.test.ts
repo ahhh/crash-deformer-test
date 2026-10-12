@@ -91,7 +91,7 @@ describe("given a hit that throws a driver out of his car, where the slow-mo wai
       const ts = w.clock.timeScale + (w.clock.targetScale - w.clock.timeScale) * Math.min(1, FRAME * (w.clock.phase === "aftermath" ? 1.15 : 3.2));
       const approach = w.clock.phase === "approach";
       tickWorld(w);
-      ragdolls.update(FRAME * ts, cars, true, true, 0, null);
+      ragdolls.update(FRAME * ts, cars, true, true, null);
       wall += FRAME;
       if (approach && w.clock.phase !== "approach") hitAt = wall;
       if (hitAt >= 0 && slowAt < 0 && ts < 0.5) slowAt = wall;
@@ -142,7 +142,7 @@ describe("given a thrown dummy and the crushed bodies of the other cars", () => 
     b.spawnFacing(0, 6.5, Math.PI, 0);
     const ragdolls = new RagdollSystem(new THREE.Scene(), () => {}, () => {});
     await ragdolls.preload();
-    ragdolls.update(FRAME, [a, b], true, true, 0, null);
+    ragdolls.update(FRAME, [a, b], true, true, null);
     // Out of car a just past its nose, lying flat at bonnet height, at 15 m/s into car b's nose 1.5 m on.
     ragdolls["spawn"]({ car: 0, p: new THREE.Vector3(0, 0.55, 2.9), q: new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.PI / 2), v: new THREE.Vector3(0, 0, 15), w: new THREE.Vector3(), age: 0, cop: false, rides: true });
     const dolls: Dolls = ragdolls["dolls"];
@@ -151,7 +151,7 @@ describe("given a thrown dummy and the crushed bodies of the other cars", () => 
     let maxZ = -Infinity;
     const prev = new THREE.Vector3(0, 0.55, 2.9);
     for (let f = 0; f < 60; f++) {
-      ragdolls.update(FRAME, [a, b], true, true, 0, null);
+      ragdolls.update(FRAME, [a, b], true, true, null);
       const t = dolls[0]!.bodies[0]!.translation();
       _l.set(t.x, t.y, t.z);
       const local = _l.clone().sub(b.group.position).applyQuaternion(_q.copy(b.group.quaternion).invert());
@@ -173,12 +173,12 @@ describe("given the ride-along camera (the camera that rides along with thrown d
   async function ride(at: [number, number][], vz: number, frames: number, each: (camera: THREE.PerspectiveCamera, ragdolls: RagdollSystem) => void): Promise<void> {
     const ragdolls = new RagdollSystem(new THREE.Scene(), () => {}, () => {});
     await ragdolls.preload();
-    ragdolls.update(FRAME, [], true, true, 0, null);
+    ragdolls.update(FRAME, [], true, true, null);
     for (const [car, [x, z]] of at.entries()) ragdolls["spawn"]({ car, p: new THREE.Vector3(x, 1.2, z), q: new THREE.Quaternion(), v: new THREE.Vector3(0, 0, vz), w: new THREE.Vector3(), age: 0, cop: false, rides: true });
     ragdolls.follow();
     const camera = new THREE.PerspectiveCamera(50, 16 / 9, 0.1, 180);
     for (let f = 0; f < frames; f++) {
-      ragdolls.update(FRAME, [], true, true, 0, null);
+      ragdolls.update(FRAME, [], true, true, null);
       if (ragdolls.frameCamera(camera, FRAME, false, -1, false, 50, OPEN) === "none") break;
       camera.updateMatrixWorld();
       each(camera, ragdolls);
@@ -224,7 +224,7 @@ describe("given a head-on crash where one car is a police car", () => {
     w.onEject = (e) => ragdolls.launch(e, cars);
     for (let f = 0; f < 60; f++) {
       tickWorld(w);
-      ragdolls.update(FRAME, cars, true, true, 0, null);
+      ragdolls.update(FRAME, cars, true, true, null);
     }
     const mesh = scene.getObjectByName("ragdolls") as THREE.InstancedMesh;
     const per = mesh.count / 2;
@@ -262,7 +262,7 @@ describe("given the ride-along camera following a driver thrown in a head-on at 
     const sight = carSight(cars);
     for (let f = 0; f < 120 && !ragdolls.rideAlong; f++) {
       tickWorld(w);
-      ragdolls.update(FRAME, cars, true, true, 0, null);
+      ragdolls.update(FRAME, cars, true, true, null);
     }
     assert.ok(ragdolls.rideAlong, "a driver was thrown");
     const car = cars[threw[0]!]!;
@@ -290,7 +290,7 @@ describe("given the ride-along camera following a driver thrown in a head-on at 
       const camera = new THREE.PerspectiveCamera(50, 16 / 9, 0.1, 180);
       for (let f = 0; f < 120 && !ragdolls.rideAlong; f++) {
         tickWorld(w);
-        ragdolls.update(FRAME, cars, true, true, 0, null);
+        ragdolls.update(FRAME, cars, true, true, null);
       }
       const car = cars[threw[0]!]!;
       const fwd = car.fwdFlat.clone();
@@ -320,7 +320,7 @@ describe("given the ride-along camera following a driver thrown in a head-on at 
       const camera = new THREE.PerspectiveCamera(50, 16 / 9, 0.1, 180);
       for (let f = 0; f < 120 && !ragdolls.rideAlong; f++) {
         tickWorld(w);
-        ragdolls.update(FRAME, cars, true, true, 0, null);
+        ragdolls.update(FRAME, cars, true, true, null);
       }
       const car = cars[threw[0]!]!;
       const fwd = car.fwdFlat.clone();
@@ -360,7 +360,7 @@ describe("given the ride-along camera following a driver thrown in a head-on at 
       const camera = new THREE.PerspectiveCamera(50, 16 / 9, 0.1, 180);
       for (let f = 0; f < 120 && !ragdolls.rideAlong; f++) {
         tickWorld(w);
-        ragdolls.update(FRAME, cars, true, true, 0, null);
+        ragdolls.update(FRAME, cars, true, true, null);
       }
       const car = cars[threw[0]!]!;
       const fwd = car.fwdFlat.clone();
@@ -395,7 +395,7 @@ describe("given the ride-along camera following a driver thrown in a head-on at 
     const shots = new Set<string>();
     for (let f = 0; f < 900 && riding < 480; f++) {
       tickWorld(w);
-      ragdolls.update(FRAME, cars, true, true, 0, null);
+      ragdolls.update(FRAME, cars, true, true, null);
       // The settled dummy lies still ~2.5 s after landing, so the ride ends before the trackside turn: keep him
       // "moving" so it runs through every shot change.
       for (const d of ragdolls["dolls"]) if (d.live) d.still = 0;
@@ -426,18 +426,18 @@ describe("given a ride-along that ends as the dummies lie still, handing the cam
   it("when the first frame after the ride is framed, then it holds the ride's last pose, no frame steps far, and within 3 seconds the camera eases smoothly into the engine's view", async () => {
     const ragdolls = new RagdollSystem(new THREE.Scene(), () => {}, () => {});
     await ragdolls.preload();
-    ragdolls.update(FRAME, [], true, true, 0, null);
+    ragdolls.update(FRAME, [], true, true, null);
     ragdolls["spawn"]({ car: 0, p: new THREE.Vector3(0, 1.2, 0), q: new THREE.Quaternion(), v: new THREE.Vector3(0, 0, 4), w: new THREE.Vector3(), age: 0, cop: false, rides: true });
     ragdolls.follow();
     const camera = new THREE.PerspectiveCamera(50, 16 / 9, 0.1, 180);
     for (let f = 0; f < 40; f++) {
-      ragdolls.update(FRAME, [], true, true, 0, null);
+      ragdolls.update(FRAME, [], true, true, null);
       assert.equal(ragdolls.frameCamera(camera, FRAME, false, -1, false, 50, OPEN), "shot");
     }
     const lastPos = camera.position.clone();
     const lastQuat = camera.quaternion.clone();
     // He lies still: the ride lets go, and the engine's own view (an orbit far from the ride's shot) places the camera.
-    ragdolls.update(FRAME, [], true, true, 0, null);
+    ragdolls.update(FRAME, [], true, true, null);
     for (const d of ragdolls["dolls"]) d.still = 9;
     assert.equal(ragdolls.frameCamera(camera, FRAME, false, -1, false, 50, OPEN), "none");
     const viewPos = new THREE.Vector3(14, 6, -9);
@@ -484,7 +484,7 @@ describe("given a highlight's ride-along on its own crash's thrown driver, while
   it("when the ride frames each frame, then it stays on its own driver: the other crash's dummy never becomes the one framed and the aim never leaves its own driver", async () => {
     const ragdolls = new RagdollSystem(new THREE.Scene(), () => {}, () => {});
     await ragdolls.preload();
-    ragdolls.update(FRAME, [], true, true, 0, null);
+    ragdolls.update(FRAME, [], true, true, null);
     // The reel rides only with its own crash's throws (`ownThrow`); the far one flies uncalled.
     ragdolls["spawn"]({ car: 0, p: new THREE.Vector3(0, 1.2, 0), q: new THREE.Quaternion(), v: new THREE.Vector3(0, 0, 4), w: new THREE.Vector3(), age: 0, cop: false, rides: true });
     ragdolls.follow();
@@ -495,7 +495,7 @@ describe("given a highlight's ride-along on its own crash's thrown driver, while
     let framedOther = 0;
     let far = 0;
     for (let f = 0; f < 60; f++) {
-      ragdolls.update(FRAME, [], true, true, 0, null);
+      ragdolls.update(FRAME, [], true, true, null);
       assert.equal(ragdolls.frameCamera(camera, FRAME, false, -1, false, 50, OPEN), "shot");
       if (ragdolls["primary"] !== own) framedOther++;
       const t = ragdolls["dolls"][own]!.bodies[0]!.translation();
@@ -511,7 +511,7 @@ describe("given the user's drag holding the ride-along camera, while the cut to 
   it("when the user holds the camera and then releases it, then no cut happens while held and the camera is left untouched; once released, the cut lands and the first frame eases from the user's view and settles on the new dummy", async () => {
     const ragdolls = new RagdollSystem(new THREE.Scene(), () => {}, () => {});
     await ragdolls.preload();
-    ragdolls.update(FRAME, [], true, true, 0, null);
+    ragdolls.update(FRAME, [], true, true, null);
     for (const [car, [x, z]] of [[0, 0], [20, 0]].entries()) ragdolls["spawn"]({ car, p: new THREE.Vector3(x, 1.2, z), q: new THREE.Quaternion(), v: new THREE.Vector3(0, 0, 4), w: new THREE.Vector3(), age: 0, cop: false, rides: true });
     ragdolls.follow();
     const camera = new THREE.PerspectiveCamera(50, 16 / 9, 0.1, 180);
@@ -519,7 +519,7 @@ describe("given the user's drag holding the ride-along camera, while the cut to 
     let first = -1;
     // Once `first` lies still, with nobody holding the camera the ride would cut to the other one.
     const frame = (): string => {
-      ragdolls.update(FRAME, [], true, true, 0, null);
+      ragdolls.update(FRAME, [], true, true, null);
       // The other dummy keeps moving, so the cut has somewhere to go (the settled body lies still within seconds).
       for (const [s, d] of ragdolls["dolls"].entries()) {
         if (d.live) d.still = s === first ? 9 : 0;

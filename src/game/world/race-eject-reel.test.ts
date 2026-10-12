@@ -68,7 +68,7 @@ async function live(): Promise<{ clips: HighlightClip[]; trails: Trails; events:
     frame(w, state);
     frameEnds.push(r.recorder.now);
     for (; seen < w.ejections.length; seen++) ragdolls.launch(w.ejections[seen]!, w.live());
-    ragdolls.update(FRAME, w.live(), true, false, 0, null);
+    ragdolls.update(FRAME, w.live(), true, false, null);
     sampleTrails(ragdolls, trails);
   }
   ragdolls.dispose();
@@ -98,7 +98,7 @@ async function replay(clip: HighlightClip, frameEnds: readonly number[]): Promis
     while (n + 1 < ends.length && Math.abs(ends[n + 1]! - at) < Math.abs(ends[n]! - at)) n++;
     sim.advanceTo(ends[n]!);
     for (const e of sim.take()) ragdolls.launch(e, w.live());
-    ragdolls.update(FRAME, w.live(), true, false, 0, null);
+    ragdolls.update(FRAME, w.live(), true, false, null);
     sampleTrails(ragdolls, trails);
     if (sim.done) break;
   }

@@ -21,7 +21,7 @@ import { armSolids } from "../world/surfaces.ts";
 import { type ContactHit, scatterRampBalls } from "../scenes/engine-props.ts";
 import { foldPole, RIG_BALL_FIRST, RIG_POLE_FIRST, shatterBall } from "../scenes/rig-solids.ts";
 import { propContact, sideContact, type PropHits } from "../contact/prop-contact.ts";
-import { clipDerbyCar, DERBY_RADIUS, derbyRadius } from "../scenes/derby-arena.ts";
+import { DERBY_RADIUS } from "../scenes/derby-arena.ts";
 import type { RaceCommand } from "../match/types.ts";
 import { SOLO_SCENES, type SceneId } from "../scenes/scene-id.ts";
 import { mulberry32 } from "../world/placements.ts";
@@ -385,15 +385,15 @@ export abstract class EngineScenes extends EngineDerby {
       this.finishResetCommon();
       return;
     }
-    // The fleet's ground ends at the disc's rim (with the ramps, they and the slab's top too); the derby bowl, the rigs
-    // and the range keep the endless pad; the corkscrew's channel is the ground over a pad drawn three times wider for
-    // its far landings; the Lab's is its bench, brackets, shelves and the workshop floor, and its art replaces the pad.
-    setGround(this.showCorkscrew ? this.corkscrew : this.showLab ? this.lab.ground : this.derbyMode || this.rigScene || this.showRange || this.showGarage ? null : this.showRamps ? this.ramps : DISC_GROUND);
+    // The fleet's ground ends at the disc's rim (with the ramps, they and the slab's top too); the derby arena is its own ground (a baked grid
+    // and the prisms standing on it); the rigs and the range keep the endless pad; the corkscrew's channel is the ground over a pad drawn three
+    // times wider for its far landings; the Lab's is its bench, brackets, shelves and the workshop floor, and its art replaces the pad.
+    setGround(this.showCorkscrew ? this.corkscrew : this.showLab ? this.lab.ground : this.derbyMode ? this.derbyGround : this.rigScene || this.showRange || this.showGarage ? null : this.showRamps ? this.ramps : DISC_GROUND);
     // What stands on it: the Lab's props and wall, else the fleet's rigs (slab, press plates, lamp posts, ramp balls), as prisms of one store.
     armSolids(this.showLab ? this.lab.prisms : this.rigs);
     this.stage.ground.scale.setScalar(this.showCorkscrew ? 3 : 1);
-    // The Lab's and the garage's art replace the pad.
-    for (const o of this.studio) o.visible = !this.showLab && !this.showGarage;
+    // The Lab's, the garage's and the derby arena's art replace the pad.
+    for (const o of this.studio) o.visible = !this.showLab && !this.showGarage && !this.derbyMode;
     if (this.showCompactor) {
       this.parkCompactor();
       this.finishResetCommon();
@@ -500,14 +500,11 @@ export abstract class EngineScenes extends EngineDerby {
     this.derbySeated = new Set(this.netSeats.keys());
     this.derbyRound++;
     const cars = this.live();
-    this.derbyR = derbyRadius(cars.length);
-    const slots = layoutDerby(cars.length, this.derbyR, this.sceneRng(0));
+    const slots = layoutDerby(cars.length, DERBY_RADIUS, this.sceneRng(0));
     this.derby.begin(
       cars.map((c, i) => ({ id: i, name: this.netSeats.get(i) ?? c.paint.name })),
-      { radius: this.derbyR },
+      { radius: DERBY_RADIUS },
     );
-    // Walls and lip scale out with the bowl (slabs lengthen and thicken in proportion).
-    this.arena.scale.set(this.derbyR / DERBY_RADIUS, 1, this.derbyR / DERBY_RADIUS);
     this.winnerSpot.off();
     for (let i = 0; i < cars.length; i++) {
       const slot = slots[i]!;
@@ -671,7 +668,18 @@ export abstract class EngineScenes extends EngineDerby {
     this.derby.noteHit(a, b, -(ca.velocity.x * n.x + ca.velocity.z * n.z), cb.velocity.x * n.x + cb.velocity.z * n.z, hit.impulse);
   };
 
-  protected readonly clipDerby = (car: DeformableCar): void => clipDerbyCar(car, this.derbyR);
+  /** A derby car's footprint against the arena's prisms: the wall, the containers, the rails, the pads and the tyre berms (`derbyGround.contact`); the rises are the ground itself. */
+  protected readonly derbyCollide = (car: DeformableCar, i: number, h: number): void => this.derbyGround.contact(car, i, this.derbyHits, h);
+
+  /** What a derby car's hit on a prop costs the scene: sparks and debris at the contact. */
+  private readonly derbyHits: PropHits = {
+    knock: () => {},
+    fx: (at, n, closing) => {
+      this.debris.burst(at, n, Math.min(48, 10 + closing) * this.fxDensity);
+      this.sparks.poof(at, n, Math.min(28, 6 + closing * 0.5) * this.fxDensity);
+    },
+    wall: () => {},
+  };
 
   protected readonly raceCollide = (car: DeformableCar, i: number, h: number): void => this.race.collide(car, i, h);
 

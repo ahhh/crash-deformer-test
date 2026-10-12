@@ -429,8 +429,8 @@ Derby multiplayer runs through the same controller-slot path as race (agreed wit
   applies a peer's input only to a seated car the match has not counted out (`remoteDrivable`). A
   peer who leaves mid-match hands its car back to the AI. A peer who joins mid-match is not added
   to the running field: it watches until the next match.
-- **Arena:** the host's `derbyRadius(field)`; the radius rides in the derby message, so the client
-  scales the same bowl even while the field changes size in a lobby.
+- **Arena:** one fixed arena (`DERBY_RADIUS`) for every field; the message still carries the radius (the constant), and the
+  client draws the same arena without scaling it.
 - **Match state (host → clients):** `MSG.derby` (`writeDerby` / `readDerby` in `codec.ts`) every 6th
   snapshot (5 Hz) and with each keyframe: 22 bytes plus 9 + name length per car (110–120 bytes for the
   6-car smoke field, computed from the layout). It carries:

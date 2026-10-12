@@ -1,10 +1,13 @@
-import { describe, it } from "node:test";
+import { afterEach, describe, it } from "node:test";
 import assert from "node:assert/strict";
 import * as THREE from "three";
 import { DerbyBrain, blankAiCar } from "../ai/derby-ai.ts";
 import { personality } from "../ai/personality.ts";
 import { DerbyMatch, HIT_POINTS, DISABLE_POINTS, SCORE_GAP, STALEMATE, snapshotAiCar } from "./derby.ts";
-import { clipDerbyCar, clipToDerbyBowl, DERBY_RADIUS, derbyRadius, makeDerbyArena } from "../scenes/derby-arena.ts";
+import { DERBY_RADIUS } from "../scenes/derby-arena.ts";
+import { DERBY_ARENA } from "../scenes/constants.ts";
+import { arenaWorld, leaveArena } from "../scenes/derby-arena.test-util.ts";
+import { DERBY_BOXES, DERBY_PROP } from "../scenes/derby-ground.ts";
 import { idleDrive, applyDrive } from "../vehicle/car-drive.ts";
 import { fleetStyle, layoutDerby, MAX_CARS } from "../scenes/fleet.ts";
 import { DeformableCar } from "../vehicle/car.ts";
@@ -194,40 +197,47 @@ describe("given a two-car derby match where the car with more points is disabled
   });
 });
 
-describe("given a car outside the derby bowl wall", () => {
-  it("when it is clipped to the bowl, then it is pushed back inside and loses outward speed", () => {
-    const hit = clipToDerbyBowl(0, DERBY_RADIUS + 2, 0, 12);
-    assert.equal(hit.hit, true);
-    assert.ok(Math.hypot(hit.x, hit.z) < DERBY_RADIUS - 1);
-    assert.ok(hit.vz < 12);
+const ARENA_APPROACH_ANGLE = -Math.PI / 8;
+const APPROACH_START_FROM_WALL = 12;
+const APPROACH_SPEED = 25;
+const FIRST_HIT_SECONDS = 1;
+const RUN_ON_SECONDS = 3;
+const WALL_CAGE_REACH = 1;
+const OUTWARD_SPEED_LEFT = 2;
+
+describe("given a derby car driven at the arena wall at 25 m/s from 12 m out (the sedan)", () => {
+  afterEach(leaveArena);
+  it("when it has hit it and run on 3 s, then it stays inside the wall (cage reach: car centre hypot < DERBY_RADIUS - 1) and it has lost its outward speed", () => {
+    const car = new DeformableCar({ body: 0xc5c8ce, accent: 0x9aa0a8, name: "Titanium" }, new THREE.Scene());
+    car.deform.setMode("shape");
+    const outward = { x: Math.sin(ARENA_APPROACH_ANGLE), z: Math.cos(ARENA_APPROACH_ANGLE) };
+    const startRadius = DERBY_RADIUS - APPROACH_START_FROM_WALL;
+    car.spawnFacing(outward.x * startRadius, outward.z * startRadius, ARENA_APPROACH_ANGLE, APPROACH_SPEED);
+    const { world } = arenaWorld([car]);
+    let elapsed = 0;
+    while (elapsed < FIRST_HIT_SECONDS + RUN_ON_SECONDS) {
+      const slice = physicsSlice(1 / 60, Math.max(car.speed, 4));
+      applyDrive(car, { ...idleDrive(), throttle: 1 }, slice);
+      stepWorld(world, slice);
+      elapsed += slice;
+    }
+    const reach = Math.hypot(car.group.position.x, car.group.position.z);
+    assert.ok(reach < DERBY_RADIUS - WALL_CAGE_REACH, `car centre ${reach.toFixed(2)} m out`);
+    const outwardSpeed = car.velocity.x * outward.x + car.velocity.z * outward.z;
+    assert.ok(outwardSpeed < OUTWARD_SPEED_LEFT, `still ${outwardSpeed.toFixed(2)} m/s outward`);
   });
 });
 
-describe("given the derby arena's wall slabs", () => {
-  it("when each slab's long axis is compared with the ring's radial direction, then every slab lies along the ring (tangent), not radial, sits on the ring's radius, and there are at least 16", () => {
-    const arena = makeDerbyArena();
-    const long = new THREE.Vector3();
-    const radial = new THREE.Vector3();
-    const m = new THREE.Matrix4();
-    const q = new THREE.Quaternion();
-    const s = new THREE.Vector3();
-    let slabs = 0;
-    for (const child of arena.children) {
-      const walls = child as THREE.InstancedMesh;
-      if (!walls.isInstancedMesh || walls.geometry.type !== "BoxGeometry") continue;
-      for (let i = 0; i < walls.count; i++) {
-        slabs++;
-        walls.getMatrixAt(i, m);
-        m.decompose(radial, q, s);
-        long.set(0, 0, 1).applyQuaternion(q);
-        radial.setY(0);
-        const len = radial.length() || 1;
-        const dot = Math.abs(long.dot(radial) / len);
-        assert.ok(dot < 0.25, `slab long-axis is radial, dot=${dot.toFixed(2)}`);
-        assert.ok(Math.abs(len - DERBY_RADIUS) < 0.01, `slab off the ring, r=${len.toFixed(2)}`);
-      }
+describe("given the wall's boxes (DERBY_BOXES kind DERBY_PROP.wall)", () => {
+  it("when each box's long axis is compared with the ring's radial direction, then each lies along the ring (tangent), not radial, its inner face is on DERBY_RADIUS, and there are at least 16 boxes", () => {
+    const walls = DERBY_BOXES.filter((box) => box.kind === DERBY_PROP.wall);
+    for (const wall of walls) {
+      const centreRadius = Math.hypot(wall.x, wall.z);
+      const dot = Math.abs((Math.sin(wall.yaw) * wall.x + Math.cos(wall.yaw) * wall.z) / centreRadius);
+      assert.ok(dot < 0.25, `wall box long-axis is radial, dot=${dot.toFixed(2)}`);
+      assert.ok(Math.abs(centreRadius - wall.hx - DERBY_RADIUS) < 0.01, `wall box inner face off the ring, r=${(centreRadius - wall.hx).toFixed(2)}`);
     }
-    assert.ok(slabs >= 16);
+    assert.ok(walls.length >= 16);
   });
 });
 
@@ -303,12 +313,13 @@ describe("given two cars, each at half the speed of a 50 km/h rigid-wall hit, dr
 });
 
 describe("given a default two-car derby in shape deform mode", () => {
+  afterEach(leaveArena);
   it("when the AI drives both cars for 5 s after the green light, then both engines still run, the cars are still moving and they met (closest approach under 6.5 m), not parked nose to nose", () => {
     const scene = new THREE.Scene();
     const a = new DeformableCar({ body: 0xc5c8ce, accent: 0x9aa0a8, name: "Titanium" }, scene);
     const b = new DeformableCar({ body: 0x3d8a86, accent: 0x2a6360, name: "Petrol" }, scene);
     let seed = 7;
-    const slots = layoutDerby(2, derbyRadius(2), () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646);
+    const slots = layoutDerby(2, DERBY_RADIUS, () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646);
     for (const [i, c] of [a, b].entries()) {
       c.deform.setMode("shape");
       c.spawnFacing(slots[i]!.x, slots[i]!.z, slots[i]!.yaw, 0);
@@ -318,8 +329,7 @@ describe("given a default two-car derby in shape deform mode", () => {
       { id: 0, name: "Titanium" },
       { id: 1, name: "Petrol" },
     ]);
-    const w = newWorld([a, b]);
-    w.afterCar = (car) => clipDerbyCar(car, derbyRadius(2));
+    const { world: w } = arenaWorld([a, b]);
     // Match time: negative through the start lights, 0 at green.
     let t = match.time;
     let minD = Infinity;
@@ -389,6 +399,7 @@ function atKnobs(knobs: Knobs, build: () => DeformableCar[], seconds: number, st
     return runDerby(build(), seconds, knobs, start);
   } finally {
     rear.maxCrush = rest;
+    leaveArena();
   }
 }
 
@@ -404,7 +415,7 @@ function sixCarDerby(seconds: number, seed = 7, knobs = ARCADE): DerbyRun {
   }, seconds);
 }
 
-/** The owner's 9-car derby capture (main 75deb20, fleet styles, 12 m/s): x, z, yaw. Its wrecks zipped along the rim. */
+/** The owner's 9-car derby capture (main 75deb20, fleet styles, 12 m/s): x, z, yaw. Its wrecks zipped along the rim. Its cars ran tangent on the old bowl's spawn ring (11.2 m); `ownerDerby` replays them on the arena's. */
 const OWNER_DERBY: readonly (readonly [number, number, number])[] = [
   [9.5, -5.931, 3.6997],
   [3.465, -10.65, 4.3979],
@@ -417,13 +428,15 @@ const OWNER_DERBY: readonly (readonly [number, number, number])[] = [
   [11.09, 1.563, 9.2848],
 ];
 
-/** A capture of moving cars, so its match starts at green (no start lights). */
+/** A capture of moving cars, so its match starts at green (no start lights). The capture's cars stand on the arena's spawn ring at the capture's bearings, each heading as it did. */
 function ownerDerby(seconds: number, knobs = ARCADE, spawnMps = OWNER_SPAWN_MPS): DerbyRun {
   return atKnobs(knobs, () => {
     const scene = new THREE.Scene();
+    const ringRadius = DERBY_RADIUS - DERBY_ARENA.spawnInset;
     return OWNER_DERBY.map(([x, z, yaw], i) => {
       const c = new DeformableCar({ body: 0xffffff, accent: 0x444444, name: `o${i}` }, scene, null, fleetStyle(i));
-      c.spawnFacing(x, z, yaw, spawnMps);
+      const onRing = ringRadius / Math.hypot(x, z);
+      c.spawnFacing(x * onRing, z * onRing, yaw, spawnMps);
       return c;
     });
   }, seconds, 0);
@@ -444,8 +457,7 @@ function runDerby(cars: DeformableCar[], seconds: number, knobs: Knobs, start?: 
     const names = cars.map((c) => c.paint.name);
     const match = new DerbyMatch();
     match.begin(cars.map((_, i) => ({ id: i, name: names[i]! })), { start });
-    const w = newWorld(cars);
-    w.afterCar = (c) => clipDerbyCar(c, derbyRadius(n));
+    const { world: w } = arenaWorld(cars);
     for (const c of cars) {
       c.deform.squash = knobs.squash;
       c.deform.buckle = 0.45;
@@ -514,10 +526,10 @@ describe("given derby matches between AI cars", () => {
   const owner = ownerDerby(15);
   const ownerReal = ownerDerby(15, REALISTIC);
 
-  describe("given six AI cars in the bowl at the arcade crush knobs", () => {
-    it("when 20 s of derby are played, then the cars keep hitting (at least 20 scored hits), under a quarter of the hits are nose to nose and nobody sits wedged on the throttle for 3 s", () => {
+  describe("given six AI cars in the arena at the arcade crush knobs", () => {
+    it("when 20 s of derby are played, then the cars keep hitting (at least 15 scored hits), under a quarter of the hits are nose to nose and nobody sits wedged on the throttle for 3 s", () => {
       const { hits, noseToNose, worstWedge } = sixCarDerby(20);
-      assert.ok(hits >= 20, `only ${hits} scored hits in 20 s`);
+      assert.ok(hits >= 15, `only ${hits} scored hits in 20 s`);
       assert.ok(noseToNose / hits < 0.25, `${noseToNose}/${hits} hits were nose to nose`);
       assert.ok(worstWedge < 3, `a car sat on the throttle without moving for ${worstWedge.toFixed(2)} s`);
     });

@@ -309,12 +309,11 @@ export class RagdollSystem {
   /** Throws judged before Rapier was in (`PENDING_MAX`). */
   private readonly pending: Throw[] = [];
   private readonly next: Throw = { car: 0, p: new THREE.Vector3(), q: new THREE.Quaternion(), v: new THREE.Vector3(), w: new THREE.Vector3(), age: 0, cop: false, rides: true };
-  /** Fixed colliders every dummy shares off a course (pad or disc with its ramps, corkscrew, bowl wall, poles), built at the run's first throw: Rapier's step allocates per collider (0.31 KB, RapierEval). */
+  /** Fixed colliders every dummy shares off a course (pad or disc with its ramps, corkscrew, poles), built at the run's first throw: Rapier's step allocates per collider (0.31 KB, RapierEval). */
   private readonly statics: Collider[] = [];
   private disposed = false;
   private cars: readonly DeformableCar[] = [];
   private authority = true;
-  private bowlR = 0;
   /** Neither a race nor a derby: only here does `onThrow` fire. */
   private sandbox = true;
   /** The car proxies sat still while no dummy was out: jump them to the cars before the next step. */
@@ -426,17 +425,16 @@ export class RagdollSystem {
 
   /**
    * One frame: step the dummies and the knocked props `dt` sim seconds against the cars' poses (`authority`: this peer
-   * owns the glass, so it smashes the exit pane of a throw). `sandbox`: neither a race nor a derby (`onThrow`); `bowlR`:
-   * the derby bowl's radius, 0 outside a derby; `barrier`: the sandbox's jersey barrier while it stands, else null. Who
+   * owns the glass, so it smashes the exit pane of a throw). `sandbox`: neither a race nor a derby (`onThrow`);
+   * `barrier`: the sandbox's jersey barrier while it stands, else null. Who
    * is thrown is not decided here (`launch`); a throw launched before Rapier is in waits for it, up to `PENDING_MAX`; a
    * prop knocked before it is in flies once it is.
    */
-  update(dt: number, cars: readonly DeformableCar[], authority: boolean, sandbox: boolean, bowlR: number, barrier: THREE.Object3D | null): void {
+  update(dt: number, cars: readonly DeformableCar[], authority: boolean, sandbox: boolean, barrier: THREE.Object3D | null): void {
     if (dt <= 0) return;
     this.cars = cars;
     this.authority = authority;
     this.sandbox = sandbox;
-    this.bowlR = bowlR;
     const world = this.world;
     for (const t of this.pending) t.age += dt;
     if (!world) return;
@@ -1322,14 +1320,14 @@ export class RagdollSystem {
   private buildPatch(d: Doll, cx: number, cz: number, y: number): void {
     const c = this.course;
     if (c !== null && activeGround() === c.ground) d.patch.push(...this.patchAt(cx, cz, y, PATCH_HALF));
-    else if (this.statics.length === 0) this.statics.push(...groundColliders(this.R!, this.world!, FIXED_GROUPS, null, this.sand, this.bowlR, this.poles, cx, cz, y, PATCH_HALF));
+    else if (this.statics.length === 0) this.statics.push(...groundColliders(this.R!, this.world!, FIXED_GROUPS, null, this.sand, this.poles, cx, cz, y, PATCH_HALF));
   }
 
   /** The course's or the scene's ground, walls and solids `half` m around (`cx`, `cz`) at height `y` (`groundColliders`): a dummy's patch, or knocked props'. */
   private patchAt(cx: number, cz: number, y: number, half: number): Collider[] {
     const c = this.course!;
     if (c.track) this.solids ??= courseSolids(c.track, c.placed);
-    return groundColliders(this.R!, this.world!, FIXED_GROUPS, { track: c.track, solids: this.solids! }, this.sand, this.bowlR, this.poles, cx, cz, y, half);
+    return groundColliders(this.R!, this.world!, FIXED_GROUPS, { track: c.track, solids: this.solids! }, this.sand, this.poles, cx, cz, y, half);
   }
 
   private despawn(s: number): void {

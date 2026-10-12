@@ -214,7 +214,7 @@ export async function rangeThrow(type: DriverCar, control: Control = {}, frameDt
     const simDt = dt * w.clock.timeScale;
     sim += simDt;
     barrier.step(simDt);
-    sys.update(simDt, [car], true, true, 0, barrier.group);
+    sys.update(simDt, [car], true, true, barrier.group);
     out.peakLive = Math.max(out.peakLive, sys["live"]);
     if (!mine || !mine.live) {
       if (mine) {

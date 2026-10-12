@@ -3,7 +3,7 @@ import { DerbyBrain, blankAiCar, DEFAULT_DERBY_AGGRESSION, DERBY_PACE, DERBY_RUL
 import { aiRecoverDelay, DRIVE, FlipClock, idleDrive, mayRecoverFlipped, type DriveInput } from "../vehicle/car-drive.ts";
 import type { DeformableCar } from "../vehicle/car.ts";
 import { fieldAggression } from "../ai/ai-aggression.ts";
-import { derbyRadius } from "../scenes/derby-arena.ts";
+import { DERBY_RADIUS } from "../scenes/derby-arena.ts";
 import { MAX_CARS } from "../scenes/fleet.ts";
 import { COUNTDOWN, GRID_TIME } from "./session.ts";
 
@@ -40,7 +40,7 @@ type DerbyOptions = {
   hitClock?: number;
   /** Heat time limit (s): then the top score among the cars still running wins. Default `heatLimit(cars.length)`. */
   timeLimit?: number;
-  /** Bowl radius the drivers keep inside; default `derbyRadius(cars.length)`. */
+  /** Wall radius the drivers keep inside; default `DERBY_RADIUS`. */
   radius?: number;
   /** Seconds before the green light (match time runs from minus this to 0): default the race's grid and countdown. */
   start?: number;
@@ -122,7 +122,7 @@ export class DerbyMatch {
     this.boostQueue.length = 0;
     this.flips.length = 0;
     this.brain.reset();
-    this.brain.radius = opts.radius ?? derbyRadius(cars.length);
+    this.brain.radius = opts.radius ?? DERBY_RADIUS;
     this.lastAggro.clear();
     this.stillT.fill(NaN);
     this.counted.clear();

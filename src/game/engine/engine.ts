@@ -196,7 +196,7 @@ export class CrashEngine extends EngineGarage {
 
     this.buildWorld();
     this.view.posts = this.poles;
-    this.arena = makeDerbyArena();
+    this.arena = makeDerbyArena(this.derbyGround);
     this.scene.add(this.arena);
     this.winnerSpot = new WinnerSpot(this.scene, makePoolTexture());
     this.barrier = new JerseyBarrier(this.scene, makeJerseyBarrier());
@@ -460,7 +460,7 @@ export class CrashEngine extends EngineGarage {
       const sandbox = !this.race.active && !this.derbyMode;
       // Who the drivers look like: the clip on screen's race, else this race's, this derby round's, or this run's scene seed.
       this.ragdolls.lookSeed = this.highlights.look ?? (this.race.active ? this.race.look : this.derbyMode ? this.derbyRound : this.sceneSeed);
-      this.ragdolls.update(simDt, cars, !this.net.client, sandbox, this.derbyMode ? this.derbyR : 0, this.barrierUp ? this.barrier.group : null);
+      this.ragdolls.update(simDt, cars, !this.net.client, sandbox, this.barrierUp ? this.barrier.group : null);
       for (let i = 0; i < cars.length; i++) {
         const car = cars[i]!;
         if (reelDt !== null && !car.group.visible) continue;
@@ -601,10 +601,9 @@ export class CrashEngine extends EngineGarage {
     w.beforeSlice = this.rigScene && !this.showStack ? this.rigSlice : this.showLab ? this.lab.slice : null;
     w.pairHit = this.derbyMode ? this.derbyHit : this.race.active ? this.race.pairHit : this.showLab ? this.lab.pairHit : null;
     w.partTouch = this.race.active ? this.race.partTouch : null;
-    w.afterCar = this.derbyMode ? this.clipDerby : null;
     // The corkscrew's walls hold its car on its floor: the ramps are put away there (`SCENE_PROPS`), like the slab and the balls, so
     // their faces cannot stand in for them (a 6 m/s car slid off the bank onto its roof) or wall in a parked car.
-    w.collide = this.race.active ? this.raceCollide : this.showCorkscrew ? this.corkCollide : this.showLab ? this.lab.collide : this.rigCollide;
+    w.collide = this.race.active ? this.raceCollide : this.derbyMode ? this.derbyCollide : this.showCorkscrew ? this.corkCollide : this.showLab ? this.lab.collide : this.rigCollide;
     if (!this.race.active && !this.showLab) this.syncRigs();
     this.ejection.ctx = this.derbyMode ? "derby" : "default";
     w.fine = this.pace.fine;

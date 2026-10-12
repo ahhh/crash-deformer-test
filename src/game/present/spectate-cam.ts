@@ -58,7 +58,7 @@ export type Sight = {
   path: TrackPath | null;
   /** Race wall height (m) above the road. */
   wallTop: number;
-  /** Bowl wall radius (m) the eye stays inside (derby); Infinity elsewhere. */
+  /** The derby arena's wall radius (m) the eye stays inside (derby); Infinity elsewhere. */
   rim: number;
   occ: readonly Occluder[];
   /**

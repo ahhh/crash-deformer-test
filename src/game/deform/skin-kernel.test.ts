@@ -5,7 +5,8 @@ import { DeformableCar } from "../vehicle/car.ts";
 import { applyDrive, idleDrive, type DriveInput } from "../vehicle/car-drive.ts";
 import { assignClass } from "../vehicle/vehicle-classes.ts";
 import { assertSameNumbers } from "../vehicle/test-support.ts";
-import { derbyRadius } from "../scenes/derby-arena.ts";
+import { DERBY_RADIUS } from "../scenes/derby-arena.ts";
+import { arenaWorld, leaveArena } from "../scenes/derby-arena.test-util.ts";
 import { fleetClass, fleetStyle, layoutDerby, layoutFleet } from "../scenes/fleet.ts";
 import { physicsSlice, sliceSpeed } from "../contact/sat.ts";
 import { newWorld, settleStep, stepWorld } from "../engine/world-step.ts";
@@ -84,14 +85,14 @@ function play(s: Scenario): Leg {
   let seed = 11;
   const rng = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
   if (s.derby) {
-    const slots = layoutDerby(s.cars, derbyRadius(s.cars), rng);
+    const slots = layoutDerby(s.cars, DERBY_RADIUS, rng);
     for (const [i, c] of cars.entries()) c.spawnFacing(slots[i]!.x, slots[i]!.z, slots[i]!.yaw, 12);
   } else {
     const slots = layoutFleet(s.cars, 18, 28, rng);
     for (const [i, c] of cars.entries()) c.spawn(slots[i]!.x, slots[i]!.z, slots[i]!.speed);
   }
   const inputs: DriveInput[] = cars.map(() => ({ ...idleDrive(), throttle: 1 }));
-  const world = newWorld(cars);
+  const world = s.derby ? arenaWorld(cars).world : newWorld(cars);
   const seen: Seen = { skins: 0, wrinkled: 0, hubs: 0, lattice: 0, deep: 0 };
   const digests: number[] = [];
   let acc = 0;
@@ -137,6 +138,7 @@ function play(s: Scenario): Leg {
     digests.push(hash >>> 0);
   }
   const final = cars.flatMap((c) => ["position", "normal"].map((name) => Float32Array.from(c.body.geometry.getAttribute(name).array)));
+  leaveArena();
   return { digests, final, seen };
 }
 

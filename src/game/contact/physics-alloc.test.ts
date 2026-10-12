@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import * as THREE from "three";
 import { DeformableCar } from "../vehicle/car.ts";
 import { applyDrive, idleDrive, type DriveInput } from "../vehicle/car-drive.ts";
-import { derbyRadius } from "../scenes/derby-arena.ts";
+import { DERBY_RADIUS } from "../scenes/derby-arena.ts";
+import { arenaWorld, leaveArena } from "../scenes/derby-arena.test-util.ts";
 import { fleetStyle, layoutDerby } from "../scenes/fleet.ts";
 import { resolveCarPair } from "./pair-contact.ts";
 import { partContactPair } from "./external-contact.ts";
@@ -11,8 +12,9 @@ import { physicsSlice, sliceSpeed } from "./sat.ts";
 
 /**
  * docs/PERF_HITCH.md "GC during races": physics garbage is what drives the race GC pauses. A warmed 24-car
- * pile-up in the engine's derby contact order (drive, integrate/sync, part contact, SAT passes, structure),
- * every car driving at the bowl centre. Heap growth is summed per frame, positive deltas only: a frame with
+ * pile-up in the engine's derby contact order (drive, integrate/sync, part contact, SAT passes, structure, then the
+ * arena's prisms met at the end of the slice),
+ * every car driving at the arena centre. Heap growth is summed per frame, positive deltas only: a frame with
  * a scavenge counts as 0, so this only undercounts. 75bc12d: 2280–2300 KB per frame; f8821eb (boxing, iterator
  * and closure fixes): 657–672; with the split mass loops, typed-array outs and double-from-construction fields:
  * 421–425. The bound sits between, with room for JIT timing under a loaded runner.
@@ -27,9 +29,10 @@ function pileUp(): { cars: DeformableCar[]; step: () => void } {
   const cars = Array.from({ length: CARS }, (_, i) => new DeformableCar({ body: 0xc5c8ce, accent: 0x9aa0a8, name: `c${i}` }, scene, null, fleetStyle(i)));
   let seed = 11;
   const rng = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
-  const slots = layoutDerby(CARS, derbyRadius(CARS), rng);
+  const slots = layoutDerby(CARS, DERBY_RADIUS, rng);
   for (const [i, c] of cars.entries()) c.spawnFacing(slots[i]!.x, slots[i]!.z, slots[i]!.yaw, 12);
   const inputs: DriveInput[] = cars.map(() => ({ ...idleDrive(), throttle: 1 }));
+  const { world } = arenaWorld(cars);
   const step = () => {
     const h = physicsSlice(1 / 60, sliceSpeed(cars));
     for (let i = 0; i < CARS; i++) {
@@ -64,26 +67,31 @@ function pileUp(): { cars: DeformableCar[]; step: () => void } {
       }
       c.afterContacts(h);
     }
+    for (let i = 0; i < CARS; i++) world.collide?.(cars[i]!, i, h);
   };
   return { cars, step };
 }
 
-describe("given a warmed 24-car derby pile-up with every car driving at the bowl centre", () => {
+describe("given a warmed 24-car derby pile-up with every car driving at the arena centre", () => {
   it(`when 300 frames are stepped, then physics allocates at most ${BOUND_KB} KB of heap per frame (boxed doubles, iterators and per-call arrays would show up as race GC pauses)`, () => {
     const { cars, step } = pileUp();
-    for (let f = 0; f < WARM; f++) step();
-    const crashed = cars.filter((c) => c.deform.massActive).length;
-    assert.ok(crashed >= CARS / 2, `only ${crashed} of ${CARS} cars crashed: the pile-up no longer exercises the crush path`);
-    let grown = 0;
-    let last = process.memoryUsage().heapUsed;
-    for (let f = 0; f < MEASURE; f++) {
-      step();
-      const now = process.memoryUsage().heapUsed;
-      if (now > last) grown += now - last;
-      last = now;
+    try {
+      for (let f = 0; f < WARM; f++) step();
+      const crashed = cars.filter((c) => c.deform.massActive).length;
+      assert.ok(crashed >= CARS / 2, `only ${crashed} of ${CARS} cars crashed: the pile-up no longer exercises the crush path`);
+      let grown = 0;
+      let last = process.memoryUsage().heapUsed;
+      for (let f = 0; f < MEASURE; f++) {
+        step();
+        const now = process.memoryUsage().heapUsed;
+        if (now > last) grown += now - last;
+        last = now;
+      }
+      const kb = grown / 1024 / MEASURE;
+      if (process.env.ALLOC_PRINT) console.log(`physics-alloc: ${kb.toFixed(1)} KB/frame, ${crashed} crashed`);
+      assert.ok(kb <= BOUND_KB, `${kb.toFixed(0)} KB per frame > ${BOUND_KB}: a hot physics path allocates again (see docs/PERF_HITCH.md)`);
+    } finally {
+      leaveArena();
     }
-    const kb = grown / 1024 / MEASURE;
-    if (process.env.ALLOC_PRINT) console.log(`physics-alloc: ${kb.toFixed(1)} KB/frame, ${crashed} crashed`);
-    assert.ok(kb <= BOUND_KB, `${kb.toFixed(0)} KB per frame > ${BOUND_KB}: a hot physics path allocates again (see docs/PERF_HITCH.md)`);
   });
 });

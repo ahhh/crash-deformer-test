@@ -41,7 +41,7 @@ export abstract class EngineDerby extends EngineHud {
       active: d.active,
       time: d.time,
       hold: d.hold,
-      radius: this.derbyR,
+      radius: DERBY_RADIUS,
       winnerId: d.winnerId,
       winnerName: d.winnerName,
       decided: d.decided,
@@ -69,10 +69,6 @@ export abstract class EngineDerby extends EngineHud {
       if (this.race.active) this.setRace(false);
       this.setDerby(true);
       this.emitHud();
-    }
-    if (s.radius !== this.derbyR) {
-      this.derbyR = s.radius;
-      this.arena.scale.set(s.radius / DERBY_RADIUS, 1, s.radius / DERBY_RADIUS);
     }
     const seated = self >= 0 && ((s.seats >>> self) & 1) === 1;
     for (const r of s.board) {

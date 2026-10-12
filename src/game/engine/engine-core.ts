@@ -42,6 +42,7 @@ import { LampBatch, LampLights } from "../vehicle/lamp-lights.ts";
 import { DriverSeat } from "../vehicle/car-drive.ts";
 import { GamepadInput } from "../vehicle/gamepad.ts";
 import { DERBY_RADIUS, WinnerSpot } from "../scenes/derby-arena.ts";
+import { DerbyGround } from "../scenes/derby-ground.ts";
 import { groundMesh, LINE_LIFT } from "../scenes/ground-stack.ts";
 import { RangeRun } from "../scenes/range.ts";
 import { NetPlay } from "../net/net-play.ts";
@@ -279,8 +280,8 @@ export abstract class EngineCore {
   protected ramps!: FleetRamps;
   protected corkscrew!: Corkscrew;
   protected derby = new DerbyMatch();
-  /** This match's bowl radius (grows with the field, `derbyRadius`). */
-  protected derbyR = DERBY_RADIUS;
+  /** The derby arena's ground and the prisms on it (`scenes/derby-ground.ts`), active while a derby is up. */
+  protected readonly derbyGround = new DerbyGround();
   /** Netplay host: peers' cars and names. A derby seats them (`derbySeated`) when a match begins, which bumps `derbyRound`. */
   protected netSeats: ReadonlyMap<number, string> = new Map();
   protected derbySeated = new Set<number>();
@@ -620,7 +621,7 @@ export abstract class EngineCore {
       const w = this.lab.colliders.at(-1)!;
       occ.push(occluder(w.x, w.z, w.yaw, w.hx, w.hz, false, FLOOR, w.top));
     }
-    return { ground: activeGround(), path: null, wallTop: 0, rim: this.derbyMode ? this.derbyR : Infinity, occ };
+    return { ground: activeGround(), path: null, wallTop: 0, rim: this.derbyMode ? DERBY_RADIUS : Infinity, occ };
   }
 
   /** The scene's solids and the live cars' tight boxes as they stand now: what a crash cam's eye is picked against (`carsBlock`: no eye inside a car, none with a car on its line to the hit). */

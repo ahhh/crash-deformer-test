@@ -2,7 +2,7 @@
 
 How the demolition-derby drivers fight, what the aggression slider means for them, the count-out
 rules, and how the field is validated. Code: `src/game/ai/derby-ai.ts` (`DerbyBrain`, `DERBY_RULES`),
-`src/game/match/derby.ts` (`DerbyMatch`), `src/game/scenes/derby-arena.ts` (bowl, `derbyRadius`, `WinnerSpot`),
+`src/game/match/derby.ts` (`DerbyMatch`), `src/game/scenes/derby-arena.ts` (the drawn arena, `WinnerSpot`) and `derby-ground.ts` (its ground and props),
 `src/game/ai/ai-aggression.ts` (shared with race mode). Tests: `derby-ai.test.ts`, `derby.test.ts`.
 
 Sources: `.extraResearch/perplexity/40-derby-driver-techniques.md`, `41-derby-rules-door-timer.md`,
@@ -92,7 +92,7 @@ decides the heat.
 
 ## Start
 
-Every car starts stopped on the spawn ring, facing the bowl's centre (`layoutDerby`). The match clock runs from
+Every car starts stopped on the spawn ring, facing the arena's centre (`layoutDerby`). The match clock runs from
 −4.5 s (`DerbyOptions.start`, default the race's `GRID_TIME + COUNTDOWN`) to the green light at 0, and the HUD shows
 race mode's start lights (`StartLights`, `startLights(time)`). Before green `DerbyMatch.held` refuses every input
 (AI, the local driver, netplay peers on the host), no count-out clock runs and nothing scores; clients mirror the
@@ -100,11 +100,20 @@ host's clock through `MSG.derby`. The AI then launches through `applyDrive` like
 its first throttle measured 0.964–0.965 s (sedan), 0.786 (muscle), 1.023–1.025 (truck) against full throttle's
 0.974 / 0.789 / 1.031 s. The brain's throttle only sets the speed it aims for (`DERBY_PACE`), never the thrust.
 
-## Bowl size
+## The arena
 
-`derbyRadius(n)`: 16.4 m up to 12 cars, then wide enough that neighbours on the spawn ring keep 5.64 m
-(car + 1.2 m, sized for the old tangent spawn) — 32 cars ≈ 34 m. The engine scales the arena group, the AI and the
-wall clip to it.
+One fixed arena for every field (`DERBY_ARENA`, `scenes/constants.ts`): a 38 m radius ring wall, 10 m high, 1 m thick (48 flat boxes, mitred), and `layoutDerby`'s
+spawn ring 5.2 m inside it (32 cars keep 6.4 m between neighbours). The ground is one baked 1 m grid (the Havana plateau mechanism, `world/terrain.ts`
+`raisePlateaus`): a 9 x 9 m table-top 1.8 m up, four jumps (1.5 m, grade 0.21, pinwheeled round the table-top so no launch line points at the wall),
+a pit plateau and a scrap hump. Only what stands on the ground is a prism of the same store: the wall, two containers, three K-rails, two crash pads and
+three tyre berms (`DERBY_BOXES`); each is drawn from its own box, so what is drawn is what is met. A car's footprint meets the prisms through
+`propContact` (`DerbyGround.contact`); the rises are met by the one point query like any ground. `derby-containment.test.ts` drives every class flat out
+and boosting at the wall from all directions, across the arena and at each jump's far entry: no vertex passes the wall's outer face and the car touches
+the wall at least 1 m under its top (at 8 m the monster touched at 8.6 m; at 5 m it cleared the wall).
+
+What the AI does not know: it steers by the ring radius (`DerbyBrain.radius` = `DERBY_RADIUS`) and its stuck recovery, not by the containers, rails, pads, tyre
+berms, the table-top or the jumps. Cars can be wedged against a container or rail and recover by the existing stuck rule; an obstacle-aware aim (steer round a prism, treat a rise as a
+ramp) would be the next step.
 
 ## Validation (10 cars, default slider, real stack, headless)
 

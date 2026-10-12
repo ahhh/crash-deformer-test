@@ -98,7 +98,7 @@ async function rangeThrow(frame: () => number): Promise<Run> {
     tickWorld(w, frameDt);
     const simDt = frameDt * w.clock.timeScale;
     sim += simDt;
-    ragdolls.update(simDt, [car], true, true, 0, barrier);
+    ragdolls.update(simDt, [car], true, true, barrier);
     const landed = ragdolls.latest(torso) > 1;
     if (landed && Number.isNaN(run.landing)) run.landing = torso.x;
     const d = dolls.find((x) => x.live);
@@ -134,14 +134,14 @@ describe("given the ejection range (a sedan at 100 km/h into the jersey barrier,
       const ragdolls = new RagdollSystem(new THREE.Scene(), () => {}, () => {});
       await ragdolls.preload();
       ragdolls.sand = true;
-      ragdolls.update(1 / 60, [], true, true, 0, null);
+      ragdolls.update(1 / 60, [], true, true, null);
       ragdolls["spawn"]({ car: 0, p: new THREE.Vector3(0, 1.2, 0), q: new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), -Math.PI / 2 + 0.3), v: new THREE.Vector3(27, 3.5, 0), w: new THREE.Vector3(0, 0, -3), age: 0, cop: false, rides: true });
       const torso = new THREE.Vector3();
       let x = NaN;
       for (let t = 0; t < 12 && Number.isNaN(x); ) {
         const dt = dtOf();
         t += dt;
-        ragdolls.update(dt, [], true, true, 0, null);
+        ragdolls.update(dt, [], true, true, null);
         if (ragdolls.latest(torso) > 1) x = torso.x;
       }
       ragdolls.dispose();
@@ -163,16 +163,16 @@ describe("given a dummy thrown while time runs at 0.03× (the deepest slow-mo)",
     for (const hz of [60, 240]) {
       const ragdolls = new RagdollSystem(new THREE.Scene(), () => {}, () => {});
       await ragdolls.preload();
-      ragdolls.update(1 / 60, [], true, true, 0, null);
+      ragdolls.update(1 / 60, [], true, true, null);
       ragdolls["spawn"]({ car: 0, p: new THREE.Vector3(0, 1.2, 0), q: new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), -Math.PI / 2 + 0.3), v: new THREE.Vector3(27, 3.5, 0), w: new THREE.Vector3(0, 0, -3), age: 0, cop: false, rides: true });
       // What the GPU gets: his slot's pieces (slot 0, the first throw), the throw frame's pose first.
       const drawn: Float32Array = ragdolls["mesh"].instanceMatrix.array as Float32Array;
       const per = drawn.length / ragdolls["dolls"].length;
-      ragdolls.update(0.03 / hz, [], true, true, 0, null);
+      ragdolls.update(0.03 / hz, [], true, true, null);
       const last = drawn.slice(0, per);
       const moves: number[] = [];
       for (let f = 0; f < hz / 2; f++) {
-        ragdolls.update(0.03 / hz, [], true, true, 0, null);
+        ragdolls.update(0.03 / hz, [], true, true, null);
         let move = 0;
         for (let o = 0; o < per; o += 16) {
           move = Math.max(move, Math.hypot(drawn[o + 12]! - last[o + 12]!, drawn[o + 13]! - last[o + 13]!, drawn[o + 14]! - last[o + 14]!));
@@ -209,7 +209,7 @@ describe("given a thrown dummy (the ejected driver's jointed ragdoll)", () => {
   it("when a part's motion is shed against another part at any velocities, then it takes kinetic energy out of the pair and keeps their momentum", async () => {
     const ragdolls = new RagdollSystem(new THREE.Scene(), () => {}, () => {});
     await ragdolls.preload();
-    ragdolls.update(1 / 60, [], true, true, 0, null);
+    ragdolls.update(1 / 60, [], true, true, null);
     ragdolls["spawn"]({ car: 0, p: new THREE.Vector3(0, 1, 0), q: new THREE.Quaternion(), v: new THREE.Vector3(), w: new THREE.Vector3(), age: 0, cop: false, rides: true });
     const bodies: RigidBody[] = ragdolls["dolls"][0]!.bodies;
     const [torso, arm] = [bodies[0]!, bodies[2]!];
@@ -239,7 +239,7 @@ describe("given a thrown dummy (the ejected driver's jointed ragdoll)", () => {
     await ragdolls.preload();
     const frame = () => {
       tickWorld(w);
-      ragdolls.update(1 / 60, [car], true, true, 0, null);
+      ragdolls.update(1 / 60, [car], true, true, null);
     };
     frame();
     ragdolls["spawn"]({ car: 5, p: new THREE.Vector3(0, 0.3, 0), q: new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.PI / 2), v: new THREE.Vector3(), w: new THREE.Vector3(), age: 0, cop: false, rides: true });
@@ -256,7 +256,7 @@ describe("given a thrown dummy (the ejected driver's jointed ragdoll)", () => {
   it("when every dummy lies asleep and no car is near, then nothing is stepped, and a car coming within reach steps the world again", async () => {
     const ragdolls = new RagdollSystem(new THREE.Scene(), () => {}, () => {});
     await ragdolls.preload();
-    ragdolls.update(1 / 60, [], true, true, 0, null);
+    ragdolls.update(1 / 60, [], true, true, null);
     ragdolls["spawn"]({ car: 5, p: new THREE.Vector3(0, 0.3, 0), q: new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.PI / 2), v: new THREE.Vector3(), w: new THREE.Vector3(), age: 0, cop: false, rides: true });
     const world: World = ragdolls["world"]!;
     const step = world.step.bind(world);
@@ -266,17 +266,17 @@ describe("given a thrown dummy (the ejected driver's jointed ragdoll)", () => {
       step();
     };
     const torso: RigidBody = ragdolls["dolls"][0]!.bodies[0]!;
-    for (let f = 0; f < 240; f++) ragdolls.update(1 / 60, [], true, true, 0, null);
+    for (let f = 0; f < 240; f++) ragdolls.update(1 / 60, [], true, true, null);
     assert.ok(torso.isSleeping(), "he lies asleep after four seconds");
     const asleep = steps;
-    for (let f = 0; f < 60; f++) ragdolls.update(1 / 60, [], true, true, 0, null);
+    for (let f = 0; f < 60; f++) ragdolls.update(1 / 60, [], true, true, null);
     assert.equal(steps, asleep, "a second of him asleep stepped nothing");
     const car = makeCar("shape", 0.32, 0.45);
     launch(car, -3, 0, Math.PI / 2, 0, 0);
-    for (let f = 0; f < 60; f++) ragdolls.update(1 / 60, [car], true, true, 0, null);
+    for (let f = 0; f < 60; f++) ragdolls.update(1 / 60, [car], true, true, null);
     assert.equal(steps, asleep, "a wreck lying 3 m from him steps nothing either");
     launch(car, -8, 0, Math.PI / 2, 5, 0);
-    ragdolls.update(1 / 60, [car], true, true, 0, null);
+    ragdolls.update(1 / 60, [car], true, true, null);
     ragdolls.dispose();
     assert.ok(steps > asleep, "a car driving 8 m away steps the world");
   });

@@ -18,7 +18,7 @@ export async function flatSystem(): Promise<RagdollSystem> {
   const sys = new RagdollSystem(new THREE.Scene(), () => {}, () => {});
   await sys.preload();
   setGround(null);
-  sys.update(FRAME, [], true, false, 0, null);
+  sys.update(FRAME, [], true, false, null);
   return sys;
 }
 
@@ -29,7 +29,7 @@ export function flatThrow(sys: RagdollSystem, shot: Shot, secs: number): Pose {
   const out = noPose();
   const d = dollsOf(sys)[0]!;
   for (let f = 0; f < Math.round(secs / FRAME); f++) {
-    sys.update(FRAME, [], true, false, 0, null);
+    sys.update(FRAME, [], true, false, null);
     worst(out, pose(d.bodies));
   }
   return out;
@@ -50,7 +50,7 @@ export async function rangeWall(secs: number): Promise<Pose> {
   let out0 = -1;
   for (let wall = 0; wall < 30 && (out0 < 0 || wall - out0 < secs); wall += FRAME) {
     tickWorld(w, FRAME);
-    sys.update(FRAME * w.clock.timeScale, [car], true, true, 0, new THREE.Group());
+    sys.update(FRAME * w.clock.timeScale, [car], true, true, new THREE.Group());
     const d = dollsOf(sys).find((x) => x.live);
     if (!d) continue;
     if (out0 < 0) out0 = wall;
@@ -86,7 +86,7 @@ export async function headOn(mps: number, secs: number): Promise<Pose[]> {
   let first = -1;
   for (let wall = 0; wall < 30 && (first < 0 || wall - first < secs); wall += FRAME) {
     tickWorld(w, FRAME);
-    sys.update(FRAME * w.clock.timeScale, [a, b], true, true, 0, null);
+    sys.update(FRAME * w.clock.timeScale, [a, b], true, true, null);
     for (const [s, d] of dollsOf(sys).entries()) {
       if (!d.live || s > 1) continue;
       if (first < 0) first = wall;
