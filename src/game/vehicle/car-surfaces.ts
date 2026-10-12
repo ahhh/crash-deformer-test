@@ -23,8 +23,8 @@ import { PAN } from "./car-suspension.ts";
 export const SKIN = 0.25;
 /** A car more than ~60° off vertical is not a surface to stand on. */
 const UPRIGHT = 0.5;
-/** Plan radius (m) past which a car's top is out of reach: its half-diagonal. */
-const REACH = 2.5;
+/** Plan radius (m) past which a car's top is out of reach: its half-diagonal. A query within it of a car's plan reads that car's own list (`near`). */
+export const REACH = 2.5;
 /**
  * Plan slack (m) of a roof list (`reach`) over 2·REACH: a list stands for the rest of its slice, through which two cars closing at
  * 60 m/s each move 2 m in a 1/60 s slice, and a query must find every roof the patch boxes (`sync`) hold under its point.

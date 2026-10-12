@@ -1300,6 +1300,46 @@ export function pointContactHeld(q: Float64Array, skip: number, out: Float64Arra
   answer(q, out);
 }
 
+/** The car tops `holdNearTops` readied: `near`'s list for its body, cut to those over its square. */
+const nearTops = { list: new Int32Array(0), count: 0 };
+
+/**
+ * Ready the car tops for body `skip` at plan (`x`, `z`): the list `near` gives a query there (`CarSurfaces.near`: the roofs within reach
+ * of the car, for every point within reach of it), cut to the tops whose plan box meets the square of half side `r` about (`x`, `z`).
+ * A top off a query's point (`offer`) or box (`patchTop`) is asked nothing, so for a point of that list whose box lies in the square,
+ * `pointContactNear` and `topsTopNear` answer as `pointContact` and `topsTop` do. Returns how many tops are held.
+ */
+export function holdNearTops(skip: number, x: number, z: number, r: number): number {
+  const t = live.tops;
+  nearTops.count = 0;
+  if (t === null) return 0;
+  t.near(skip, x, z);
+  if (nearTops.list.length < t.nAlways) nearTops.list = new Int32Array(t.always.length);
+  const P = t.p;
+  for (let k = 0; k < t.nAlways; k++) {
+    const i = t.always[k]!;
+    const o = i * P_STRIDE;
+    if (x + r < P[o + P_MINX]! || x - r > P[o + P_MAXX]! || z + r < P[o + P_MINZ]! || z - r > P[o + P_MAXZ]!) continue;
+    nearTops.list[nearTops.count++] = i;
+  }
+  return nearTops.count;
+}
+
+/** `pointContact` over the tops `holdNearTops` readied. */
+export function pointContactNear(q: Float64Array, skip: number, out: Float64Array): void {
+  seek(q, skip, live.tops, nearTops.list, nearTops.count);
+  answer(q, out);
+}
+
+/** `topsTop` over the tops `holdNearTops` readied. */
+export function topsTopNear(skip: number, xMin: number, xMax: number, zMin: number, zMax: number): number {
+  const tops = live.tops;
+  if (tops === null) return -Infinity;
+  let top = -Infinity;
+  for (let k = 0; k < nearTops.count; k++) top = Math.max(top, patchTop(tops, nearTops.list[k]!, xMin, xMax, zMin, zMax, skip));
+  return top;
+}
+
 /** `out` from what `seek` found for the point `q`. */
 function answer(q: Float64Array, out: Float64Array): void {
   report(out);
@@ -1390,6 +1430,11 @@ export function clearOf(skip: number, x: number, z: number, r: number, y: number
   const s = live.statics;
   const o = live.solids;
   return (s === null || staticTop(s, x - r, x + r, z - r, z + r) < y) && (o === null || staticTop(o, x - r, x + r, z - r, z + r) < y) && topsTop(skip, x - r, x + r, z - r, z + r) === -Infinity;
+}
+
+/** `staticTop` over the armed solids alone (-Infinity: none armed). */
+export function solidTop(xMin: number, xMax: number, zMin: number, zMax: number): number {
+  return live.solids === null ? -Infinity : staticTop(live.solids, xMin, xMax, zMin, zMax);
 }
 
 /** `patchOf` the contact `seek` found would report. */

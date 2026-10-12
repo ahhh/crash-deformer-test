@@ -2,14 +2,14 @@ import * as THREE from "three";
 import type { DeformableCar } from "./car.ts";
 import type { LooseShape } from "./car-core.ts";
 import { activeGround, NO_FLOOR } from "../world/ground.ts";
-import { C_AUX, C_DEPTH, C_GRIP, C_H, C_NX, C_NY, C_NZ, C_OWNER, C_PX, C_PY, C_PZ, C_TOUCH, EDGE_HIT, edgeCross, HIT_SIZE, MU_TYRE, patchOf, pointContact, pointContactHeld, PQ_BODY, PQ_SIZE, PQ_VX, PQ_VY, PQ_VZ, PQ_X, PQ_Y, PQ_Z, ridgeCross, staticTop, topsTop, wheelContact, type Surface } from "../world/surfaces.ts";
+import { C_AUX, C_DEPTH, C_GRIP, C_H, C_NX, C_NY, C_NZ, C_OWNER, C_PX, C_PY, C_PZ, C_TOUCH, EDGE_HIT, edgeCross, HIT_SIZE, holdNearTops, MU_TYRE, patchOf, pointContact, pointContactHeld, pointContactNear, PQ_BODY, PQ_SIZE, PQ_VX, PQ_VY, PQ_VZ, PQ_X, PQ_Y, PQ_Z, ridgeCross, solidTop, staticTop, topsTop, topsTopNear, wheelContact, type Surface } from "../world/surfaces.ts";
 import { TYRE_R } from "../deform/deform-state.ts";
 import { MIN_SLIDE } from "../deform/constants.ts";
 import { barrierSpeed, CRASH, hypot2, plasticEnergy } from "../deform/physics-util.ts";
 import { CAR_HALF, WHEEL_POS } from "./car-mesh.ts";
 import { droop, PAN, SPRINGS, UNDERSIDE } from "./car-suspension.ts";
 import { carClass } from "./vehicle-classes.ts";
-import { CarSurfaces } from "./car-surfaces.ts";
+import { CarSurfaces, REACH } from "./car-surfaces.ts";
 import { CAGE_VERTICES, SAMPLE, sampleAt } from "./car-cage.ts";
 import { cageLift } from "./car-cage-rig.ts";
 
@@ -374,13 +374,21 @@ function crossedPlanFromSide(hit: Float64Array, pen: number, r: THREE.Vector3): 
  * surface within the slice, a point at most `SPECULATIVE_GAP` above one a row that lets it close that gap and no more. Returns the row
  * count past the last. The points from `bellyFrom` on are a car's belly: read (`BX`, `BRISE`, `BPATCH`) for its edges, no rows. With
  * `gate` a point that stays higher than the static surface anywhere within its slice's plan travel, by its descent over the slice and a
- * speculative gap, neither meets nor nears it: not asked; one above `bound` (`centredTop`) by that is so without its own read. A part
+ * speculative gap, neither meets nor nears it: not asked; one above `bound` (`centredTop`) by that is so without its own read. With
+ * `tops` (a car top within the body's reach) a body point must also stand that clear of the solids (`solidTop`) and of the tops its own
+ * query would ask (`topsTop` over the same list, `CarSurfaces.near`), and the belly is always read (its edges and ridges lie between its
+ * points). A part
  * also meets a prism's side face (`C_H` NO_FLOOR: the depth it is in, out along the face's normal), asks the car tops its caller held
  * (`holdTops`) and gives the point's own velocity for the way out.
  */
-export function readPoints(from: number, to: number, bellyFrom: number, n: number, gate: boolean, bound = Infinity): number {
-  const { q, v, w, dt, skip, part } = body;
+export function readPoints(from: number, to: number, bellyFrom: number, n: number, gate: boolean, bound = Infinity, tops = false, solidReach = 0, travel = 0): number {
+  const { q, v, w, dt, skip, part, pos } = body;
   const statics = activeGround();
+  // The solids' highest over the square of half side `solidReach` about the centre of mass (every point's slice travel): read once, when a
+  // point first needs the solids.
+  let solids = NaN;
+  // The car tops a point within `REACH` of the car asks (`near`), cut once to those over the square every such point's box lies in.
+  let held = false;
   for (let i = from; i < to; i++) {
     if (i >= bellyFrom && BELLY_ABSENT[i - bellyFrom] === 1) continue;
     const r = armOf(i, q, R[n]!);
@@ -389,8 +397,20 @@ export function readPoints(from: number, to: number, bellyFrom: number, n: numbe
     const pz = centreOfMass.z + r.z;
     _vp.crossVectors(w, r).add(v);
     const planTravel = hypot2(_vp.x, _vp.z) * dt;
-    const descent = Math.max(0, -_vp.y) * dt + SPECULATIVE_GAP;
-    const clear = gate && (bound < py - descent || staticTop(statics, px - planTravel, px + planTravel, pz - planTravel, pz + planTravel) < py - descent);
+    const low = py - (Math.max(0, -_vp.y) * dt + SPECULATIVE_GAP);
+    const own = !part && i < bellyFrom && Math.abs(pos.x - px) < REACH && Math.abs(pos.z - pz) < REACH;
+    if (own && !held) {
+      holdNearTops(skip, pos.x, pos.z, REACH + travel);
+      held = true;
+    }
+    let clear = gate && (bound < low || staticTop(statics, px - planTravel, px + planTravel, pz - planTravel, pz + planTravel) < low);
+    if (clear && tops) {
+      if (solids !== solids) solids = solidTop(centreOfMass.x - solidReach, centreOfMass.x + solidReach, centreOfMass.z - solidReach, centreOfMass.z + solidReach);
+      clear =
+        i < bellyFrom &&
+        (solids < low || solidTop(px - planTravel, px + planTravel, pz - planTravel, pz + planTravel) < low) &&
+        (own ? topsTopNear : topsTop)(skip, px - planTravel, px + planTravel, pz - planTravel, pz + planTravel) < low;
+    }
     if (i >= bellyFrom) {
       BX[i] = px;
       BY[i] = py;
@@ -414,7 +434,8 @@ export function readPoints(from: number, to: number, bellyFrom: number, n: numbe
         PQ[PQ_X] = px;
         PQ[PQ_Z] = pz;
         PQ[PQ_Y] = py;
-        pointContact(PQ, skip, HIT);
+        if (own) pointContactNear(PQ, skip, HIT);
+        else pointContact(PQ, skip, HIT);
       }
     }
     const gy = HIT[C_H]!;
@@ -1417,7 +1438,7 @@ export function stepFree(car: DeformableCar, dt: number): boolean {
   }
   const tyres = n;
   // A point that stays higher than the static surface anywhere within its slice's plan travel, by its descent over the slice and a
-  // speculative gap, neither meets nor nears it: no reading. The car tops are read whenever one stands within the body's reach.
+  // speculative gap, neither meets nor nears it: no reading. Near a car top each body point is held to the solids and that top too.
   const statics = activeGround();
   const speed = v.length();
   const turnRate = w.length();
@@ -1426,6 +1447,11 @@ export function stepFree(car: DeformableCar, dt: number): boolean {
   const pointReach = _s[S_POINT_REACH]!;
   const bodyReach = pointReach + (speed + turnRate * pointReach) * dt;
   const readAll = topsTop(car.slot, centreOfMass.x - bodyReach, centreOfMass.x + bodyReach, centreOfMass.z - bodyReach, centreOfMass.z + bodyReach) > -Infinity;
+  // Every point's slice travel lies within this of the centre of mass: its reach about the body's own centre is at most the stock reach
+  // plus that centre's offset from the car's (`readPoints` reads the solids over that square once, if a point needs them).
+  const c = body.centre;
+  const shiftedReach = pointReach + Math.abs(c.x - CAR_CENTRE.x) + Math.abs(c.y - CAR_CENTRE.y) + Math.abs(c.z - CAR_CENTRE.z);
+  const solidReach = shiftedReach + (speed + turnRate * shiftedReach) * dt + CLEAR_ROUND;
   // The whole body at once first: each point's box below and each belly segment's lies within the points' boxes together, so a raster
   // under all of them lower than the lowest point's clearance clears every point and segment in one read (measured: 84 % of the slices
   // of a 32-car race at aggression 1, 93 % at 0). The points come off the body's axes (`_e`, `wheelsAt` set it from `q`), each moving at
@@ -1459,7 +1485,7 @@ export function stepFree(car: DeformableCar, dt: number): boolean {
     allClear = top < centreOfMass.y + low - descent;
     bodyTop = allClear || body.centre === CAR_CENTRE ? top : centredTop(statics, turnRate, dt, pointEnd);
   }
-  n = readPoints(allClear ? pointEnd : 0, pointEnd, bellyFrom, n, !readAll, bodyTop);
+  n = readPoints(allClear ? pointEnd : 0, pointEnd, bellyFrom, n, true, bodyTop, readAll, solidReach, solidReach - shiftedReach);
   // Between two belly points on different patches the belly meets that edge where it crosses (`edgeCross`, the tyres' rule): a car
   // dropped level across a ramp's crest balanced on the row in front of it, the crest 17 cm inside the belly half a metre behind.
   // Over one car's top (one patch) the pan's lines rest on the top's ridge between their points where that stands above both
