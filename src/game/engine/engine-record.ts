@@ -568,12 +568,14 @@ export class CrashRecorder {
   /**
    * Car `car`'s (slot `i`) cage strains into `out` from `at`: all zero for a car whose body was never crushed (nothing to read).
    * The strains are a function of the cage corners, which move only where `cornerSerial` is bumped: a car whose corners have not moved
-   * since its slot was last read (a wreck at rest, a damaged car driving on) is not measured again.
+   * since its slot was last read (a wreck at rest, a damaged car driving on) is not measured again. A car read uncrushed drops its
+   * slot's row: a respawn starts its serial over, and its next crash must not match a row of the crash before.
    */
   private readStrain(car: DeformableCar, out: Float32Array, at: number, i: number): void {
     const L = CAGES.length;
     if (!car.deform.massActive) {
       out.fill(0, at, at + L);
+      this.strainCar[i] = null;
       return;
     }
     const row = i * L;
