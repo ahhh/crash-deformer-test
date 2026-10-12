@@ -621,6 +621,9 @@ export abstract class EngineInput extends EngineRigs {
       case "KeyH":
         this.raceCommand({ type: "fullUi", on: !this.race.fullUi });
         return true;
+      case "Backslash":
+        this.toggleStats();
+        return true;
       default:
         return !this.race.fullUi;
     }

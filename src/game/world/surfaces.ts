@@ -642,8 +642,8 @@ export class Surface {
     let maxZ = -Infinity;
     let small = 0;
     for (let k = 0; k < this.nAlways; k++) {
+      if (this.alwaysClass(k, 0, 0) !== 1) continue;
       const o = this.always[k]! * P_STRIDE;
-      if (P[o + P_MINX]! > P[o + P_MAXX]! || !(P[o + P_MAXX]! - P[o + P_MINX]! <= WIDE * CELL) || !(P[o + P_MAXZ]! - P[o + P_MINZ]! <= WIDE * CELL)) continue;
       small++;
       minX = Math.min(minX, P[o + P_MINX]!);
       maxX = Math.max(maxX, P[o + P_MAXX]!);
@@ -655,13 +655,10 @@ export class Surface {
     const anx = Math.floor(maxX / CELL) - ax0 + 1;
     const anz = Math.floor(maxZ / CELL) - az0 + 1;
     if (this.aWide.length < this.nAlways) this.aWide = new Int32Array(this.always.length);
+    this.aNWide = 0;
     if (small === 0 || anx * anz > A_CELLS_MAX) {
       this.anx = 0;
-      this.aNWide = 0;
-      for (let k = 0; k < this.nAlways; k++) {
-        const o = this.always[k]! * P_STRIDE;
-        if (!(P[o + P_MINX]! > P[o + P_MAXX]!)) this.aWide[this.aNWide++] = this.always[k]!;
-      }
+      for (let k = 0; k < this.nAlways; k++) if (this.alwaysClass(k, 0, 0) !== -1) this.aWide[this.aNWide++] = this.always[k]!;
       return;
     }
     this.ax0 = ax0;
@@ -669,42 +666,56 @@ export class Surface {
     this.anx = anx;
     this.anz = anz;
     const cells = anx * anz;
-    this.aNWide = 0;
-    const start = this.aStart.length === cells + 1 ? this.aStart.fill(0) : (this.aStart = new Int32Array(cells + 1));
-    const bounds = (k: number): number => {
-      const o = this.always[k]! * P_STRIDE;
-      if (P[o + P_MINX]! > P[o + P_MAXX]!) return -1;
-      // A NaN box (a grid whose node heights hold NaN) fails `offer`'s box test never: it is wide.
-      if (!(P[o + P_MAXX]! - P[o + P_MINX]! <= WIDE * CELL) || !(P[o + P_MAXZ]! - P[o + P_MINZ]! <= WIDE * CELL)) return cells;
-      _ab[0] = Math.floor(P[o + P_MINX]! / CELL) - ax0;
-      _ab[1] = Math.floor(P[o + P_MAXX]! / CELL) - ax0;
-      _ab[2] = Math.floor(P[o + P_MINZ]! / CELL) - az0;
-      _ab[3] = Math.floor(P[o + P_MAXZ]! / CELL) - az0;
-      return (_ab[1]! - _ab[0]! + 1) * (_ab[3]! - _ab[2]! + 1);
-    };
+    if (this.aStart.length < cells + 1) this.aStart = new Int32Array(Math.max(cells + 1, 2 * this.aStart.length));
+    if (this.aFill.length < cells) this.aFill = new Int32Array(Math.max(cells, 2 * this.aFill.length));
+    const start = this.aStart;
+    start.fill(0, 0, cells + 1);
     let listed = 0;
     for (let k = 0; k < this.nAlways; k++) {
-      const n = bounds(k);
-      if (n < 0) continue;
-      listed += n;
-      if (n === cells) {
+      const cls = this.alwaysClass(k, ax0, az0);
+      if (cls === -1) continue;
+      if (cls === 0) {
         this.aWide[this.aNWide++] = this.always[k]!;
         for (let c = 0; c < cells; c++) start[c + 1]!++;
-      } else for (let j = _ab[2]!; j <= _ab[3]!; j++) for (let i = _ab[0]!; i <= _ab[1]!; i++) start[j * anx + i + 1]!++;
+        listed += cells;
+      } else {
+        for (let j = _ab[2]!; j <= _ab[3]!; j++) for (let i = _ab[0]!; i <= _ab[1]!; i++) start[j * anx + i + 1]!++;
+        listed += (_ab[1]! - _ab[0]! + 1) * (_ab[3]! - _ab[2]! + 1);
+      }
     }
     for (let c = 0; c < cells; c++) start[c + 1]! += start[c]!;
     if (this.aList.length < listed) this.aList = new Int32Array(Math.max(listed, 2 * this.aList.length));
-    if (this.aFill.length < cells) this.aFill = new Int32Array(cells);
     const fill = this.aFill;
     for (let c = 0; c < cells; c++) fill[c] = start[c]!;
     const list = this.aList;
     for (let k = 0; k < this.nAlways; k++) {
-      const n = bounds(k);
-      if (n < 0) continue;
+      const cls = this.alwaysClass(k, ax0, az0);
+      if (cls === -1) continue;
       const i = this.always[k]!;
-      if (n === cells) for (let c = 0; c < cells; c++) list[fill[c]!++] = i;
+      if (cls === 0) for (let c = 0; c < cells; c++) list[fill[c]!++] = i;
       else for (let j = _ab[2]!; j <= _ab[3]!; j++) for (let x = _ab[0]!; x <= _ab[1]!; x++) list[fill[j * anx + x]!++] = i;
     }
+  }
+
+  /**
+   * How the `always` index lists its `k`-th patch: −1 disabled (its box empty: min over max), 0 wide (over `WIDE` cells, or a
+   * NaN box, which `offer`'s box test never rejects: a grid whose node heights hold NaN), 1 small, its cell range from
+   * (`ax0`, `az0`) into `_ab`.
+   */
+  private alwaysClass(k: number, ax0: number, az0: number): number {
+    const P = this.p;
+    const o = this.always[k]! * P_STRIDE;
+    const minX = P[o + P_MINX]!;
+    const maxX = P[o + P_MAXX]!;
+    const minZ = P[o + P_MINZ]!;
+    const maxZ = P[o + P_MAXZ]!;
+    if (minX > maxX || minZ > maxZ) return -1;
+    if (!(maxX - minX <= WIDE * CELL) || !(maxZ - minZ <= WIDE * CELL)) return 0;
+    _ab[0] = Math.floor(minX / CELL) - ax0;
+    _ab[1] = Math.floor(maxX / CELL) - ax0;
+    _ab[2] = Math.floor(minZ / CELL) - az0;
+    _ab[3] = Math.floor(maxZ / CELL) - az0;
+    return 1;
   }
 
   /** Narrow patch `i`'s box (after `setFrame`) to the square of half width `r` about plan (cx, cz): a roof's reach about its car. */
@@ -1305,12 +1316,15 @@ function find(s: Surface, q: Float64Array, skip: number, need: number): void {
 function offerAll(s: Surface, q: Float64Array, skip: number, need: number): void {
   if (s.nAlways > 0) {
     if (s.alwaysStale) s.indexAlways();
-    const ci = Math.floor(q[PQ_X]! / CELL) - s.ax0;
-    const cj = Math.floor(q[PQ_Z]! / CELL) - s.az0;
-    if (ci >= 0 && cj >= 0 && ci < s.anx && cj < s.anz) {
-      const c = cj * s.anx + ci;
-      for (let k = s.aStart[c]!; k < s.aStart[c + 1]!; k++) offer(s, s.aList[k]!, q, skip, need);
-    } else for (let k = 0; k < s.aNWide; k++) offer(s, s.aWide[k]!, q, skip, need);
+    if (s.anx === 0) for (let k = 0; k < s.aNWide; k++) offer(s, s.aWide[k]!, q, skip, need);
+    else {
+      const ci = Math.floor(q[PQ_X]! / CELL) - s.ax0;
+      const cj = Math.floor(q[PQ_Z]! / CELL) - s.az0;
+      if (ci >= 0 && cj >= 0 && ci < s.anx && cj < s.anz) {
+        const c = cj * s.anx + ci;
+        for (let k = s.aStart[c]!; k < s.aStart[c + 1]!; k++) offer(s, s.aList[k]!, q, skip, need);
+      } else for (let k = 0; k < s.aNWide; k++) offer(s, s.aWide[k]!, q, skip, need);
+    }
   }
   if (s.cellList.length === 0) return;
   const ci = Math.floor(q[PQ_X]! / CELL) - s.cx0;
