@@ -425,6 +425,41 @@ function decimate(rest: Float32Array, index: ArrayLike<number>, group: Uint8Arra
     vertexAlive[from] = 0;
   };
 
+  // Each vertex's cheapest allowed collapse (the first neighbour, in set order, at the least cost) is kept between passes. A collapse
+  // changes only what its two ends, the survivor's neighbours and their mirror twins read, so only those rescan; every other
+  // vertex's kept pick is what a fresh scan would find, and the pass's pick is the same first strict minimum over ascending vertices.
+  const bestCost = new Float64Array(nv);
+  const bestOnto = new Int32Array(nv);
+  const stale = new Uint8Array(nv).fill(1);
+  const scan = (u: number): void => {
+    const onPlane = mirror[u] === u;
+    const twin = mirror[u]!;
+    let least = Infinity;
+    let onto = -1;
+    for (const v of neighbours[u]!) {
+      if (onPlane && mirror[v] !== v) continue;
+      if (twin >= 0 && !onPlane && (v === twin || mirror[v]! < 0 || !vertexAlive[twin] || !neighbours[twin]!.has(mirror[v]!))) continue;
+      const c = cost(u, v);
+      if (c < least) {
+        least = c;
+        onto = v;
+      }
+    }
+    bestCost[u] = least;
+    bestOnto[u] = onto;
+    stale[u] = 0;
+  };
+  const touch = (v: number): void => {
+    stale[v] = 1;
+    if (mirror[v]! >= 0) stale[mirror[v]!] = 1;
+  };
+  /** Marks what a finished collapse of `from` onto `to` changed. */
+  const touched = (from: number, to: number): void => {
+    touch(from);
+    touch(to);
+    for (const w of neighbours[to]!) touch(w);
+  };
+
   let remaining = nv;
   while (remaining > target) {
     let best = Infinity;
@@ -432,26 +467,22 @@ function decimate(rest: Float32Array, index: ArrayLike<number>, group: Uint8Arra
     let bestTo = -1;
     for (let u = 0; u < nv; u++) {
       if (!vertexAlive[u]) continue;
-      const onPlane = mirror[u] === u;
-      const twin = mirror[u]!;
-      for (const v of neighbours[u]!) {
-        if (onPlane && mirror[v] !== v) continue;
-        if (twin >= 0 && !onPlane && (v === twin || mirror[v]! < 0 || !vertexAlive[twin] || !neighbours[twin]!.has(mirror[v]!))) continue;
-        const c = cost(u, v);
-        if (c < best) {
-          best = c;
-          bestFrom = u;
-          bestTo = v;
-        }
+      if (stale[u]) scan(u);
+      if (bestCost[u]! < best) {
+        best = bestCost[u]!;
+        bestFrom = u;
+        bestTo = bestOnto[u]!;
       }
     }
     if (bestFrom < 0) break;
     const twinFrom = mirror[bestFrom]!;
     const twinTo = mirror[bestTo]!;
     collapse(bestFrom, bestTo);
+    touched(bestFrom, bestTo);
     remaining--;
     if (twinFrom >= 0 && twinFrom !== bestFrom && twinTo >= 0 && twinFrom !== twinTo && vertexAlive[twinFrom] && vertexAlive[twinTo] && neighbours[twinFrom]!.has(twinTo)) {
       collapse(twinFrom, twinTo);
+      touched(twinFrom, twinTo);
       remaining--;
     }
   }
