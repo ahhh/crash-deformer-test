@@ -38,6 +38,11 @@ const _up = new THREE.Vector3(0, 1, 0);
 /** `watchFall`: the eye stands this far (m) inside the fleet disc's rim, at shoulder height (m) over the disc. */
 const FALL_EYE_IN = 1.5;
 const FALL_EYE_Y = 1.5;
+/** The orbit's eye keeps this far (m) inside `ChaseCamera.rim`, the derby bowl's wall. */
+const RIM_EYE_IN = 2;
+/** The derby's opening shot (`placeBowl`): the eye this far (m) from the pack toward the bowl's middle and up over the floor, about 48° down. */
+const BOWL_EYE_BACK = 20;
+const BOWL_EYE_UP = 22;
 /** Seconds after a drag ends that the ride-along's automatic cuts keep waiting (the user's view stays). */
 export const RIDE_PAUSE = 2.5;
 /** A pointer that travels less (px) than this is a click, not a drag. */
@@ -277,6 +282,8 @@ export class ChaseCamera {
   readonly auto = new AutoCam();
   /** The scene's lamp posts (the engine sets the array once; it fills as the world builds). */
   posts: readonly Post[] = [];
+  /** The bowl's wall (m from the middle, the derby's) the orbit's eye stays inside, so the wall never stands between it and the cars; Infinity elsewhere. */
+  rim = Infinity;
   /** The followed car's cam; null = the scene's own (`specView`). */
   spec: SpecView | null = null;
   /** What framed the last frame, so a drag knows what to move: the orbit, a chase rig's look, or nothing (cine, dutch). */
@@ -428,7 +435,8 @@ export class ChaseCamera {
       }
       this.approachSide.crossVectors(_w, _up).normalize();
       if (this.approachSide.lengthSq() < 0.1) this.approachSide.set(1, 0, 0);
-      this.placeApproach(cars);
+      if (this.rim === Infinity) this.placeApproach(cars);
+      else this.placeBowl(cars);
     }
     this.camera.position.copy(this.pos);
     this.camera.lookAt(this.look);
@@ -474,6 +482,7 @@ export class ChaseCamera {
       this.look.z + Math.cos(this.angle) * this.radius * cp,
     );
     this.pushFromPosts();
+    this.keepInRim();
 
     const k = 1 - Math.exp((this.dragging || this.locked || padTurn ? -18 : -5.5) * wallDt);
     this.camera.position.lerp(this.pos, k);
@@ -664,6 +673,27 @@ export class ChaseCamera {
       .addScaledVector(_up, 5.2)
       .addScaledVector(_w, -1.4);
     this.look.copy(mid);
+  }
+
+  /** The derby's opening shot: high on the bowl's middle side of the pack, looking down and out at it, the bowl's floor around it. */
+  private placeBowl(cars: readonly DeformableCar[]): void {
+    const mid = centroid(_v, cars);
+    mid.y = 0.6;
+    const r = hypot2(mid.x, mid.z);
+    if (r > 1) _w.set(mid.x / r, 0, mid.z / r);
+    else _w.copy(this.approachSide);
+    this.pos.copy(mid).addScaledVector(_w, -BOWL_EYE_BACK).addScaledVector(_up, BOWL_EYE_UP);
+    this.look.copy(mid);
+    this.keepInRim();
+  }
+
+  /** An eye past `rim` comes in to `RIM_EYE_IN` short of it toward the middle, at its height: inside the round wall, its line to anything inside clears it. */
+  private keepInRim(): void {
+    const r = hypot2(this.pos.x, this.pos.z);
+    const max = this.rim - RIM_EYE_IN;
+    if (r <= max) return;
+    this.pos.x *= max / r;
+    this.pos.z *= max / r;
   }
 
   private onPointerDown = (e: PointerEvent): void => {

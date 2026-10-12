@@ -157,6 +157,31 @@ describe("given the orbit camera around a ring of lamp posts", () => {
   });
 });
 
+describe("given the derby's orbit round a car 4 m from the bowl's 38 m wall", () => {
+  it("when the orbit goes a whole turn, then the eye stays 2 m inside the wall, so the wall never stands between it and the car", () => {
+    const turn = (rim: number): number => {
+      const camera = new THREE.PerspectiveCamera(50, 16 / 9, 0.1, 180);
+      const seat = new DriverSeat();
+      seat.mode = "global";
+      const view = new ChaseCamera(camera, fakeCanvas(), seat, { rx: 0, ry: 0 } as PadState, false, () => {});
+      view.rim = rim;
+      view.look.set(34, 0.7, 0);
+      camera.position.set(30, 6, 0);
+      const spin = 0.32;
+      let far = 0;
+      for (let f = 0; f < 120 + Math.round((2 * Math.PI) / spin / DT); f++) {
+        view.orbit(DT, spin, false);
+        if (f >= 120) far = Math.max(far, Math.hypot(camera.position.x, camera.position.z));
+      }
+      return far;
+    };
+    const plain = turn(Infinity);
+    assert.ok(plain > 38, `the plain orbit reaches ${plain.toFixed(2)} m from the middle (the test needs it past the wall)`);
+    const kept = turn(38);
+    assert.ok(kept <= 36 + 1e-9, `eye ${kept.toFixed(2)} m from the middle`);
+  });
+});
+
 describe("given the chase eye drifting toward a wall along the course", () => {
   it("when the eye drifts into the wall's clearance at 60 and 240 Hz, then it is pulled in smoothly, not by whole metres", (t) => {
     // A wall along z with its face at x = 3. The car drives along z, drifting toward it, nose turned off it: the chase eye sits on the wall's side.

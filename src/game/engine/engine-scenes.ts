@@ -648,6 +648,7 @@ export abstract class EngineScenes extends EngineDerby {
     this.impactLightLife = 0;
     this.impactLight.intensity = 0;
 
+    this.view.rim = this.derbyMode ? DERBY_RADIUS : Infinity;
     // The pistons, the stack, the Lab and the garage frame on entering only (`applyScene`): their resets keep the user's view.
     if (!this.showPistons && !this.showStack && !this.showLab && !this.showGarage) this.view.frameReset(this.showCompactor || this.showDoors, this.live());
     this.smokeUntil.fill(0);
