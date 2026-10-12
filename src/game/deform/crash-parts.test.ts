@@ -441,12 +441,9 @@ describe("given two cars driving head-on at each other, with the squash setting 
     }
   });
 
-  // todo -> after the plan: spend the pair's stroke continuously across the slice that crosses the threshold. Measured (mean nose of the pair,
-  // 115 / 130 km/h): 0.786 / 0.730 m, 7 % down against the 5 % bar (the run stops there). The pair goes rigid when both noses have used `PACKED_STROKE` (0.9) of the
-  // stroke, and the stroke's use per slice is 0.13-0.15 at these speeds: 115 km/h crosses 0.9 one slice late (0.8996, then 1.00: a whole slice's more
-  // crush), 130 km/h stops at 0.91, so the depth jumps by a slice's worth (0.056 m) with where the slice grid falls. The kernel's rigid exchange stops
-  // the closing; no toggle of its terms (kill subtraction, one-body motion) removes it (each moves the ladder by the same 0.05-0.1 m).
-  it.todo("when each car's speed rises through 100, 115, 130, 150, 180 and 200 km/h, then each pair's mean nose crush is never more than 5 % below that of the slower pair before it", () => {
+  // The pair goes rigid when both noses have used `PACKED_STROKE` (0.9) of the stroke; before the wreck split 115 km/h crossed it a slice late
+  // and the ladder fell 7 % (0.786 / 0.730 m at 115 / 130 km/h).
+  it("when each car's speed rises through 100, 115, 130, 150, 180 and 200 km/h, then each pair's mean nose crush is never more than 5 % below that of the slower pair before it", () => {
     let prev = 0;
     for (const kph of [100, 115, 130, 150, 180, 200]) {
       const [a, b] = runPair(kph, kph, "head-on", { squash: 0.32 });

@@ -102,9 +102,7 @@ describe("given a sedan at 55 m/s square into each hard surface and the slab as 
   const KILL_TRAVEL = 0.45;
   const slab = strike("barrier", "sedan", LETHAL)[0]!;
   for (const target of ["oval", "rally", "stucco", "wall", "monument", "monument-tip"] as const) {
-    // todo -> after the plan: calibrate the monument's crush feed to the slab's. Block travel 0.562 m against the slab's 0.471 m, 0.091 m
-    // apart where the band allows 0.09 m (health 0 and the stop agree).
-    (target === "monument" ? it.todo : it)(`when it hits the ${target}, then its health and block travel are the slab's within the band, and it stops`, () => {
+    it(`when it hits the ${target}, then its health and block travel are the slab's within the band, and it stops`, () => {
       const o = strike(target, "sedan", LETHAL)[0]!;
       const at = `${JSON.stringify(o)} against the slab's ${JSON.stringify(slab)}`;
       assert.ok(Math.abs(o.health - slab.health) <= HEALTH_BAND, `health: ${at}`);

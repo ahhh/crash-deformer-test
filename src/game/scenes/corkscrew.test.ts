@@ -95,9 +95,9 @@ function launch(v: number): Run {
  */
 const BANDS = [
   { v: 6, name: "it is too slow to climb, so it rolls back out of the mouth without leaving the ground", air: false, roll: [0, 0], rest: "wheels", todo: "" },
-  { v: 14, name: "it flies, rolls half a turn and lands on its roof", air: true, roll: [130, 230], rest: "roof", todo: "touchdown roll 125° (band 130–230°), rests on its wheels" },
-  { v: 22, name: "it flies, rolls a full turn and lands back on its wheels", air: true, roll: [310, 410], rest: "wheels", todo: "touchdown roll 268° (band 310–410°), rests on its roof" },
-  { v: 27, name: "it flies, rolls a turn and a half and lands on its roof", air: true, roll: [490, 620], rest: "roof", todo: "touchdown roll 374° (band 490–620°)" },
+  { v: 14, name: "it flies, rolls half a turn and lands on its roof", air: true, roll: [130, 230], rest: "roof", todo: "" },
+  { v: 22, name: "it flies, rolls a full turn and lands back on its wheels", air: true, roll: [310, 410], rest: "wheels", todo: "" },
+  { v: 27, name: "it flies, rolls a turn and a half and lands on its roof", air: true, roll: [490, 620], rest: "roof", todo: "touchdown roll 443° (band 490–620°), rests on its side" },
 ] as const;
 
 describe("given the corkscrew ramp as the ground, and a driverless car launched at it from 6 m short of its mouth until the car comes to rest", () => {

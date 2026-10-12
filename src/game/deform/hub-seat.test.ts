@@ -170,8 +170,8 @@ function fastestWheel(car: DeformableCar): number {
 }
 
 describe("given two still sedan wrecks side by side with their near wheels 0.3 m apart (centre to centre), 0.03 s from planting on their wheels", () => {
-  // Todo until Stage 4 replaces the wreck split: while a wreck is live `clampLocal` writes its wheels back to their frame position every call, which undoes the push `collideWith` gives them out of an overlap with a neighbour (hubRL against hubRR 29 cm deep in the owner's derby), and the plant releases the stored overlap (61 mm of wheel slide in one slice here). A planted-wheel pin in `sphereHit` cured it but made physics depend on rest; recording the push as a wheel shove cured it too but dropped derby eliminations to 4 of 20 and moved two reel-view moments out of frame.
-  it.todo("when a wreck at rest comes to rest on its wheels, then no wheel or skin point moves without the body moving", () => {
+  // While a wreck was live `clampLocal` wrote its wheels back to their frame position every call, which undid the push `collideWith` gave them out of an overlap with a neighbour (hubRL against hubRR 29 cm deep in the owner's derby), and the plant released the stored overlap (61 mm of wheel slide in one slice). Since the wreck split the body's pose is its rigid body's, and the plant hand-over is gone.
+  it("when a wreck at rest comes to rest on its wheels, then no wheel or skin point moves without the body moving", () => {
     const scene = new THREE.Scene();
     const wrecks = [stillWreck(scene, 0), stillWreck(scene, -2 * SEDAN_WHEEL_X - WHEEL_CENTRES_APART)];
     const world = newWorld(wrecks);
