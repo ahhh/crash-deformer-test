@@ -2,7 +2,7 @@ import * as THREE from "three";
 import type { DeformableCar } from "./car.ts";
 import type { LooseShape } from "./car-core.ts";
 import { activeGround, NO_FLOOR } from "../world/ground.ts";
-import { C_AUX, C_DEPTH, C_GRIP, C_H, C_NX, C_NY, C_NZ, C_OWNER, C_PX, C_PY, C_PZ, C_TOUCH, EDGE_HIT, edgeCross, HIT_SIZE, MU_TYRE, patchOf, pointContact, pointContactHeld, PQ_BODY, PQ_SIZE, PQ_VX, PQ_VY, PQ_VZ, PQ_X, PQ_Y, PQ_Z, ridgeCross, staticTop, topsTop, wheelContact } from "../world/surfaces.ts";
+import { C_AUX, C_DEPTH, C_GRIP, C_H, C_NX, C_NY, C_NZ, C_OWNER, C_PX, C_PY, C_PZ, C_TOUCH, EDGE_HIT, edgeCross, HIT_SIZE, MU_TYRE, patchOf, pointContact, pointContactHeld, PQ_BODY, PQ_SIZE, PQ_VX, PQ_VY, PQ_VZ, PQ_X, PQ_Y, PQ_Z, ridgeCross, staticTop, topsTop, wheelContact, type Surface } from "../world/surfaces.ts";
 import { TYRE_R } from "../deform/deform-state.ts";
 import { MIN_SLIDE } from "../deform/constants.ts";
 import { barrierSpeed, CRASH, hypot2, plasticEnergy } from "../deform/physics-util.ts";
@@ -374,10 +374,11 @@ function crossedPlanFromSide(hit: Float64Array, pen: number, r: THREE.Vector3): 
  * surface within the slice, a point at most `SPECULATIVE_GAP` above one a row that lets it close that gap and no more. Returns the row
  * count past the last. The points from `bellyFrom` on are a car's belly: read (`BX`, `BRISE`, `BPATCH`) for its edges, no rows. With
  * `gate` a point that stays higher than the static surface anywhere within its slice's plan travel, by its descent over the slice and a
- * speculative gap, neither meets nor nears it: not asked. A part also meets a prism's side face (`C_H` NO_FLOOR: the depth it is in,
- * out along the face's normal), asks the car tops its caller held (`holdTops`) and gives the point's own velocity for the way out.
+ * speculative gap, neither meets nor nears it: not asked; one above `bound` (`centredTop`) by that is so without its own read. A part
+ * also meets a prism's side face (`C_H` NO_FLOOR: the depth it is in, out along the face's normal), asks the car tops its caller held
+ * (`holdTops`) and gives the point's own velocity for the way out.
  */
-export function readPoints(from: number, to: number, bellyFrom: number, n: number, gate: boolean): number {
+export function readPoints(from: number, to: number, bellyFrom: number, n: number, gate: boolean, bound = Infinity): number {
   const { q, v, w, dt, skip, part } = body;
   const statics = activeGround();
   for (let i = from; i < to; i++) {
@@ -389,7 +390,7 @@ export function readPoints(from: number, to: number, bellyFrom: number, n: numbe
     _vp.crossVectors(w, r).add(v);
     const planTravel = hypot2(_vp.x, _vp.z) * dt;
     const descent = Math.max(0, -_vp.y) * dt + SPECULATIVE_GAP;
-    const clear = gate && staticTop(statics, px - planTravel, px + planTravel, pz - planTravel, pz + planTravel) < py - descent;
+    const clear = gate && (bound < py - descent || staticTop(statics, px - planTravel, px + planTravel, pz - planTravel, pz + planTravel) < py - descent);
     if (i >= bellyFrom) {
       BX[i] = px;
       BY[i] = py;
@@ -1294,6 +1295,35 @@ export function wreckCentre(car: DeformableCar): THREE.Vector3 {
 }
 
 /**
+ * The static surface's highest over a box holding every loaded point's slice travel, the points armed about the body's own centre as
+ * `armOf` arms them (a wreck's: its masses'), each moving at most the body's plan speed plus its turn at the farthest point. The raster's
+ * answer (`staticTop` cells only) never falls as the box grows, so a point above it by its descent is clear by its own read too.
+ */
+function centredTop(statics: Surface, turnRate: number, dt: number, pointEnd: number): number {
+  const { v } = body;
+  const c = body.centre;
+  let xMin = Infinity;
+  let xMax = -Infinity;
+  let zMin = Infinity;
+  let zMax = -Infinity;
+  let reach2 = 0;
+  for (let i = 0; i < pointEnd; i++) {
+    const x = POINT_X[i]! - c.x;
+    const y = POINT_Y[i]! - c.y;
+    const z = POINT_Z[i]! - c.z;
+    const rx = _e[0]! * x + _e[3]! * y + _e[6]! * z;
+    const rz = _e[2]! * x + _e[5]! * y + _e[8]! * z;
+    xMin = Math.min(xMin, rx);
+    xMax = Math.max(xMax, rx);
+    zMin = Math.min(zMin, rz);
+    zMax = Math.max(zMax, rz);
+    reach2 = Math.max(reach2, x * x + y * y + z * z);
+  }
+  const pad = (hypot2(v.x, v.z) + turnRate * Math.sqrt(reach2)) * dt + CLEAR_ROUND;
+  return staticTop(statics, centreOfMass.x + xMin - pad, centreOfMass.x + xMax + pad, centreOfMass.z + zMin - pad, centreOfMass.z + zMax + pad, true);
+}
+
+/**
  * One slice of a rigid body's flight for `car` (`velocity` is its centre of mass's, `angular` its world spin): the four
  * wheels' footprints (`wheelContact`) and the hull's points meet the surfaces under them through impulses. Returns true
  * when it is back on its wheels: three of them on the world's ground (the caller hands it to the pose-following step).
@@ -1402,6 +1432,8 @@ export function stepFree(car: DeformableCar, dt: number): boolean {
   // most the body's plan speed (fall) plus its turn at the farthest point, and `CLEAR_ROUND` covers these axes' rounding against
   // `armOf`'s: a bound on every point's own test, so it clears only what that would.
   let allClear = false;
+  // Each point's own read is bounded by `centredTop`: the box above for a car, about its masses' centre for a wreck.
+  let bodyTop = Infinity;
   if (!readAll) {
     const turn = turnRate * _s[S_POINT_REACH]!;
     const pad = (hypot2(v.x, v.z) + turn) * dt + CLEAR_ROUND;
@@ -1423,9 +1455,11 @@ export function stepFree(car: DeformableCar, dt: number): boolean {
       low = Math.min(low, _e[1]! * x + _e[4]! * y + _e[7]! * z);
     }
     const descent = (Math.max(0, -v.y) + turn) * dt + SPECULATIVE_GAP + CLEAR_ROUND;
-    allClear = staticTop(statics, centreOfMass.x + xMin - pad, centreOfMass.x + xMax + pad, centreOfMass.z + zMin - pad, centreOfMass.z + zMax + pad, true) < centreOfMass.y + low - descent;
+    const top = staticTop(statics, centreOfMass.x + xMin - pad, centreOfMass.x + xMax + pad, centreOfMass.z + zMin - pad, centreOfMass.z + zMax + pad, true);
+    allClear = top < centreOfMass.y + low - descent;
+    bodyTop = allClear || body.centre === CAR_CENTRE ? top : centredTop(statics, turnRate, dt, pointEnd);
   }
-  n = readPoints(allClear ? pointEnd : 0, pointEnd, bellyFrom, n, !readAll);
+  n = readPoints(allClear ? pointEnd : 0, pointEnd, bellyFrom, n, !readAll, bodyTop);
   // Between two belly points on different patches the belly meets that edge where it crosses (`edgeCross`, the tyres' rule): a car
   // dropped level across a ramp's crest balanced on the row in front of it, the crest 17 cm inside the belly half a metre behind.
   // Over one car's top (one patch) the pan's lines rest on the top's ridge between their points where that stands above both
