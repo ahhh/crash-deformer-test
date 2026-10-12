@@ -101,7 +101,7 @@ import { makeSnapshot, MAX_NET_CARS, MSG, NET_VERSION, readEjection, readSnapsho
  * 64: the derby is fought in the new arena (baked rises, prism wall and props), so a replayed derby moves differently; 65: the wreck
  * split (Stage 4 item 6): a wreck's pose is its rigid body's, its keyframe carries whether its cage refits exactly, and its cage keeps
  * the crushed nose and tail lip, so every replayed crash after the first hit moves differently; the derby's jumps and pit stand 0.5 m
- * further in, and the race AI brakes for a contact from 0.35 of its braking.
+ * further in, and a guarded racer is off the gas while it brakes and brakes for any closing past a nudge once inside the contact zone.
  * A saved clip also records `NET_VERSION` (its snapshots' layout).
  */
 const REPLAY_VERSION = 65;
