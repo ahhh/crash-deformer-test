@@ -95,6 +95,18 @@ Node city32 (aggression 1): 801 ms/sim-s; 27 wrecks; readPoints 17 µs inclusive
 | x11 STEPS 12→6 tread arcs (probe) | — | — | — | 16.23→16.11, 18.96→14.36 (noisy) | NO (digest 1822279811) |
 | x8 (plainOffer always testing box+disc) | 0.976–1.009 | 1.02–1.04 | ~1.0 | — | yes, but slower on clean rows → replaced by x9 |
 | fixedTop (solids in every gate) | — | 1.04–1.08 | — | — | dropped |
+| decimate memo (bf40d8d3) | load-time only: node cold build of 6 styles 1.9–2.2 s → 0.12–0.16 s | — | — | — | yes (bit-identical cages) |
+| ragdoll fitter (1b2e9746) | — | — | — | fit 0.561× (1571 fits, 0 disagreements) | yes |
+| pair contact (c0f161e3) | — | — | — | `deepestIn` 2435/2470 → 1657/1576 ms per run; mean 14.7/14.9 → 14.1/14.0 | yes (0 wrong rejects / 124 k) |
+| loose double-step (c75bca24) | 0.93 / 1.00 by arm order (lane's rows) | — | — | — | NO: debris only (REPLAY 67); car digests same |
+| read chain (c98aed7d, 7edb9359) | 0.917–0.979 | 0.911–0.961 | 0.920–0.990 | noise | yes (0 bad hits / 142 k; 0 bad rows / 43 k) |
+| **Batch: main 7edb9359 vs ecbc560e** (interleaved, load 1.9–2.9) | **0.871–0.880** (452 → ~395 ms/sim-s) | 0.90–0.95 | **0.868–0.870** | **17.4/17.2 → 13.9/14.4 (0.80–0.84); aftermath 27.7/26.7 → 21.7/22.5** | car digests equal on all rows and the fleet |
+
+Against the morning build 7cf2c6f9 (601 ms/sim-s on city16) main is therefore ≈ 0.80 in node: 601 → ~395 ms/sim-s. Still 1.74× the pre-plan 227.
+
+Whole-suite disagreement probe for the surface index (old full scan beside the index on every `offerAll`, 3555 tests): 0 of 5 665 837 353 queries.
+
+`fleet5-wasm.mjs` (file: fetch shim, wasm skin): same digest as the JS skin at equal frame counts (−194727954 at 600 frames both ways), so the skins agree and the shim only changes cost. The earlier "32 wrecks vs 13" was a frame-count mismatch (`wrecks` counts cars whose mass solver is active at the last frame).
 
 Pacer: node race rows run with no pacer (fixed 1/240 s floor slices); live phones run coarse 1/120 s. The bench cards compare fine vs coarse.
 
