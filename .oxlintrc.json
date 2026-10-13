@@ -25,7 +25,9 @@
     ".output/**",
     ".nitro/**",
     "node_modules/**",
-    "src/routeTree.gen.ts"
+    "src/routeTree.gen.ts",
+    "public/audio/**",
+    "kernels/motor/**"
   ],
   "rules": {
     "unicorn/no-array-for-each": "error",

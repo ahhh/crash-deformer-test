@@ -25,6 +25,7 @@
     "sweep": "node --experimental-strip-types --no-warnings scripts/crush-sweep.mjs",
     "bake:env": "node scripts/bake-env.mjs",
     "build:kernel": "node scripts/build-skin-kernel.mjs",
+    "build:motor": "node scripts/build-motor-worklet.mjs",
     "lint": "oxlint",
     "format": "prettier --write ."
   },
