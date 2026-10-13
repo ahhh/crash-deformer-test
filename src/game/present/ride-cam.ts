@@ -2,7 +2,7 @@ import { hypot2 } from "../kernel/physics-core.js";
 import * as THREE from "three";
 import { activeGround, NO_FLOOR } from "../world/ground.ts";
 import { wrapPi } from "../kernel/scalar.ts";
-import { easeFov } from "./engine-camera.ts";
+import { easeFov } from "./drive-cam.ts";
 import { camUsable, CINE, CineCam, sightLine, solid, type Sight, type Subject } from "./spectate-cam.ts";
 
 /**

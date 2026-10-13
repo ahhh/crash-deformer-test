@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import * as THREE from "three";
 import { applyDrive, DriverSeat, idleDrive, type SeatView } from "./car-drive.ts";
 import { blankIntent, FEEL, gameKey, readIntent, shapeDrive } from "./drive-input.ts";
-import { CHASE, DriveCam } from "../present/engine-camera.ts";
+import { CHASE, DriveCam } from "../present/drive-cam.ts";
 import { DeformableCar } from "./car.ts";
 
 const H = 1 / 60;

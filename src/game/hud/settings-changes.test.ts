@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { INITIAL_HUD, type CrashHudState } from "./hud-store.ts";
 import { changedSettings, isChanged, SETTING_IDS, SETTINGS, type SettingId } from "./settings-changes.ts";
 import { DRIVER_CARS } from "../match/types.ts";
-import { CHASE_KNOBS, type ChaseKnobId } from "../present/engine-camera.ts";
+import { CHASE_KNOBS, type ChaseKnobId } from "../present/drive-cam.ts";
 
 /** The menu after the user moved a Cinematic FX pick (Auto off) and the crumple stroke. */
 const touched: CrashHudState = { ...INITIAL_HUD, fxAuto: false, fxTier: "high", squash: 0.2 };

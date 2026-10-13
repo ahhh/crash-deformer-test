@@ -9,7 +9,8 @@ import { paint } from "../vehicle/test-support.ts";
 import { newWorld, stepWorld } from "../engine/world-step.ts";
 import { FLAT_GROUND, setGround } from "../world/ground.ts";
 import { Spring, Spring3 } from "./spring.ts";
-import { CHASE, ChaseCamera, DriveCam, RIDE_PAUSE, type SpecScene } from "./engine-camera.ts";
+import { CHASE, DriveCam } from "./drive-cam.ts";
+import { ChaseCamera, RIDE_PAUSE, type SpecScene } from "./engine-camera.ts";
 import { occluder, type Sight } from "./spectate-cam.ts";
 
 const DT = 1 / 60;

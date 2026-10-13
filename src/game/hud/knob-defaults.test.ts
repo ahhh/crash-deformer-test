@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import * as THREE from "three";
 import { INITIAL_HUD, KNOB_RANGES, squashForStroke, strokeAt56 } from "./hud-store.ts";
 import { StreamedDeformation } from "../deform/streamed-deform.ts";
-import { CHASE_KNOBS, type ChaseKnobId } from "../present/engine-camera.ts";
+import { CHASE_KNOBS, type ChaseKnobId } from "../present/drive-cam.ts";
 
 // The engine seeds and resets its knobs from INITIAL_HUD and pushes them into every car's
 // deformer (`dressCar`); headless cars and tests use the deformer's own field defaults.

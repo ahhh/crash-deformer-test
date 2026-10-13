@@ -9,7 +9,7 @@ import { AI_DIFFICULTIES } from "../ai/constants.ts";
 import { INITIAL_HUD, KNOB_RANGES } from "./hud-store.ts";
 import { DEFAULT_RACE_OPTIONS, DRIVER_CARS, RACE_MODES } from "../match/types.ts";
 import { NET_TX } from "../net/net-ports.ts";
-import { CHASE_DEFAULTS, CHASE_KNOBS, type ChaseKnobId } from "../present/engine-camera.ts";
+import { CHASE_DEFAULTS, CHASE_KNOBS, type ChaseKnobId } from "../present/drive-cam.ts";
 import { FX_TIERS } from "../present/engine-post.ts";
 import { MAX_CARS } from "../scenes/fleet.ts";
 import { SCENE_IDS, SOLO_SCENES } from "../scenes/scene-id.ts";

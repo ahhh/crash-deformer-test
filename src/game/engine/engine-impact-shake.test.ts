@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import * as THREE from "three";
 import "../kernel/rapier-node.test-util.ts";
 import { HudStore } from "../hud/hud-store.ts";
-import { CHASE } from "../present/engine-camera.ts";
+import { CHASE } from "../present/drive-cam.ts";
 import type { ContactHit } from "../scenes/engine-props.ts";
 import { setGround } from "../world/ground.ts";
 import { CrashEngine } from "./engine.ts";

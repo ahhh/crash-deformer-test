@@ -9,7 +9,7 @@ import { assignClass, CLASSES, gearAt, VEHICLE_CLASS_IDS, type VehicleClassId } 
 import { paint } from "./test-support.ts";
 import { physicsSlice, sliceSpeed } from "../contact/sat.ts";
 import { newWorld, stepWorld } from "../engine/world-step.ts";
-import { DriveCam } from "../present/engine-camera.ts";
+import { DriveCam } from "../present/drive-cam.ts";
 import { Ground, setGround } from "../world/ground.ts";
 
 const FRAME = 1 / 60;

@@ -4,7 +4,7 @@ import * as THREE from "three";
 import { applyDrive, DriverSeat, idleDrive, type DriveInput } from "./car-drive.ts";
 import { DRAFT } from "../match/session.ts";
 import { DeformableCar } from "./car.ts";
-import { DriveCam } from "../present/engine-camera.ts";
+import { DriveCam } from "../present/drive-cam.ts";
 import { makeCar, runWall } from "../contact/crash-scenarios.test-util.ts";
 import {
   armKill,

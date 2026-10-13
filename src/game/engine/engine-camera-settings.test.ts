@@ -4,7 +4,7 @@ import "../kernel/rapier-node.test-util.ts";
 import { HudStore, INITIAL_HUD } from "../hud/hud-store.ts";
 import { changedSettings } from "../hud/settings-changes.ts";
 import { decodeShare, encodeShare } from "../hud/share-url.ts";
-import { CHASE, CHASE_KNOBS } from "../present/engine-camera.ts";
+import { CHASE, CHASE_KNOBS } from "../present/drive-cam.ts";
 import { setGround } from "../world/ground.ts";
 import { CrashEngine } from "./engine.ts";
 import { element, stubBrowser } from "./engine-headless.test-util.ts";

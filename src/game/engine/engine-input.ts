@@ -9,7 +9,7 @@ import type { DeformableCar } from "../vehicle/car.ts";
 import { cleanName, DRIVER_CARS, type DriverCar, type SubmitContext } from "../match/types.ts";
 import { driverCarApplies } from "../match/driver-pick.ts";
 import { FX_TIERS, type FxTier } from "../present/engine-post.ts";
-import { CHASE_KNOBS, type ChaseKnobId } from "../present/engine-camera.ts";
+import { CHASE_KNOBS, type ChaseKnobId } from "../present/drive-cam.ts";
 import { loadUltra as fetchUltra } from "../present/ultra/load.ts";
 import { gameKey } from "../vehicle/drive-input.ts";
 import type { SceneId } from "../scenes/scene-id.ts";

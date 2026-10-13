@@ -22,7 +22,7 @@ import { copyText } from "@/lib/clipboard";
 import { sendSubmission, type Parcel } from "@/lib/submissions/status";
 import { ChangedDot, FIELD, NumberField, RangeRow } from "@/components/hud-controls";
 import type { CrashEngine } from "@/game/engine/engine";
-import { CHASE_KNOBS } from "@/game/present/engine-camera";
+import { CHASE_KNOBS } from "@/game/present/drive-cam";
 import { DRIVER_CARS } from "@/game/match/types";
 import { Button } from "@/components/ui/button";
 import { FX_TIERS } from "@/game/present/engine-post";

@@ -12,10 +12,9 @@ import { levelAt, sections } from "../world/track-sections.ts";
 import { pillarPieces } from "./track-structures.ts";
 
 /**
- * Spectator cams beyond the chase views: the trackside cinematic (a fixed eye ahead of the car that tracks it
- * past, then cuts to the next spot) and the dutch wheel-well mount. Neither uses randomness: a shot follows from
- * the car poses, the scene and the rig's own counters, so two rigs fed the same poses frame the same shots.
- * All the sight-line work runs when a shot is picked, never per frame.
+ * Spectator cams beyond the chase views: the trackside cinematic (a fixed eye ahead of the car that tracks it past, then cuts
+ * to the next spot) and the dutch wheel-well mount. No randomness: a shot follows from the car poses, the scene and the rig's
+ * own counters. All sight-line work runs when a shot is picked, never per frame.
  */
 
 /** A solid the cinematic eye may not stand in or look through: a yawed box (or upright cylinder, r = hx) over [y0, y1]. */
@@ -35,11 +34,7 @@ export function addCars(occ: Occluder[], cars: readonly DeformableCar[], except:
   }
 }
 
-/**
- * `s` with every visible car (not vaporized) as its tight box: `CAR_HALF`'s footprint turned with the car's flat heading, from
- * the ground under it to its roof. What a crash cam's eye is picked against (`carsBlock`): the poses at the moment of the
- * pick, nothing but the cars' own numbers.
- */
+/** `s` with every visible car (not vaporized) as its tight box (`CAR_HALF`'s footprint turned with its flat heading, ground to roof): what a crash cam's eye is picked against (`carsBlock`), at the poses of the pick. */
 export function withCars(s: Sight, cars: readonly DeformableCar[]): Sight {
   const boxes: Occluder[] = [];
   for (const c of cars) {
@@ -107,8 +102,7 @@ const raceSights = new WeakMap<Track, Sight>();
 
 /**
  * The course's solids at their drawn size (the props' collider pieces, the start gantry's legs, bridge pillars); cached per track.
- * A prop's pieces are what a car meets (`propColliders`: the union of what is drawn); a round one keeps 0.45 m at least, for the
- * head and arm of a lamp or a trunk's bark. A prop with no collider (the gantry) is its size box.
+ * A round prop keeps 0.45 m at least, for a lamp's head and arm or a trunk's bark. A prop with no collider (the gantry) is its size box.
  */
 export function raceSight(track: Track, placed: readonly Placed[]): Sight {
   const hit = raceSights.get(track);
@@ -196,8 +190,8 @@ function eyeSolid(s: Sight, eye: Vec3, dir: Vec3, d: number): boolean {
 
 /**
  * How far (m, at most `PULL_MAX`) a chase `eye` must move along `dir` (unit: its view) to stand `CINE.pad` clear of every
- * solid (a street corner, a wall): 0 at one solid test when it already does. The first clear metre, bisected to 1.6 cm, so
- * the distance grows and shrinks smoothly as the eye moves into or out of a solid (whole metres popped it a metre in one frame).
+ * solid: 0 at one solid test when it already does. The first clear metre, bisected to 1.6 cm, so the distance changes
+ * smoothly (whole metres popped the eye a metre in one frame).
  */
 function pullIn(s: Sight, eye: Vec3, dir: Vec3): number {
   if (!eyeSolid(s, eye, dir, 0)) return 0;
@@ -215,9 +209,8 @@ function pullIn(s: Sight, eye: Vec3, dir: Vec3): number {
 
 /**
  * The one pull-in of both chase rigs, `ChaseCamera` (the spectator's chase) and `ShotCam` (the Auto and reel chase): an eye
- * inside a solid (a street corner, a wall) moves in along its view to stand clear (`pullIn`) at once as the solid closes on
- * it, and eases back out (`PULL_OMEGA`) once the way is clear, unless the eased eye would stand in a solid: it never shows
- * inside one and never pops by whole metres on the way out.
+ * inside a solid moves in along its view to stand clear (`pullIn`) at once, and eases back out (`PULL_OMEGA`) once the way is
+ * clear unless the eased eye would stand in a solid, so it never shows inside one and never pops by whole metres.
  */
 export class EyePull {
   /** How far (m) the eye is pulled in now. */

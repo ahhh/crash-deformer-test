@@ -1,4 +1,4 @@
-import { CHASE_KNOBS, type ChaseKnobId } from "../present/engine-camera.ts";
+import { CHASE_KNOBS, type ChaseKnobId } from "../present/drive-cam.ts";
 import { INITIAL_HUD, type CrashHudState } from "./hud-store.ts";
 
 /** The settings menu's sections (`HudSections`). */
