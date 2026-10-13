@@ -2,6 +2,7 @@ import { useRef } from "react";
 import { Bookmark, BookmarkCheck, Play, Trash2 } from "lucide-react";
 import { NavButton } from "@/components/race-menu-shell";
 import { usePadMenu } from "@/components/use-pad-menu";
+import { FOCUS } from "@/components/race-menu-styles";
 import type { RaceCommand, ReelHud, SavedHud, SaveResult } from "@/game/match/types";
 import { flagButton } from "@/game/hud/submit-rules";
 import { FlagButton } from "@/components/flag-button";
@@ -59,12 +60,37 @@ export function ReelList({ reel, shown, onCommand }: { reel: ReelHud; shown: num
   );
 }
 
-/** This browser's saved highlights in the setup menu: play one alone, or delete it. */
-export function SavedList({ saved, onCommand }: { saved: SavedHud[]; onCommand: Send }) {
-  if (saved.length === 0) return null;
+/**
+ * This browser's saved highlights in the setup menu: play one alone, or delete it. Highlights this build cannot replay are not listed:
+ * one line says how many are outdated, with the button that deletes them, and a checkbox purges them as soon as they are found.
+ */
+export function SavedList({ saved, outdated, autoPurge, onCommand }: { saved: SavedHud[]; outdated: number; autoPurge: boolean; onCommand: Send }) {
+  if (saved.length === 0 && outdated === 0 && !autoPurge) return null;
   return (
     <section className="mt-3" aria-label="Saved highlights">
       <p className="hud-label">Saved highlights</p>
+      <div className="mt-1 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+        {outdated > 0 ? (
+          <div className="flex items-center gap-2 text-xs text-muted">
+            <p role="status">
+              {outdated} {outdated === 1 ? "replay is" : "replays are"} outdated
+            </p>
+            <NavButton variant="secondary" className="w-auto px-3" onClick={() => onCommand({ type: "savedPurge" })}>
+              Purge now
+            </NavButton>
+          </div>
+        ) : null}
+        <label className="ml-auto flex h-11 items-center gap-2 text-xs sm:h-8">
+          <input
+            type="checkbox"
+            data-nav
+            className={cn("size-4 accent-[var(--color-accent)]", FOCUS)}
+            checked={autoPurge}
+            onChange={(e) => onCommand({ type: "savedAutoPurge", on: e.target.checked })}
+          />
+          Automatically purge
+        </label>
+      </div>
       <ul className="mt-1 grid gap-1.5">
         {saved.map((s) => (
           <li key={s.key} className={cn(CLIP_ROW, "bg-surface-2")}>

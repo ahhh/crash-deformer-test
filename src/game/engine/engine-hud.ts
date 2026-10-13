@@ -180,5 +180,5 @@ export abstract class EngineHud extends EngineWarm {
   }
 
   /** The results reel's part of the race HUD (docs/HIGHLIGHTS.md). */
-  protected abstract reelHud(): Pick<RaceHud, "reel" | "solo" | "shown" | "saved">;
+  protected abstract reelHud(): Pick<RaceHud, "reel" | "solo" | "shown" | "saved" | "outdated" | "autoPurge">;
 }

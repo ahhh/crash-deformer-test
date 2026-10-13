@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import type { HighlightClip } from "../match/highlights.ts";
 import { NET_VERSION } from "./codec.ts";
 import { carLayout } from "./car-pose.ts";
-import { decodeSaved, encodeSaved, packReel, unpackReel } from "./reel-codec.ts";
+import { decodeSaved, encodeSaved, packReel, savedPlayable, unpackReel } from "./reel-codec.ts";
 import { makeClip, sameClip } from "./reel-clip.test-util.ts";
 
 describe("given a recorded highlight clip and the codec that sends and saves it", () => {
@@ -40,5 +40,26 @@ describe("given a recorded highlight clip and the codec that sends and saves it"
     assert.equal(await decodeSaved(edited(0, 0), L), "corrupt", "not a clip");
     assert.equal(await decodeSaved(recode(bytes.subarray(0, bytes.length - 40)), L), "corrupt", "truncated");
     assert.equal(await decodeSaved("%%%", L), "corrupt", "not base64");
+  });
+
+  it("when a saved clip's header is checked alone, then this build's passes and every other version, fingerprint or damage fails, whatever follows the 11 header bytes", async () => {
+    const { clip } = makeClip();
+    const text = await encodeSaved(clip);
+    const bytes = Uint8Array.from(atob(text), (c) => c.charCodeAt(0));
+    const recode = (b: Uint8Array): string => btoa(String.fromCharCode(...b));
+    const edited = (at: number, v: number): string => {
+      const b = bytes.slice();
+      b[at] = v;
+      return recode(b);
+    };
+    assert.equal(savedPlayable(text), true);
+    assert.equal(savedPlayable(recode(bytes.subarray(0, 11))), true, "the header alone is enough");
+    assert.equal(savedPlayable(edited(4, bytes[4]! + 1)), false, "another REPLAY_VERSION");
+    assert.equal(savedPlayable(edited(6, NET_VERSION + 1)), false, "another NET_VERSION");
+    assert.equal(savedPlayable(edited(7, bytes[7]! ^ 0xff)), false, "another sim fingerprint");
+    assert.equal(savedPlayable(edited(0, 0)), false, "not a clip");
+    assert.equal(savedPlayable(recode(bytes.subarray(0, 6))), false, "truncated inside the header");
+    assert.equal(savedPlayable("%%%"), false, "not base64");
+    assert.equal(savedPlayable(""), false);
   });
 });

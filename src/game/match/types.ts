@@ -255,9 +255,11 @@ export type RaceCommand =
   | { type: "reelBack" }
   /** Keep reel clip `clip` in this browser's saved highlights (`localStorage`). */
   | { type: "reelSave"; clip: number }
-  /** Setup menu: replay saved highlight `key` alone, or delete it. */
+  /** Setup menu: replay saved highlight `key` alone, or delete it; delete every outdated one (`RaceHud.outdated`), or set whether those are deleted as soon as they are listed. */
   | { type: "savedPlay"; key: string }
   | { type: "savedDelete"; key: string }
+  | { type: "savedPurge" }
+  | { type: "savedAutoPurge"; on: boolean }
   /**
    * Panel `id`'s box on the page while the reel plays behind it (null: gone): the reel frames its shots in the part of the
    * view every open panel leaves free (this browser only).
@@ -441,6 +443,10 @@ export type RaceHud = {
   shown: number | null;
   /** This browser's saved highlights, newest first (the setup menu lists them). */
   saved: SavedHud[];
+  /** How many saved highlights this build cannot replay (another version, or damaged): not in `saved`; "[Purge now]" in the setup menu deletes them. */
+  outdated: number;
+  /** Outdated saved highlights are deleted as soon as they are listed (a preference kept in this browser). */
+  autoPurge: boolean;
   /** Survival mode's panel (docs/SURVIVAL.md); null in a race. */
   survival: SurvivalHud | null;
   /** Co-op (two or more humans in the event); null when one human plays. */

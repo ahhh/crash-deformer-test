@@ -545,7 +545,7 @@ function SetupMenu({ race, pad, onCommand, onSurvival }: { race: RaceHud; pad: b
           Back
         </NavButton>
       </div>
-      <SavedList saved={race.saved} onCommand={onCommand} />
+      <SavedList saved={race.saved} outdated={race.outdated} autoPurge={race.autoPurge} onCommand={onCommand} />
     </MenuShell>
   );
 }

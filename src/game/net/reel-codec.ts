@@ -441,7 +441,25 @@ export async function encodeSaved(c: HighlightClip): Promise<string> {
   return btoa(s);
 }
 
-/** A saved clip, or why it cannot replay here: "version" (another clip or keyframe layout, or another sim build) or "corrupt". */
+/** A saved clip's 11-byte header against this build: "version" (another clip or keyframe layout, or another sim build), "corrupt" (not a clip), null (this build's). */
+function checkHeader(r: Reader): "version" | "corrupt" | null {
+  if (r.u32() !== SAVE_MAGIC) return "corrupt";
+  return r.u16() !== REPLAY_VERSION || r.u8() !== NET_VERSION || r.u32() !== simFingerprint() ? "version" : null;
+}
+
+/**
+ * Whether this build can replay saved clip `text`, from its header alone (the first 12 bytes: no inflate, so listing many stays cheap).
+ * A clip whose body is damaged under a good header passes here and is "corrupt" in `decodeSaved`.
+ */
+export function savedPlayable(text: string): boolean {
+  try {
+    return checkHeader(new Reader().reset(Uint8Array.from(atob(text.slice(0, 16)), (c) => c.charCodeAt(0)))) === null;
+  } catch {
+    return false;
+  }
+}
+
+/** A saved clip, or why it cannot replay here (`checkHeader`'s "version" or "corrupt"). */
 export async function decodeSaved(text: string, L: NetLayout): Promise<HighlightClip | "version" | "corrupt"> {
   let bin: string;
   try {
@@ -453,8 +471,8 @@ export async function decodeSaved(text: string, L: NetLayout): Promise<Highlight
   for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
   const r = new Reader().reset(bytes);
   try {
-    if (r.u32() !== SAVE_MAGIC) return "corrupt";
-    if (r.u16() !== REPLAY_VERSION || r.u8() !== NET_VERSION || r.u32() !== simFingerprint()) return "version";
+    const bad = checkHeader(r);
+    if (bad) return bad;
     return readClip(r.reset(await inflate(bytes.subarray(11))), L);
   } catch (e) {
     if (e instanceof RangeError) return "corrupt";

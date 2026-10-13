@@ -1,6 +1,6 @@
 import { clipTitle, type HighlightClip } from "../match/highlights.ts";
 import type { SavedHud, SaveResult } from "../match/types.ts";
-import { encodeSaved } from "../net/reel-codec.ts";
+import { encodeSaved, savedPlayable } from "../net/reel-codec.ts";
 
 /** `localStorage` keys: the index (JSON `SavedHud[]`, newest first) and one entry per clip under `CLIP_PREFIX` + key. */
 const INDEX = "crush.highlights";
@@ -30,9 +30,54 @@ function readIndex(): Entry[] {
   }
 }
 
-/** This browser's saved highlights, newest first. */
-export function listSaved(): SavedHud[] {
-  return readIndex().map(({ key, title, trackName, savedAt }) => ({ key, title, trackName, savedAt }));
+/** Whether the player keeps outdated clips out of the list by purging them as soon as they are seen (`"1"`: yes). A preference, so it lives here. */
+const AUTO_PURGE = "crush.highlights.autoPurge";
+
+export function autoPurge(): boolean {
+  try {
+    return localStorage.getItem(AUTO_PURGE) === "1";
+  } catch {
+    return false;
+  }
+}
+
+export function setAutoPurge(on: boolean): void {
+  try {
+    localStorage.setItem(AUTO_PURGE, on ? "1" : "0");
+  } catch {
+    /* storage unavailable */
+  }
+}
+
+/** Whether this build can replay the entry's clip (`savedPlayable`: the header alone); a clip gone from storage cannot. */
+const playable = (e: Entry): boolean => savedPlayable(localStorage.getItem(CLIP_PREFIX + e.key) ?? "");
+
+/** Drop every entry of `index` not in `keep`: its clip, then the index row. */
+function purge(index: Entry[], keep: Entry[]): void {
+  for (const e of index) if (!keep.includes(e)) localStorage.removeItem(CLIP_PREFIX + e.key);
+  localStorage.setItem(INDEX, JSON.stringify(keep));
+}
+
+/** Delete every saved clip this build cannot replay (docs/HIGHLIGHTS.md "Outdated clips"); the playable ones stay. */
+export function purgeOutdated(): void {
+  const index = readIndex();
+  const keep = index.filter(playable);
+  if (keep.length < index.length) purge(index, keep);
+}
+
+/**
+ * This browser's replayable highlights, newest first, and how many outdated ones (another replay, net or sim version, or no clip left)
+ * are not listed. With `autoPurge` set those are deleted here and the count is 0.
+ */
+export function listSaved(): { saved: SavedHud[]; outdated: number } {
+  const index = readIndex();
+  const keep = index.filter(playable);
+  let outdated = index.length - keep.length;
+  if (outdated > 0 && autoPurge()) {
+    purge(index, keep);
+    outdated = 0;
+  }
+  return { saved: keep.map(({ key, title, trackName, savedAt }) => ({ key, title, trackName, savedAt })), outdated };
 }
 
 /**

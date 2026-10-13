@@ -4,10 +4,10 @@ import { carLayout } from "../net/car-pose.ts";
 import { decodeSaved, encodeSaved, packReel, unpackReel } from "../net/reel-codec.ts";
 import { reelParts } from "../net/reel-wire.ts";
 import { clipTitle, type HighlightClip } from "../match/highlights.ts";
-import type { FlagClip, RaceCommand, RaceHud, ReelCoverId, SavedHud, ViewBox } from "../match/types.ts";
+import type { FlagClip, RaceCommand, RaceHud, ReelCoverId, ViewBox } from "../match/types.ts";
 import { RESULTS_DELAY } from "./engine-race.ts";
 import { coverLens, type ReelDirector } from "./engine-highlights.ts";
-import { deleteSaved, listSaved, loadSaved, saveClip } from "./highlight-store.ts";
+import { autoPurge, deleteSaved, listSaved, loadSaved, purgeOutdated, saveClip, setAutoPurge } from "./highlight-store.ts";
 import { EngineInput } from "./engine-input.ts";
 
 /** The trace's `camera.rig` while a crash cut holds the camera. */
@@ -19,8 +19,8 @@ export abstract class EngineReel extends EngineInput {
   protected abstract readonly highlights: ReelDirector;
   /** The camera's field of view before the reel took it. */
   protected reelFov: number | null = null;
-  /** `listSaved()`, re-read after a save or a delete. */
-  private savedList: SavedHud[] | null = null;
+  /** `listSaved()` and the auto-purge preference, re-read after a save, a delete, a purge or a change of the preference. */
+  private savedList: Pick<RaceHud, "saved" | "outdated" | "autoPurge"> | null = null;
   /** Each panel's box on the page (`reelCover`), null: not open. */
   private readonly covers: Record<ReelCoverId, ViewBox | null> = { sheet: null, standings: null };
   /** The reel drew last frame (`reelFrame`): the lens frames the part of the view the panels leave free. */
@@ -74,6 +74,14 @@ export abstract class EngineReel extends EngineInput {
         return true;
       case "savedDelete":
         deleteSaved(cmd.key);
+        this.savedList = null;
+        return true;
+      case "savedPurge":
+        purgeOutdated();
+        this.savedList = null;
+        return true;
+      case "savedAutoPurge":
+        setAutoPurge(cmd.on);
         this.savedList = null;
         return true;
       case "start":
@@ -154,9 +162,9 @@ export abstract class EngineReel extends EngineInput {
     coverLens(this.camera, this.canvas.getBoundingClientRect(), open);
   }
 
-  protected reelHud(): Pick<RaceHud, "reel" | "solo" | "shown" | "saved"> {
-    this.savedList ??= listSaved();
-    return { ...this.highlights.hud(), saved: this.savedList };
+  protected reelHud(): Pick<RaceHud, "reel" | "solo" | "shown" | "saved" | "outdated" | "autoPurge"> {
+    this.savedList ??= { ...listSaved(), autoPurge: autoPurge() };
+    return { ...this.highlights.hud(), ...this.savedList };
   }
 
   /**

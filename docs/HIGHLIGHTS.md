@@ -392,6 +392,13 @@ may round `Math` functions differently, and the replays can then drift apart.
 - **Saved clips** are listed in the race setup menu with Play and Delete. Play restyles the clip's slot cars with the
   recorded paint and class, plays the clip solo, and restores the field when it ends. A clip saved by another clip or
   keyframe layout, or by another sim build (fingerprint), is refused as "version" rather than replayed wrong.
+- **Outdated clips.** `listSaved` checks each clip's 11-byte header (`savedPlayable`: magic, `REPLAY_VERSION`,
+  `NET_VERSION`, fingerprint; the body is not inflated, so listing stays cheap). A clip that fails, or whose text is
+  gone from storage, is not listed. One line says "N replays are outdated" (singular for 1) with **Purge now**
+  (`savedPurge`, `purgeOutdated`), which deletes exactly those clips and nothing playable. Beside it the
+  **Automatically purge** checkbox (`savedAutoPurge`, kept in `localStorage` as `crush.highlights.autoPurge`) makes
+  `listSaved` delete them as soon as it finds them, so the line never shows. A clip whose header passes but whose body
+  is damaged is still listed and fails on Play ("corrupt"). Tests: `highlight-store.test.ts`, `reel-codec.test.ts`.
 
 ## Limits
 
