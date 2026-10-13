@@ -259,7 +259,7 @@ export function applyDrive(car: DeformableCar, input: DriveInput, dt: number, to
     // Held on the gas with lock either way short of a hard counter-steer.
     if (d.drift > 0.05 && throttle > 0.25 && Math.abs(steer) > 0.1 && steer * dir > -0.6) target = Math.max(target, d.drift);
   }
-  const catchRate = a.catchRate * (1.25 - 0.5 * k.drift) * (steer * dir < -0.6 ? 2 : 1);
+  const catchRate = a.catchRate * (1.25 - 0.5 * k.drift) * (steer * dir < -0.6 ? 2 : 1); // loose classes (high `drift`) let a slide run on longer
   if (target > d.drift) d.drift = Math.min(target, d.drift + 6 * dt);
   else d.drift = Math.max(target, d.drift - catchRate * dt);
   const drift = d.drift;
