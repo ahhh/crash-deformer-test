@@ -1038,6 +1038,8 @@ export class RagdollSystem {
    * `GLASS_FLOOR` or faster strikes the pane once (`hitGlass`; this peer's glass only, `authority`): a pane it shatters
    * leaves the world before the step, so he goes through; one it cracks stays, so Rapier bounces him off it. A touch lasts
    * until he is `GLASS_SEP` off the pane again. Rapier is read (allocating) only for a torso within `GLASS_SEE` of a pane.
+   * The pane asks (`normal2` is then the torso's exterior normal) because the torso-first query trips Rapier's
+   * `unreachable` on a fresh torso collider.
    */
   private glassTouch(): void {
     for (let s = 0; s < SLOTS; s++) {
@@ -1052,7 +1054,7 @@ export class RagdollSystem {
           if (((this.paneBits[i]! >> (2 * p)) & 3) === 2) continue;
           const bit = 1 << p;
           const pane = this.panes[i * PANES + p];
-          const c = pane ? torso.contactCollider(pane, GLASS_SEE) : null;
+          const c = pane ? pane.contactCollider(torso, GLASS_SEE) : null;
           const held = (this.touching[t]! & bit) !== 0;
           if (c === null || (held && c.distance > GLASS_SEP)) {
             this.touching[t] = this.touching[t]! & ~bit;
@@ -1061,7 +1063,7 @@ export class RagdollSystem {
           if (held) continue;
           const v = d.bodies[0]!.linvel();
           const cv = this.cars[i]!.velocity;
-          const closing = (v.x - cv.x) * c.normal1.x + (v.y - cv.y) * c.normal1.y + (v.z - cv.z) * c.normal1.z;
+          const closing = (v.x - cv.x) * c.normal2.x + (v.y - cv.y) * c.normal2.y + (v.z - cv.z) * c.normal2.z;
           // Not on the pane within this step yet.
           if (c.distance > Math.max(0, closing) * STEP + GLASS_SKIN) continue;
           this.touching[t] = this.touching[t]! | bit;
