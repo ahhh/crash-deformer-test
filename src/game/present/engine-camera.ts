@@ -132,9 +132,9 @@ export const CHASE = {
 };
 
 /** The debug panel's groups: the talk's three tuning parameters (masterclass 29:27), then what else the chase tunes. */
-export type ChaseGroup = "Convergence" | "Momentum" | "Damping" | "Look-ahead" | "Slide" | "Landing";
+type ChaseGroup = "Convergence" | "Momentum" | "Damping" | "Look-ahead" | "Slide" | "Landing";
 
-export type ChaseKnob = {
+type ChaseKnob = {
   id: string;
   group: ChaseGroup;
   label: string;

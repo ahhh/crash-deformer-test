@@ -1,4 +1,5 @@
-import { DRIVE, type DriveInput } from "./car-drive.ts";
+import type { DriveInput } from "./car-drive.ts";
+import { SLIDE_SPEED } from "./constants.ts";
 import { PAD_BUTTON, type PadState } from "./gamepad.ts";
 
 /** One frame of player intent, keyboard and pad merged, in player-visible signs. */
@@ -132,7 +133,7 @@ export function shapeDrive(intent: DriveIntent, feel: DriveFeel, along: number, 
 
   if (intent.brake > 0.5) feel.brakeHeld += dt;
   else {
-    if (feel.brakeHeld > 0 && feel.brakeHeld <= FEEL.tapBrake && Math.abs(feel.wheel) > FEEL.tapWheel && along > DRIVE.slideSpeed) {
+    if (feel.brakeHeld > 0 && feel.brakeHeld <= FEEL.tapBrake && Math.abs(feel.wheel) > FEEL.tapWheel && along > SLIDE_SPEED) {
       feel.pulse = FEEL.tapPulse;
     }
     feel.brakeHeld = 0;

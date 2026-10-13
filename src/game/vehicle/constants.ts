@@ -27,3 +27,5 @@ export const STALL_S = 3;
 export const FLIPPED_UP_Y = 0.35;
 /** The share of its lateral grip (grip / v, rad/s) the tyres hold a car's yaw rate to while it grips (`applyDrive`). */
 export const GRIP_YAW_CAP = 1.05;
+/** No slide starts below this forward speed (m/s): `applyDrive`'s slide and the input layer's brake-tap drift request. */
+export const SLIDE_SPEED = 6;

@@ -7,7 +7,7 @@ import { C_GRIP, HIT_SIZE } from "../world/surfaces.ts";
 import { assists, carClass, carDrivability, CLASSES, HANDLING, SELF_RIGHT_SLOWEST, type Assists, type Drivability } from "./vehicle-classes.ts";
 import { LOSS_SIZE, wheelLoss } from "./wheel-loss.ts";
 import { detSin, detCos } from "../kernel/physics-core.js";
-import { FLIPPED_UP_Y, GRIP_YAW_CAP } from "./constants.ts";
+import { FLIPPED_UP_Y, GRIP_YAW_CAP, SLIDE_SPEED } from "./constants.ts";
 
 /** Shared by derby AI and the player seat. */
 export type DriveInput = {
@@ -46,7 +46,7 @@ export const DRIVE = {
   /** Axle offset from the car origin (m) where each axle reads the ground's grip. */
   axle: 1.34,
   /** No slide starts below this forward speed (m/s). */
-  slideSpeed: 6,
+  slideSpeed: SLIDE_SPEED,
   /** A boost at full lock kicks a tail-happy class out above this forward speed (m/s): 0.55 × the old 18 m/s top. */
   boostSlideSpeed: 10,
   /** Extra yaw in a full unassisted slide (× steer yaw). */
