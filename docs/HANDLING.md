@@ -71,7 +71,7 @@ the arcade end is about × 0.4 and × 0.5 of those, the real order kept (muscle 
 - **Slides**: Space at speed with lock kicks the tail out; boost at full lock does it on tail-happy classes. Keep the gas on
   with lock either way and the drift assist holds the body angle while the car carries its speed round; release the wheel or
   lift off and it catches itself. Full opposite lock catches it twice as fast.
-- **Draft** (race mode only): in another racer's trail the top speed is ×1.02, the thrust unchanged.
+- **Draft** (race mode only): in the wake of another racer (a 36° cone up to 3 car lengths behind its rear bumper, `docs/RACE_DESIGN.md` "Drafting") the top speed is ×1.02, the thrust unchanged.
 - **Recovery**: a driven car stuck on its roof or side rights itself after 1.2 s at the arcade end, slower toward mid
   slider; past 0.6 only R rights it.
 - **Surface grip** comes from the active `Ground` (`frictionAt`) under each axle: low front grip loses steering, low rear

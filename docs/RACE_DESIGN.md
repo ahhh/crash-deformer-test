@@ -253,14 +253,21 @@ class); they are never entrants, so rules, standings and results never see them,
 
 ## Drafting (`DRAFT`, `RaceSession`)
 
-A racing car 2–15 m straight behind another racing car (along the leader's travel), within 1.5 m of its line, both doing
-over 15 m/s that way, is drafting (`CarRecord.draft`: unbroken seconds of it). Every 2 s of it unbroken adds 5 % to that
+A racing car in the wake of another racing car is drafting (`CarRecord.draft`: unbroken seconds of it). The wake is a cone
+behind the leader's rear bumper (the stock hull, `CAR_HALF`: 4.44 m long, 1.76 m wide), measured in the leader's velocity
+frame: `x` m behind the bumper, the follower is in when 0 ≤ `x` ≤ 3 car lengths (13.3 m) and its offset from the leader's
+line is at most the leader's half width + `x`·tan 18° (0.88 m at the bumper, 4.1 m at 10 m, 5.2 m at the far end: a 36°
+spread). Both cars must do over 15 m/s, and the follower's velocity must lie within 45° of the leader's, so a car crossing
+behind does not draft. Every 2 s of it unbroken adds 5 % to that
 car's boost meter (`CarRecord.drafts` counts the bonuses; the seat's for our car, `RaceBrain`'s for an AI, a netplay peer's
 own client from the snapshot). While drafting, the car's top speed is ×1.02 (`applyDrive`'s `topScale`). It lives in the
 race rules, so fleet and derby never see it. The HUD shows a small "Draft" tag beside the boost meter.
 
-Numbers by feel: 2 m keeps a bumper-to-bumper shove out, 15 m is about 0.35 s at top speed; ±1.5 m is a car width; 5 % per
-2 s is a full meter after 40 s glued to a bumper; ×1.02 is 4 km/h at 200 km/h: a slow close on the car ahead.
+Numbers: the range and spread are the owner's sketch (about 3 car lengths, 35-45° total) and the research's (2.5-3 lengths,
+12-18° half angle, a 45° heading check: `.extraResearch/perplexity/2026-10-13-arcade-draft-zone-values.md`, `2026-10-13-slipstream-zone-around-corners.md`).
+The old straight box (2-15 m, ±1.5 m) lost the follower on any real bend (10 m back needed a 33 m radius); the cone keeps it
+on a 25 m radius bend at a 10 m gap. Clips store the draft bit per step, so the geometry is not in a replay and a change needs no `REPLAY` bump.
+5 % per 2 s is a full meter after 40 s glued to a bumper; ×1.02 is 4 km/h at 200 km/h: a slow close on the car ahead.
 
 A clean drift also tops up the player's meter (`BOOST.drift`, `DriverSeat.input`): 12 % per second of slide, counted up to 2.5 s,
 paid when the slide ends, and only if no contact fell within `driftClean` = 0.5 s of it. The AI's meters get no such reward.

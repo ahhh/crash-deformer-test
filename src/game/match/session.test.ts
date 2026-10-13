@@ -7,6 +7,7 @@ import type { CarPose, RaceEvent, RaceResultRow } from "./types.ts";
 import { DT, along, centreline, field, fromGrid, polyline, runTo, samples, shortcutLine, type Driver, type Pt } from "./session-drive.test-util.ts";
 import { square as squareFile } from "../world/track.test-util.ts";
 import { assertSameDigest } from "../vehicle/test-support.ts";
+import { CAR_HALF } from "../vehicle/car-mesh.ts";
 import oval from "../world/tracks/oval.json" with { type: "json" };
 import { PoliceBrain } from "../ai/police.ts";
 import type { PoliceWorld } from "../ai/cop-brain.ts";
@@ -577,14 +578,14 @@ describe("given a two-car race on the square track, where one car follows anothe
     assert.equal(s.cars[0]!.draft, 0);
   });
 
-  it("when the follower is 2.5 m off the leader's line, 20 m back, 1 m back, both at 12 m/s (under the speed floor) or on a broken run, then it earns no draft bonus and, the broken run aside, is never counted as drafting", () => {
+  it("when the follower is 4 m off the leader's line at 8 m back (outside the cone), 20 m back, 1 m back, both at 12 m/s (under the speed floor) or on a broken run, then it earns no draft bonus and, the broken run aside, is never counted as drafting", () => {
     const cases: [string, Driver, Driver][] = [
-      ["2.5 m off its line", leader, straight(2.5, 12, 30)],
+      ["4 m off its line, 8 m back", leader, straight(4, 12, 30)],
       ["20 m back", leader, straight(0, 0, 30)],
       ["1 m back", leader, straight(0, 19, 30)],
       ["both at 12 m/s", straight(0, 20, 12), straight(0, 12, 12)],
       // In the trail 1.5 s, out 0.5 s, back for the rest: no stretch reaches DRAFT.every.
-      ["a broken run", leader, (t) => ({ ...straight(0, 12, 30)(t), x: t > 1.5 && t < 2 ? 3 : 0 })],
+      ["a broken run", leader, (t) => ({ ...straight(0, 12, 30)(t), x: t > 1.5 && t < 2 ? 4 : 0 })],
     ];
     for (const [name, lead, follower] of cases) {
       const s = race();
@@ -593,5 +594,45 @@ describe("given a two-car race on the square track, where one car follows anothe
       assert.equal(s.cars[0]!.drafts, 0, name);
       if (name !== "a broken run") assert.equal(s.cars[1]!.draft, 0, `${name}: counted as drafting`);
     }
+  });
+
+  /** Whether the second car is counted as drafting after half a second, `x` m behind the leader's rear bumper (CG offset `CAR_HALF.z`) and `side` m off its line. */
+  const wakes = (x: number, side: number, vx = 0, vz = 30): boolean => {
+    const s = race();
+    runTo(s, [leader, (t) => ({ ...straight(side, 20 - CAR_HALF.z - x, 30)(t), vx, vz })], 0.5);
+    return s.cars[1]!.draft > 0;
+  };
+  const LEN = 2 * CAR_HALF.z;
+
+  it("when the follower is 1 m behind the bumper, at 3 car lengths, or at 3.5 car lengths on a straight, then the first two are in the wake and the third is not", () => {
+    assert.ok(wakes(1, 0), "1 m behind the bumper (inside the old 2 m near cut)");
+    assert.ok(wakes(3 * LEN - 0.01, 0), "just inside 3 car lengths");
+    assert.ok(!wakes(3.5 * LEN, 0), "3.5 car lengths");
+    assert.ok(!wakes(-0.5, 0), "its nose past the leader's rear bumper");
+  });
+
+  it("when the follower is offset sideways at 10 m behind the bumper, then it is in the wake inside half a width plus 10 m x tan 18 degrees (4.1 m) and out beyond it", () => {
+    assert.ok(wakes(10, 4), "4 m off: inside the cone, outside the old 1.5 m box");
+    assert.ok(!wakes(10, 4.5), "4.5 m off");
+    assert.ok(!wakes(0.5, 3), "3 m off right behind the bumper: the cone is narrow there");
+  });
+
+  it("when both cars take a 25 m radius bend 10 m of arc apart at 20 m/s, then the follower stays in the wake, as it cannot in a straight box", () => {
+    const R = 25;
+    const arc = (phase: number): Driver => (t) => {
+      const a = phase + (20 * Math.max(0, t)) / R;
+      return { x: R * (1 - Math.cos(a)), z: R * Math.sin(a), vx: 20 * Math.sin(a), vz: 20 * Math.cos(a) };
+    };
+    const s = race();
+    runTo(s, [arc(10 / R), arc(0)], 0.5);
+    assert.ok(s.cars[1]!.draft > 0.4, `drafting for ${s.cars[1]!.draft} s`);
+  });
+
+  it("when the follower heads 40, 60 degrees off the leader's, or crosses its line at right angles, then only the 40 degree car drafts", () => {
+    const v = 40;
+    const rad = Math.PI / 180;
+    assert.ok(wakes(6, 0, v * Math.sin(40 * rad), v * Math.cos(40 * rad)), "40 degrees off, over the speed floor along the leader's line");
+    assert.ok(!wakes(6, 0, v * Math.sin(60 * rad), v * Math.cos(60 * rad)), "60 degrees off, still over the speed floor along the line");
+    assert.ok(!wakes(6, 0, 30, 0), "crossing at right angles");
   });
 });

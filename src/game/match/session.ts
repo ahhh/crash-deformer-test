@@ -1,4 +1,5 @@
 import { hypot2 } from "../kernel/physics-core.js";
+import { CAR_HALF } from "../vehicle/car-mesh.ts";
 import { clamp } from "../kernel/scalar.ts";
 import { OPEN_REACH, blankPoint, blankProjection, crossGate, inCorridor, pointOn, projectPath, type Projection, type Track, type TrackPath } from "../world/track.ts";
 import type {
@@ -40,10 +41,12 @@ const TELEPORT = 25;
 export const GATE_MARGIN = 3;
 const RESPAWN_TRIES = 12;
 /**
- * Drafting: a racing car `near`–`far` m straight behind another (along its travel), within `half` m of its line, both over `speed` m/s.
+ * Drafting: a racing car in another's wake, a cone opening behind its rear bumper. In the leader's velocity frame, `x` m behind the bumper (the stock hull, `CAR_HALF`), the follower is in when 0 <= x <= `range` car lengths and its offset from the leader's line is within the leader's half width + x·`fan`.
+ * Both must be over `speed` m/s, and the follower's velocity within `align` (cosine) of the leader's, so a car crossing behind does not draft.
  * Every `every` s unbroken earns `bonus` of a boost meter; while it lasts top speed is × `top` (`applyDrive`'s `topScale`).
+ * `range` 3 car lengths: the owner's sketch, research 2.5-3. `fan` tan 18°: a 36° wake, inside the owner's 35-45° and the research's 12-18° half angle. `align` cos 45°: the research's heading check. Research: `.extraResearch/perplexity/2026-10-13-arcade-draft-zone-values.md`, `2026-10-13-slipstream-zone-around-corners.md`.
  */
-export const DRAFT = { near: 2, far: 15, half: 1.5, speed: 15, every: 2, bonus: 0.05, top: 1.02 };
+export const DRAFT = { range: 3, fan: Math.tan((18 * Math.PI) / 180), align: Math.SQRT1_2, speed: 15, every: 2, bonus: 0.05, top: 1.02 };
 /** Busted: a racing car held under `kph` within `near` m of a chasing police car for over `time` s in a row is out, as a DNF is (out in a no-reset race). */
 export const BUST = { near: 20, kph: 20, time: 4 };
 
@@ -256,7 +259,9 @@ export class RaceSession {
         const fz = q.vz / v;
         const back = (q.x - p.x) * fx + (q.z - p.z) * fz;
         const off = Math.abs((p.x - q.x) * fz - (p.z - q.z) * fx);
-        trail = back >= DRAFT.near && back <= DRAFT.far && off <= DRAFT.half && p.vx * fx + p.vz * fz >= DRAFT.speed;
+        const x = back - CAR_HALF.z; // m behind the leader's rear bumper
+        const pf = p.vx * fx + p.vz * fz;
+        trail = x >= 0 && x <= DRAFT.range * 2 * CAR_HALF.z && off <= CAR_HALF.x + x * DRAFT.fan && pf >= DRAFT.speed && pf >= DRAFT.align * hypot2(p.vx, p.vz);
       }
       if (!trail) {
         c.draft = 0;
