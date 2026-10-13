@@ -110,10 +110,12 @@ import { makeSnapshot, MAX_NET_CARS, MSG, NET_VERSION, readEjection, readSnapsho
  * wheel launches from a once-per-slice spin; 69: a wreck at rest sleeps (its rigid step skipped until a moving car, an applied pedal, a
  * written velocity or a moved solid wakes it; a keyframe carries its rest timer) and a quiet step takes the 1/120 slice unless a crush
  * window is open, so a replayed pile settles and steps differently; 70: a car taken out of the world leaves no roof behind (a resting
- * loose part was woken by the roof of a car the step's list had dropped).
+ * loose part was woken by the roof of a car the step's list had dropped); 71: a fleet car's spawn keeps its whole straight path clear of the lamp
+ * posts, past the centre to the far side of their ring (`layoutFleet` rejects more bearings, the lone car spawns between two posts and the last-resort
+ * ring steps off the post lines), so the spawns of a seed differ.
  * A saved clip also records `NET_VERSION` (its snapshots' layout).
  */
-const REPLAY_VERSION = 70;
+const REPLAY_VERSION = 71;
 /** Bounds a decoder enforces (a clip is ≤ 13 s at ≤ 300 steps/s, ≤ 15 keyframes). */
 const MAX_STEPS = 8192;
 const MAX_KEYS = 64;

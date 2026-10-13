@@ -102,6 +102,61 @@ describe("given the six lamp posts on the 16 m ring", () => {
     }
     assert.ok(worst >= 2 - 1e-9, `after ${cases} spawns the closest a post comes to a spawn's path is ${worst.toFixed(2)} m`);
   });
+
+  it("when fleets of 2 to 32 cars are laid out over 200 seeds, then no car's straight path from its spawn comes within 2 m of a post before it meets another car or 2 s have passed", () => {
+    const posts = Array.from({ length: LAMP_POSTS }, (_, k) => {
+      const a = (k / LAMP_POSTS) * Math.PI * 2;
+      return { x: Math.sin(a) * LAMP_RING_R, z: Math.cos(a) * LAMP_RING_R };
+    });
+    const APPROACH_S = 2;
+    // Two cars have met when their centres are this close (m): half a car's length, so the latest a straight path can be said to end.
+    const MEET_M = 2.2;
+    let worst = Infinity;
+    let where = "";
+    let cases = 0;
+    // Seed 0 stands for a random source that always gives 0: every one of the 48 tries lands on a post line, so every car is
+    // placed by the even-ring last resort. The listed seeds are 32-car fleets of the real source where one car falls back to it (a scan of 1 to 5000).
+    const lastResort = [374, 443, 679, 771, 1277, 1851, 1964, 1975, 2122, 2501, 2797, 2975, 3150, 3464, 3820];
+    for (const n of [1, 2, 3, 5, 8, 12, 14, 20, 32]) {
+      const seeds = [0, ...Array.from({ length: 200 }, (_, k) => k + 1), ...(n === 32 ? lastResort : [])];
+      for (const seed of seeds) {
+        const slots = layoutFleet(n, 10, 32, seed === 0 ? () => 0 : mulberry32(seed));
+        const vel = slots.map((s) => {
+          const r = Math.hypot(s.x, s.z);
+          return { x: (-s.x / r) * s.speed, z: (-s.z / r) * s.speed };
+        });
+        for (let i = 0; i < n; i++) {
+          const s = slots[i]!;
+          // The first time (s) this car's centre is within MEET_M of another car's, both driving straight.
+          let end = APPROACH_S;
+          for (let j = 0; j < n; j++) {
+            if (j === i) continue;
+            const px = s.x - slots[j]!.x;
+            const pz = s.z - slots[j]!.z;
+            const wx = vel[i]!.x - vel[j]!.x;
+            const wz = vel[i]!.z - vel[j]!.z;
+            const a = wx * wx + wz * wz;
+            const b = 2 * (px * wx + pz * wz);
+            const disc = b * b - 4 * a * (px * px + pz * pz - MEET_M * MEET_M);
+            if (a > 0 && disc >= 0) end = Math.min(end, Math.max(0, (-b - Math.sqrt(disc)) / (2 * a)));
+          }
+          const dx = vel[i]!.x * end;
+          const dz = vel[i]!.z * end;
+          const len2 = dx * dx + dz * dz;
+          for (let k = 0; k < LAMP_POSTS; k++) {
+            const t = len2 > 0 ? Math.max(0, Math.min(1, ((posts[k]!.x - s.x) * dx + (posts[k]!.z - s.z) * dz) / len2)) : 0;
+            const d = Math.hypot(posts[k]!.x - (s.x + dx * t), posts[k]!.z - (s.z + dz * t));
+            if (d < worst) {
+              worst = d;
+              where = `${n} cars seed ${seed} car ${i} post ${k}`;
+            }
+          }
+          cases++;
+        }
+      }
+    }
+    assert.ok(worst >= 2 - 1e-9, `after ${cases} spawn paths the closest a post comes to one is ${worst.toFixed(2)} m (${where})`);
+  });
 });
 
 describe("given a layout built from a seeded random source", () => {

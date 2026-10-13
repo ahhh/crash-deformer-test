@@ -14,22 +14,48 @@ export const FLEET_MIN_SEP = 5.4;
 /** The six lamp posts stand on a ring this far (m) from the pad's centre, at bearings `k / LAMP_POSTS` of a turn from +z (`resetLampPoles`). */
 export const LAMP_RING_R = 16;
 export const LAMP_POSTS = 6;
-/** A spawn keeps this far (m) from every lamp post and from the path its car drives to the centre (a car's half width 1 + the post 0.12 + a margin). */
+/** A spawn keeps this far (m) from every lamp post and from the straight path its car drives (a car's half width 1 + the post 0.12 + a margin). */
 const LAMP_CLEAR = 2;
 
-/** Whether a car at (x, z) driving straight at the centre passes within `LAMP_CLEAR` of a lamp post (or starts on one). */
-function lampInPath(x: number, z: number): boolean {
+/**
+ * How close (m) a car at (x, z), driving straight at the centre and on through it out to the far side of the post ring, passes to a
+ * lamp post (0 if it starts on one). A car that crosses the pad is never stopped by the pack before the far posts.
+ */
+function lampClearance(x: number, z: number): number {
   const len = hypot2(x, z);
-  if (len < 1e-6) return false;
+  if (len < 1e-6) return Infinity;
+  const reach = len + LAMP_RING_R + LAMP_CLEAR;
+  let least = Infinity;
   for (let k = 0; k < LAMP_POSTS; k++) {
     const a = (k / LAMP_POSTS) * Math.PI * 2;
     const px = detSin(a) * LAMP_RING_R;
     const pz = detCos(a) * LAMP_RING_R;
-    // The post's position along the spawn-to-centre line, clamped to the segment, and its distance from that line.
-    const t = Math.max(0, Math.min(1, (px * x + pz * z) / (len * len)));
-    if (hypot2(px - x * t, pz - z * t) < LAMP_CLEAR) return true;
+    // The post's distance along the spawn-to-centre line, clamped to the path, and its distance from that line.
+    const t = Math.max(0, Math.min(reach, (px * -x + pz * -z) / len + len));
+    least = Math.min(least, hypot2(px - x * (1 - t / len), pz - z * (1 - t / len)));
   }
-  return false;
+  return least;
+}
+
+/**
+ * The bearing nearest `ang` (rad) from which a car `r` m out clears every post, stepping off the post lines a degree at a time
+ * either side; if none within a post spacing does, the clearest one.
+ */
+function clearBearing(ang: number, r: number): number {
+  let best = ang;
+  let bestClear = -1;
+  for (let step = 0; step <= 60; step++) {
+    for (const sign of [1, -1]) {
+      const b = ang + (sign * step * Math.PI) / 180;
+      const c = lampClearance(detSin(b) * r, detCos(b) * r);
+      if (c >= LAMP_CLEAR) return b;
+      if (c > bestClear) {
+        bestClear = c;
+        best = b;
+      }
+    }
+  }
+  return best;
 }
 
 /** Slot cycle (fleet and derby share the pool): every fleet body style in its own class, then a monster truck. */
@@ -82,7 +108,9 @@ export function layoutFleet(
   const spd = () => speedInRange(speedMin, speedMax, rng);
 
   if (n === 1) {
-    return [{ x: 0, z: 10.5, speed: spd() }];
+    // Midway between two posts, so the whole path through the centre passes between the posts either side of it.
+    const a = Math.PI / LAMP_POSTS;
+    return [{ x: detSin(a) * 10.5, z: detCos(a) * 10.5, speed: spd() }];
   }
 
   if (n === 2) {
@@ -105,7 +133,7 @@ export function layoutFleet(
       const r = 6.4 + rng() * padR;
       x = detSin(ang) * r;
       z = detCos(ang) * r;
-      placed = !lampInPath(x, z);
+      placed = lampClearance(x, z) >= LAMP_CLEAR;
       for (let j = 0; j < i && placed; j++) {
         const o = slots[j]!;
         if (hypot2(x - o.x, z - o.z) < FLEET_MIN_SEP) {
@@ -116,8 +144,9 @@ export function layoutFleet(
       if (placed) break;
     }
     if (!placed) {
-      const ang = (i / n) * Math.PI * 2;
+      // Last resort: the even ring, each bearing stepped off the post lines (the pack spacing is the ring's, not re-checked).
       const r = Math.max(8.2, (FLEET_MIN_SEP * n) / (Math.PI * 1.7));
+      const ang = clearBearing((i / n) * Math.PI * 2, r);
       x = detSin(ang) * r;
       z = detCos(ang) * r;
     }
