@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import type { FxTier } from "./engine-post.ts";
-import { AutoFx, hardwareDesktop } from "./auto-fx.ts";
+import { AutoFx, gpuRenderer, hardwareDesktop } from "./auto-fx.ts";
 
 // Deterministic 60 Hz jitter spanning 16.8–17.5 ms (57–59.5 fps per frame, about 58 fps on average).
 const jitter60 = (i: number): number => 16.8 + ((i * 7) % 8) * 0.1;
@@ -152,6 +152,31 @@ describe("given the check for a hardware desktop (a fine pointer and a hardware 
     assert.equal(hardwareDesktop("Gallium 0.4 on softpipe", true), false);
     assert.equal(hardwareDesktop(nvidia, false), false);
     assert.equal(hardwareDesktop(null, true), false);
+  });
+});
+
+describe("given the GPU name read from a WebGL context", () => {
+  /** A context whose `RENDERER` says `plain`, with the debug extension (naming `real`) or none; `asked` counts extension lookups. */
+  const context = (plain: string, real: string | null) => {
+    const asked = { n: 0 };
+    const gl = {
+      RENDERER: 0x1f01,
+      getParameter: (p: number) => (p === 0x1f01 ? plain : real),
+      getExtension: (name: string) => {
+        asked.n++;
+        return name === "WEBGL_debug_renderer_info" && real !== null ? { UNMASKED_RENDERER_WEBGL: 0x9246 } : null;
+      },
+    } as unknown as WebGLRenderingContext;
+    return { gl, asked };
+  };
+  it("when RENDERER names the GPU (Firefox), then that name is used and the deprecated extension is never asked", () => {
+    const { gl, asked } = context("NVIDIA GeForce RTX 3070", "ANGLE (masked)");
+    assert.equal(gpuRenderer(gl), "NVIDIA GeForce RTX 3070");
+    assert.equal(asked.n, 0);
+  });
+  it("when RENDERER is masked (Chrome), then the extension supplies the name, and null when there is none", () => {
+    assert.equal(gpuRenderer(context("WebKit WebGL", "ANGLE (NVIDIA, RTX 3070)").gl), "ANGLE (NVIDIA, RTX 3070)");
+    assert.equal(gpuRenderer(context("WebKit WebGL", null).gl), null);
   });
 });
 

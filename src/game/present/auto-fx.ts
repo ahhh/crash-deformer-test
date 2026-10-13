@@ -13,6 +13,20 @@ export function hardwareDesktop(renderer: string | null, pointerFine: boolean): 
   return pointerFine && renderer !== null && !SOFTWARE_GPU.test(renderer);
 }
 
+/** What `gl.RENDERER` says when the browser withholds the GPU (Chrome, a fingerprint-resistant Firefox). */
+const MASKED_RENDERER = /^(webkit webgl|mozilla|)$/i;
+
+/**
+ * The GPU's name, or null when the browser gives none. `gl.RENDERER` is the real name in Firefox, which deprecates
+ * `WEBGL_debug_renderer_info` (a console warning on the lookup), so the extension is asked only where `RENDERER` is masked.
+ */
+export function gpuRenderer(gl: WebGLRenderingContext | WebGL2RenderingContext): string | null {
+  const plain = String(gl.getParameter(gl.RENDERER));
+  if (!MASKED_RENDERER.test(plain)) return plain;
+  const info = gl.getExtension("WEBGL_debug_renderer_info");
+  return info ? String(gl.getParameter(info.UNMASKED_RENDERER_WEBGL)) : null;
+}
+
 /** A tier holds while its windows can hold this wall rate where no GPU reading exists: the owner's 60 fps less 10. */
 const DROP_FPS = 50;
 /** Windows with room in a row that climb one tier above any that held. */

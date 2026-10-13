@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import type { RaceCommand } from "../match/types.ts";
 import { DETAIL_LEVELS, type CarDetail } from "../present/car-detail.ts";
+import { gpuRenderer } from "../present/auto-fx.ts";
 import type { DetailGovernor } from "../present/detail-governor.ts";
 import type { Cinematics } from "../present/engine-cine.ts";
 import { probeDepth } from "../present/depth-probe.ts";
@@ -691,8 +692,7 @@ function summarize(parts: BenchParts, plan: BenchPlan, s: Samples, w: Window, se
 async function deviceOf(parts: BenchParts, timerStepMs: number): Promise<BenchResult["device"]> {
   const { renderer } = parts;
   const gl = renderer.getContext();
-  const info = gl.getExtension("WEBGL_debug_renderer_info");
-  const gpu = info ? String(gl.getParameter(info.UNMASKED_RENDERER_WEBGL)) : "unknown GPU";
+  const gpu = gpuRenderer(gl) ?? "unknown GPU";
   const mem = (navigator as Navigator & { deviceMemory?: number }).deviceMemory;
   const brave = await (navigator as Navigator & { brave?: { isBrave(): Promise<boolean> } }).brave?.isBrave().catch(() => false);
   return {

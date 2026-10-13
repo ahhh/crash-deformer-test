@@ -17,7 +17,7 @@ import { damageStage } from "../vehicle/vehicle-classes.ts";
 import { makeJerseyBarrier, makePoolTexture } from "../present/engine-world.ts";
 import { Cinematics } from "../present/engine-cine.ts";
 import { FX_TIERS } from "../present/engine-post.ts";
-import { AutoFx, hardwareDesktop } from "../present/auto-fx.ts";
+import { AutoFx, gpuRenderer, hardwareDesktop } from "../present/auto-fx.ts";
 import { PHONE_LEVEL } from "../present/car-detail.ts";
 import { DetailGovernor } from "../present/detail-governor.ts";
 import { sortByDrawClass } from "../present/draw-order.ts";
@@ -231,8 +231,7 @@ export class CrashEngine extends EngineGarage {
     this.cine.setTier(fxParam === "ultra" ? "high" : (fxParam ?? INITIAL_HUD.fxTier));
     if (new URLSearchParams(window.location.search).get("stats") === "1") this.toggleStats();
     const gl = this.renderer.getContext();
-    const gpu = gl.getExtension("WEBGL_debug_renderer_info");
-    const desktop = hardwareDesktop(gpu ? String(gl.getParameter(gpu.UNMASKED_RENDERER_WEBGL)) : null, window.matchMedia("(pointer: fine)").matches);
+    const desktop = hardwareDesktop(gpuRenderer(gl), window.matchMedia("(pointer: fine)").matches);
     this.autoFx = new AutoFx(desktop, fxParam === undefined);
     // A phone starts on the nearer rung (a ~20 px car loses nothing the eye can use); the governor walks either way from the first match.
     this.detailGov = new DetailGovernor(desktop ? 0 : PHONE_LEVEL);
