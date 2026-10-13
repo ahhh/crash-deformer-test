@@ -271,6 +271,7 @@ export type ReelHost = {
 type Prepared = { id: number; from: "reel" | "saved"; clip: HighlightClip; sim: ClipSim; tl: Timeline; shots: Shot[]; beat: number };
 type Solo = Prepared & { startAt: number; back: () => void };
 
+const NO_CARS: readonly DeformableCar[] = [];
 const _c = new THREE.Vector3();
 const _n = new THREE.Vector3();
 const _p = new THREE.Vector3();
@@ -492,6 +493,11 @@ export class ReelDirector {
   focus(): DeformableCar | null {
     const p = this.cur;
     return p && !this.flying ? p.sim.cars[p.clip.focus]! : null;
+  }
+
+  /** The cars of the clip being played (the lamp pool lights them for real); none when no clip is. */
+  cars(): readonly DeformableCar[] {
+    return this.cur ? this.cur.sim.cars : NO_CARS;
   }
 
   /** The crash cam's view of the clip: its focus car's aim point, the scene's solids, and until when its hit is to come; null in a flight. */

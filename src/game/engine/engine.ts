@@ -12,7 +12,8 @@ import { INITIAL_HUD, type HudStore } from "../hud/hud-store.ts";
 import { easeTimeScale, PRE_IMPACT_LEAD, preImpact, stepPhase } from "../match/phase.ts";
 import { settleStep, stepWorld } from "./world-step.ts";
 import { MAX_CARS } from "../scenes/fleet.ts";
-import { LAB_PRESET } from "../scenes/constants.ts";
+import { GROUND_LEVEL, LAB_PRESET } from "../scenes/constants.ts";
+import { groundMaterial, levelOrder } from "../scenes/ground-stack.ts";
 import { damageStage } from "../vehicle/vehicle-classes.ts";
 import { makeJerseyBarrier, makePoolTexture } from "../present/engine-world.ts";
 import { Cinematics } from "../present/engine-cine.ts";
@@ -247,10 +248,13 @@ export class CrashEngine extends EngineGarage {
     this.impactLight = new THREE.PointLight(0xffc27a, 0, 22, 2);
     this.scene.add(this.impactLight);
     // Four body lamps per car plus at most one lit siren (police flash red, then blue). `?lamps=lean` trims a phone's pool to 2 spots
-    // + 2 points (about 0.5 ms a frame at 4x CPU; at night the second-nearest car loses its tail wash). Fixed here, before the programs
+    // + 2 points (about 0.5 ms a frame at 4x CPU; the cars without a real light show fake ground pools instead). Fixed here, before the programs
     // link: a light-count change relinks every lit shader.
     const leanLamps = !desktop && new URLSearchParams(window.location.search).get("lamps") === "lean";
     this.lampLights = new LampLights(this.scene, MAX_CARS * 5, leanLamps ? PHONE_POOL : FULL_POOL);
+    this.lampLights.middleTile = desktop;
+    groundMaterial(this.lampLights.pools.material as THREE.Material, GROUND_LEVEL.decal);
+    this.lampLights.pools.renderOrder = levelOrder(GROUND_LEVEL.decal);
     this.race = new RaceDirector({
       scene: this.scene,
       camera: this.camera,
@@ -511,7 +515,7 @@ export class CrashEngine extends EngineGarage {
     this.updateCamera(wallDt);
     this.flushVisibleSkins();
     this.detail.update(this.cars, this.camera, this.followedCar(), this.highlights.playing ? this.highlights.focus() : null);
-    this.lampLights.update(this.live(), this.camera, this.followedCar());
+    this.lampLights.update(this.live(), this.camera, this.followedCar(), performance.now() / 1000, this.highlights.playing ? this.highlights.cars() : undefined);
     if (this.stage.night) this.stage.syncPools(this.poles);
     if (!this.skipDraw) this.cine.render(this.scene, this.camera, wallDt);
     this.blend.restore();

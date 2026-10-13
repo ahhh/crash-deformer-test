@@ -158,16 +158,28 @@ lamps, with no shadows. Lights are never added, removed or visibility-toggled at
 changes three's lights hash and recompiles every lit material (see 32c53c1). Off, broken and
 unassigned lights sit at intensity 0, like `impactLight` and `winnerLight`.
 
-Each frame, after the visible skins flush and before render, `LampLights.update` ranks the intact
-lamps:
+Each frame, after the visible skins flush and before render, `LampLights.update` hands the pool to whole
+cars, never to lamps by distance (a distance ranking made a lamp's pool switch on and off every few
+degrees of an orbit):
 
-1. the followed car first,
-2. then the nearest on-screen lamps,
-3. off-screen lamps only fill spare slots.
+1. the followed car (the driven or watched one) first,
+2. then the cars of the highlight clip being played (`ReelDirector.cars()`),
+3. then, on desktop only (`LampLights.middleTile`), the cars whose 2.4 m disc touches the middle tile
+   of a 3x3 split of the viewport, nearest the screen centre first.
 
-The top `SPOT_POOL` heads and `POINT_POOL` tails get lights. Every intact lamp also gets an
-additive glow sprite in a single `THREE.Points` draw, and the lens emissive tracks its on/broken
-state, so cars without a pool light still read as lit.
+The top `SPOT_POOL` heads and `POINT_POOL` tails of those cars get real lights; a lit police siren
+still takes a point by distance, outranking every tail but the followed car's and the highlight's.
+Every other head and tail lamp shows a fake pool instead: one `THREE.InstancedMesh` (`pools`, a
+ground decal at `GROUND_LEVEL.decal`, additive, no depth write, one draw for all lamps, no
+per-frame allocation). Each instance is a flat quad whose near edge is at the lamp's foot (the
+ground height under it, `activeGround().heightAt`), running along the lamp's axis. A headlamp's
+reaches 1.5 times as far as its spot's aim (`AIM` ahead, dipped `DIP`) meets the ground, to at most
+14 m, half as wide as long; a tail lamp's is a 2.6 m red square straight back. A lamp with a real
+light shows no fake pool, so nothing doubles. Fake pools need no lights, so they work on every FX
+tier and on a phone, and a pool never depends on the view. Lamp posts have always used the same
+kind of decal (`makeLamp`'s `LAMP_POOL`, night only), not a real light. Every intact lamp also gets
+an additive glow sprite in a single `THREE.Points` draw, and the lens emissive tracks its on/broken
+state.
 
 Render ms (Edge D3D11, RTX 4080 Laptop, 5 s per cell after 3 s warm-up, before → after):
 

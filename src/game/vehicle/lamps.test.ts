@@ -202,7 +202,7 @@ describe("given the lamp light pool with a followed car far ahead, a nearer car 
     return false;
   };
 
-  it("when the pool updates, then the followed car's headlamps get spots first, then the nearest on-screen ones, and every intact lamp glows", () => {
+  it("when the pool updates, then the followed car's headlamps get spots first, then the cars on the middle tile, and every intact lamp glows", () => {
     const { lights, camera, far, near, behind } = rig();
     lights.update([far, near, behind], camera, far);
     const want = [far, far, near, near].slice(0, FULL_POOL.spots);
@@ -263,5 +263,25 @@ describe("given the lamp light pool with a followed car far ahead, a nearer car 
     let pooled = 0;
     scene.traverse((o) => void ((o instanceof THREE.SpotLight || o instanceof THREE.PointLight) && pooled++));
     assert.equal(pooled, 4, "the scene holds more pooled lights than the phone's");
+  });
+
+  it("when one car is followed, one is in the highlight, one is on the middle tile and one is far off it, then the followed and highlight cars get the real spots, and the other two get fake pools and no spot", () => {
+    const { scene, camera, far, near, behind } = rig();
+    const aside = new DeformableCar(paint(), scene);
+    aside.spawnFacing(-30, 10, 0, 0);
+    const lights = new LampLights(scene, 16);
+    lights.update([aside, near, behind, far], camera, far, 0, [behind]);
+    const want = [far, far, behind, behind];
+    for (const [k, car] of want.entries()) assert.ok(spotOn(lights.spots[k]!, car), `spot ${k} is not on the expected car`);
+    for (const car of [near, aside]) assert.ok(lights.spots.every((s) => !spotOn(s, car)), "a car outside the followed car and the highlight kept a real spot");
+    const m = lights.pools.instanceMatrix.array;
+    const pooled = (car: DeformableCar, i: number): boolean => {
+      const p = new THREE.Vector3();
+      car.lampWorld(i, p, new THREE.Vector3());
+      for (let k = 0; k < lights.pools.count; k++) if (Math.abs(m[k * 16 + 12]! - p.x) < 1e-4 && Math.abs(m[k * 16 + 14]! - p.z) < 1e-4) return true;
+      return false;
+    };
+    for (const car of [near, aside]) for (const i of [HEAD_L, HEAD_R]) assert.ok(pooled(car, i), `headlamp ${i} of a car without a spot has no fake pool`);
+    for (const car of [far, behind]) for (const i of [HEAD_L, HEAD_R]) assert.ok(!pooled(car, i), `headlamp ${i} of a car with real spots also shows a fake pool`);
   });
 });
