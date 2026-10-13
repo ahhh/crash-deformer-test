@@ -103,6 +103,8 @@ const BASE_FIELDS = {
   buckle: num(R.buckle.min, R.buckle.max, D.buckle),
   loop: flag(D.looping),
   slomo: flag(D.autoSlomo),
+  mvol: num(R.musicVolume.min, R.musicVolume.max, D.musicVolume),
+  evol: num(R.engineVolume.min, R.engineVolume.max, D.engineVolume),
   ts: orNull(num(R.timeScale.min, R.timeScale.max, 1)),
   deform: pick(["shape", "lattice"] as const, D.deformMode),
   car: pick(DRIVER_CARS.map((c) => c.id), D.playerCar),

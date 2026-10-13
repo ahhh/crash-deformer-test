@@ -239,6 +239,7 @@ export class CrashEngine extends EngineGarage {
     this.detailGov = new DetailGovernor(desktop ? 0 : PHONE_LEVEL);
     this.detail.setLevel(this.detailGov.level);
     this.audio = new GameAudio(this.camera, desktop);
+    this.audio.setVolumes(this.musicVolume, this.engineVolume);
     this.trace = new TraceRecorder({
       barrier: this.barrier,
       balls: this.balls,

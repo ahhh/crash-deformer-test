@@ -43,6 +43,8 @@ describe("given a share state with every kind of field set", () => {
       buckle: 0.9,
       loop: false,
       slomo: false,
+      mvol: 0.2,
+      evol: 0.5,
       ts: 0.25,
       deform: "lattice",
       car: "monster",
@@ -142,6 +144,22 @@ describe("given a link with out-of-range numbers", () => {
     assert.equal(d.laps, 9);
     assert.equal(d.aggr, 1);
     assert.equal(d.squash, KNOB_RANGES.squash.max);
+  });
+});
+
+describe("given the music and engine volumes in a share link (mvol, evol)", () => {
+  it("when mvol is above the music cap, then it decodes to the cap of 0.6", () => {
+    assert.equal(decodeShare("mvol=0.9").mvol, 0.6);
+  });
+
+  it("when evol is written and read back, then it round-trips", () => {
+    const s: ShareState = { ...DEFAULTS, evol: 0.5 };
+    assert.equal(encodeShare(s), "evol=0.5");
+    assert.equal(decodeShare(`#${encodeShare(s)}`).evol, 0.5);
+  });
+
+  it("when both volumes are at their defaults, then neither is written, even when set explicitly", () => {
+    assert.equal(encodeShare({ ...DEFAULTS, mvol: INITIAL_HUD.musicVolume, evol: INITIAL_HUD.engineVolume }), "");
   });
 });
 

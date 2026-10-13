@@ -65,6 +65,8 @@ describe("given the settings menu, where each setting is a group of HUD fields w
       squash: 0.2,
       buckle: 0.9,
       fxDensity: 0.3,
+      musicVolume: 0.2,
+      engineVolume: 0.5,
       deformMode: "lattice",
       showRig: true,
       showParticles: true,

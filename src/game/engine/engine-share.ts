@@ -51,6 +51,8 @@ export abstract class EngineShare extends EngineReel {
       buckle: this.buckle,
       loop: this.looping,
       slomo: this.autoSlomo,
+      mvol: this.musicVolume,
+      evol: this.engineVolume,
       ts: this.clock.userTimeScale,
       deform: this.deformMode,
       car: this.playerCar.id,
@@ -127,6 +129,8 @@ export abstract class EngineShare extends EngineReel {
       if (differs("ts")) this.setTimeScale(t.ts);
       if (differs("loop")) this.toggleLoop();
       if (differs("slomo")) this.toggleSlomo();
+      if (differs("mvol")) this.setMusicVolume(t.mvol);
+      if (differs("evol")) this.setEngineVolume(t.evol);
       if (differs("deform")) this.toggleDeformMode();
       if (differs("car")) this.setPlayerCar(t.car);
       if (differs("ck", "pk")) this.wearPicks(parseCarPick(t.ck) ?? NO_CAR_PICK, parsePersonPick(t.pk) ?? NO_PERSON_PICK);

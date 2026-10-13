@@ -15,7 +15,7 @@ describe("given the calibrated crash knob defaults (squash, buckle and realism)"
   });
 
   it("when each default is compared with its slider range, then it sits inside the range", () => {
-    for (const k of ["squash", "buckle", "realism"] as const) {
+    for (const k of ["squash", "buckle", "realism", "musicVolume", "engineVolume"] as const) {
       const r = KNOB_RANGES[k];
       assert.ok(r.min < r.max, `${k} range ${r.min}–${r.max}`);
       assert.ok(INITIAL_HUD[k] >= r.min && INITIAL_HUD[k] <= r.max, `${k} ${INITIAL_HUD[k]} outside ${r.min}–${r.max}`);

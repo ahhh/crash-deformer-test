@@ -10,6 +10,7 @@ import { CHASE_DEFAULTS, type ChaseKnobId, type SpecView } from "../present/engi
 import type { CarPart, PersonPick } from "../match/look-data.ts";
 import type { DriverLook } from "../present/driver-look.ts";
 import { DEFAULT_BUCKLE, DEFAULT_SQUASH } from "../deform/constants.ts";
+import { MUSIC_MAX_GAIN } from "../present/audio-mix.ts";
 import { PISTON_SHOT } from "../scenes/constants.ts";
 
 type CompactStage = "open" | "contact" | "wells" | "mid" | "max";
@@ -97,6 +98,9 @@ export type CrashHudState = {
   autoRotate: boolean;
   autoSlomo: boolean;
   audioOn: boolean;
+  /** Music bus level (`present/audio-mix.ts` caps it at `MUSIC_MAX_GAIN`) and engine bus level, both 0..1 sliders. */
+  musicVolume: number;
+  engineVolume: number;
   /** Cinematic FX quality tier (F). */
   fxTier: FxTier;
   /** The tier is the automatic one (`present/auto-fx.ts`); a manual pick turns it off. */
@@ -195,6 +199,8 @@ export const KNOB_RANGES = {
   fxDensity: { min: 0, max: 1.2 },
   cel: { min: 0, max: 1 },
   timeScale: { min: 0.02, max: 2 },
+  musicVolume: { min: 0, max: MUSIC_MAX_GAIN },
+  engineVolume: { min: 0, max: 1 },
 } as const;
 
 export const INITIAL_HUD: CrashHudState = {
@@ -220,6 +226,8 @@ export const INITIAL_HUD: CrashHudState = {
   autoRotate: true,
   autoSlomo: true,
   audioOn: false,
+  musicVolume: 0.35,
+  engineVolume: 0.8,
   fxTier: "minimal",
   fxAuto: true,
   fxLoading: false,

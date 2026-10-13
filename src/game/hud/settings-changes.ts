@@ -26,6 +26,8 @@ const BASE_SETTINGS = {
   slomo: { section: "playback", label: "Slow-mo", defaults: { autoSlomo: D.autoSlomo } },
   orbit: { section: "playback", label: "Orbit", defaults: { autoRotate: D.autoRotate } },
   audio: { section: "playback", label: "Audio", defaults: { audioOn: D.audioOn } },
+  music: { section: "playback", label: "Music volume", defaults: { musicVolume: D.musicVolume } },
+  engines: { section: "playback", label: "Engine volume", defaults: { engineVolume: D.engineVolume } },
   night: { section: "playback", label: "Night", defaults: { night: D.night } },
   wet: { section: "playback", label: "Wet", defaults: { wet: D.wet } },
   fx: { section: "playback", label: "FX", defaults: { fxAuto: true } },

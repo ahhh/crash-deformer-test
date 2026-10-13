@@ -5,9 +5,6 @@ const LATENCY_HINT = "interactive";
 /** Time constant of the master gain ramp when audio is toggled. */
 const MASTER_TAU_S = 0.05;
 const THUMP_GAIN_PER_IMPULSE = 0.012;
-/** Defaults until the engine pushes the slider values (`setVolumes`). */
-const DEFAULT_MUSIC_LEVEL = 0.35;
-const DEFAULT_ENGINE_LEVEL = 0.8;
 
 type WebkitWindow = Window & { webkitAudioContext?: typeof AudioContext };
 
@@ -30,8 +27,9 @@ export class GameAudio {
   private impactBus: GainNode | null = null;
   private musicBus: GainNode | null = null;
   private on = false;
-  private musicLevel = DEFAULT_MUSIC_LEVEL;
-  private engineLevel = DEFAULT_ENGINE_LEVEL;
+  /** Slider levels; the engine pushes the real ones with `setVolumes` right after construction. */
+  private musicLevel = 0;
+  private engineLevel = 0;
   private readonly onVisibility = (): void => {
     const context = this.context;
     if (!context) return;
@@ -101,6 +99,16 @@ export class GameAudio {
     this.master.gain.setTargetAtTime(on ? 1 : 0, context.currentTime, MASTER_TAU_S);
     if (on) void context.resume();
     else void context.suspend();
+  }
+
+  /** The slider levels: the music bus (capped by `musicGain`) and the engine bus. The engine pushes them at construction and on every change. */
+  setVolumes(music: number, engine: number): void {
+    this.musicLevel = music;
+    this.engineLevel = engine;
+    const context = this.context;
+    if (!context || !this.musicBus || !this.engineBus) return;
+    this.musicBus.gain.setTargetAtTime(musicGain(music, 1, 1), context.currentTime, MASTER_TAU_S);
+    this.engineBus.gain.setTargetAtTime(engine, context.currentTime, MASTER_TAU_S);
   }
 
   impact(impulse: number): void {

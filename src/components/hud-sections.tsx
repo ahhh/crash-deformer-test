@@ -175,6 +175,8 @@ function PlaybackSection({ state, engine }: HudProps) {
           Wet
         </Toggle>
       </div>
+      <RangeRow label="Music" name="Music volume" value={state.musicVolume} min={KNOB_RANGES.musicVolume.min} max={KNOB_RANGES.musicVolume.max} step={0.01} digits={2} changed={ch("music")} onValue={(v) => engine.current?.setMusicVolume(v)} />
+      <RangeRow label="Engines" name="Engine volume" value={state.engineVolume} min={KNOB_RANGES.engineVolume.min} max={KNOB_RANGES.engineVolume.max} step={0.01} digits={2} changed={ch("engines")} onValue={(v) => engine.current?.setEngineVolume(v)} />
       <VoiceDevicePickers engine={engine} />
       <div className="flex items-center gap-2">
         <span className="hud-label relative w-12 shrink-0">

@@ -252,6 +252,18 @@ export abstract class EngineInput extends EngineRigs {
     this.emitHud();
   }
 
+  setMusicVolume(value: number): void {
+    this.musicVolume = THREE.MathUtils.clamp(value, KNOB_RANGES.musicVolume.min, KNOB_RANGES.musicVolume.max);
+    this.audio.setVolumes(this.musicVolume, this.engineVolume);
+    this.emitHud();
+  }
+
+  setEngineVolume(value: number): void {
+    this.engineVolume = THREE.MathUtils.clamp(value, KNOB_RANGES.engineVolume.min, KNOB_RANGES.engineVolume.max);
+    this.audio.setVolumes(this.musicVolume, this.engineVolume);
+    this.emitHud();
+  }
+
   /** Arcade (0) ↔ realistic (1): grip and drift assists in applyDrive, and when every car's drivetrain dies. */
   setRealism(value: number): void {
     HANDLING.realism = THREE.MathUtils.clamp(value, KNOB_RANGES.realism.min, KNOB_RANGES.realism.max);
@@ -401,6 +413,12 @@ export abstract class EngineInput extends EngineRigs {
         break;
       case "fxd":
         this.setFxDensity(D.fxDensity);
+        break;
+      case "music":
+        this.setMusicVolume(D.musicVolume);
+        break;
+      case "engines":
+        this.setEngineVolume(D.engineVolume);
         break;
       case "deform":
         if (this.deformMode !== D.deformMode) this.toggleDeformMode();
