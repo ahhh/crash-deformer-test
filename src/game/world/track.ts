@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { Ground, STEP_UP } from "./ground.ts";
-import { hypot2, hypot3 } from "../kernel/physics-core.js";
+import { hypot2 } from "../kernel/physics-core.js";
 import { clamp01, wrapPi } from "../kernel/scalar.ts";
 import { SURFACE_IDS, type SurfaceId } from "./catalog.ts";
 import { parseTrack, type SurvivalSpec, type TrackJson } from "./track-schema.ts";

@@ -105,7 +105,6 @@ for (let n = 0; n * FRAME < SECONDS; n++) {
   const knocked = rd.props.count ?? 0;
   if (first < 0 && (dolls > 0 || knocked > 0)) first = n;
   // Who owns what: a collider's parent body is one of the car bodies (proxy), a doll's, a prop's, or none (the world's statics).
-  const owner = new Map();
   const carOf = new Map();
   for (const [i, b] of rd.carBodies.entries()) carOf.set(b.handle, i);
   const dollOf = new Set(rd.dolls.flatMap((d) => d.bodies.map((b) => b.handle)));

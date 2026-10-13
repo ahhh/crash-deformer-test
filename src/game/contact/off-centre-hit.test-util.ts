@@ -1,6 +1,5 @@
 import * as THREE from "three";
 import { DeformableCar } from "../vehicle/car.ts";
-import { paint } from "../vehicle/test-support.ts";
 import { armKill, assignClass, killClass, type VehicleClassId } from "../vehicle/vehicle-classes.ts";
 import type { CarStyleId } from "../vehicle/car-variants.ts";
 import { launch } from "./crash-scenarios.test-util.ts";

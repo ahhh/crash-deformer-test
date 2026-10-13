@@ -613,14 +613,6 @@ function springPushes(tyres: number, stiff: number, damp: number, dt: number, q:
   }
 }
 
-/**
- * Body point `i` of the loaded table (`loadPoints`) turned by the body's orientation `q`, from a point `dy` above the group's origin
- * (car-local y).
- */
-function hullPoint(i: number, q: THREE.Quaternion, dy: number, out: THREE.Vector3): THREE.Vector3 {
-  return out.set(POINT_X[i]!, POINT_Y[i]! + dy, POINT_Z[i]!).applyQuaternion(q);
-}
-
 /** What `loadPoints` loaded for a car and what it stood on: the tables are a function of the cage's fields (`serial` counts their fits), the lift and whether the car is a wreck. */
 interface LoadedPoints {
   serial: number;

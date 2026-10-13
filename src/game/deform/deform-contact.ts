@@ -2,7 +2,6 @@ import * as THREE from "three";
 import {
   leftoverCrumple,
   clampSpeed,
-  CRASH,
   crushGate,
   closingKeScale,
   crushStroke,
@@ -30,8 +29,6 @@ const FACE_SKIN = 0.02;
 const REAR_STROKE_GAIN = 1.08;
 /** Numbers per contact row of `faceHits`: x, z, nx, nz, depth. */
 export const FACE_ROW = 5;
-/** The share of the wreck's frame pitch and roll (rad) reported as its x and z spin (rad/s). */
-const TILT_SPIN_GAIN = 0.4;
 
 const _a = new THREE.Vector3();
 /** followGroup's world→local: one invert per call, not one per mass (Object3D.worldToLocal). */
