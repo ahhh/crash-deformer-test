@@ -7,7 +7,7 @@ import { hypot2, hypot3 } from "../kernel/physics-core.js";
 import { wrapPiClosed } from "../kernel/scalar.ts";
 import { AutoCam, type AutoScene } from "./auto-cam.ts";
 import { CineCam, DutchCam, EyePull, type Sight } from "./spectate-cam.ts";
-import { Spring, Spring3 } from "./spring.ts";
+import { Spring, Spring3, type Axes } from "./spring.ts";
 
 /**
  * A followed (not driven) car's camera, cycled by View: the drive chase views, the trackside cinematic ("cine"),
@@ -34,6 +34,7 @@ const POST_TOP = 5.3;
 const _v = new THREE.Vector3();
 const _w = new THREE.Vector3();
 const _e = new THREE.Vector3();
+const _zeta: Axes = { lon: 1, lat: 1, up: 1 };
 const _up = new THREE.Vector3(0, 1, 0);
 /** `watchFall`: the eye stands this far (m) inside the fleet disc's rim, at shoulder height (m) over the disc. */
 const FALL_EYE_IN = 1.5;
@@ -68,8 +69,22 @@ export const CHASE = {
   far: { dist: 10, height: 3.3, aimUp: 1.15 },
   /** Hood-cam eye in car space: over the bonnet, ahead of the windshield (the tinted glass reads opaque from inside). */
   eye: { x: 0, y: 1.02, z: 1.15 },
-  /** Spring stiffness (1/s); the chase moves with the car's travel, so these only shape lag on turns, looks and blends. */
-  posOmega: 9,
+  /**
+   * Convergence (1/s): how hard the eye is pulled to its target, per axis of the car's frame (`Spring3.stepBasis`). The talk's
+   * most important parameter (masterclass 29:30); it splits the spring per axis for "lots of sideways motion when turning, but
+   * less forward and backward motion when accelerating and decelerating" (28:23): lateral looser than longitudinal. No numbers
+   * in the talk: playtest.
+   */
+  pos: { lon: 9, lat: 5.5, up: 7 },
+  /**
+   * Momentum: the damping ratio per axis (< 1 carries the eye's velocity past its target: overshoot exp(-pi zeta / sqrt(1 - zeta^2))).
+   * The talk's "momentum accelerates the camera in the direction it's already traveling" (masterclass 29:39), used where it names
+   * it: the vertical axis, for a ride's bounce (playtest); the others stay critical.
+   */
+  zeta: { lon: 1, lat: 1, up: 0.75 },
+  /** Damping: a cap (m/s) on the eye's speed relative to its target, the talk's "camera speed limit" slide (masterclass 29:44); 0 is off (playtest). */
+  maxSpeed: 0,
+  /** Spring stiffness (1/s) of the aim, the heading and the hood eye; the chase moves with the car's travel, so these shape lag on turns, looks and blends (playtest). */
   aimOmega: 14,
   headOmega: 7,
   eyeOmega: 24,
@@ -80,19 +95,78 @@ export const CHASE = {
   /** Right stick full deflection looks this far round (rad). */
   stickYaw: 2.35,
   stickPitch: 0.5,
-  /** Extra chase distance per m/s, and the aim lead along the nose (s of forward speed). */
+  /** Extra chase distance per m/s (playtest). */
   pullback: 0.05,
-  ahead: 0.14,
+  /**
+   * The aim looks this far (s of velocity, m at most) ahead of the car: "velocity extrapolation on your look-ahead target ... to
+   * look into turns and keep the player's focus near the center of the screen when turning" (masterclass 28:46). Defaults are
+   * the old heading lead (0.14 s of forward speed, 2.5 m), which the velocity replaces going forward: the same on a straight,
+   * following the velocity in a slide (no number in the talk: playtest).
+   */
+  aheadVel: 0.14,
+  aheadMax: 2.5,
   fov: 56,
   fovSpeed: 12,
   fovFirst: 72,
+  /** Extra field of view (deg) at full slide (`drive.slide`): the drift talk's "changes the field of view to really accentuate the effect" (18:29), no number: playtest. */
+  fovSlide: 4,
+  /** Camera roll (deg) at full slide, toward the side the car slides: the drift talk's "it tilts" (18:29), no number; 0 is off (playtest). */
+  driftTilt: 0,
   /** Lowest camera height (m) so a looked-down chase never clips into the floor. */
   floor: 0.45,
   /** A frame-to-frame car jump past this (m) is a respawn: cut instead of swooping. */
   cut: 8,
   /** Taking a car up from a shot farther off than this (m) cuts to the chase shot: a swoop from the fleet's orbit to a course 400 m away showed in the first frames after the fade. */
   blendRange: 40,
+  /**
+   * A landing: the car's four wheels meet the ground after `minAir` s in the air falling faster than `fall` m/s (masterclass 31:18,
+   * no speed given: playtest). For `hold` s the eye's vertical spring runs at `zetaUp` so its momentum carries it below the target
+   * ("reduce the damping so the momentum carries it further downwards", 31:39; "a large camera movement that doesn't obscure the
+   * road ahead for long", 30:47; ratio and window: playtest), and the view wobbles in pitch and roll at `wobbleHz` (30 Hz, 31:23)
+   * fading out over `hold` (the talk says 0.5 s, 31:27) at `wobble` deg (playtest); roll is `wobbleRoll` of the pitch.
+   */
+  landing: { minAir: 0.3, fall: 5, zetaUp: 0.6, hold: 0.5, wobble: 0.8, wobbleHz: 30, wobbleRoll: 0.6 },
+  /** Forward speed (m/s) from which the view looks into a slide and the aim follows the velocity. */
+  followSpeed: 3,
 };
+
+/** The debug panel's groups: the talk's three tuning parameters (masterclass 29:27), then what else the chase tunes. */
+export type ChaseGroup = "Convergence" | "Momentum" | "Damping" | "Look-ahead" | "Slide" | "Landing";
+
+export type ChaseKnob = {
+  id: string;
+  group: ChaseGroup;
+  label: string;
+  min: number;
+  max: number;
+  step: number;
+  get: () => number;
+  set: (value: number) => void;
+};
+
+function knob(group: ChaseGroup, id: string, label: string, min: number, max: number, step: number, get: () => number, set: (value: number) => void): ChaseKnob {
+  return { id, group, label, min, max, step, get, set };
+}
+
+/** Every `CHASE` value the debug panel tunes live (not persisted, not shared); the ranges keep the eye above `floor` and the car in view. */
+export const CHASE_KNOBS: readonly ChaseKnob[] = [
+  knob("Convergence", "pos.lon", "Forward", 3, 14, 0.1, () => CHASE.pos.lon, (v) => void (CHASE.pos.lon = v)),
+  knob("Convergence", "pos.lat", "Lateral", 2, 12, 0.1, () => CHASE.pos.lat, (v) => void (CHASE.pos.lat = v)),
+  knob("Convergence", "pos.up", "Vertical", 3, 12, 0.1, () => CHASE.pos.up, (v) => void (CHASE.pos.up = v)),
+  knob("Momentum", "zeta.lon", "Forward", 0.3, 1, 0.01, () => CHASE.zeta.lon, (v) => void (CHASE.zeta.lon = v)),
+  knob("Momentum", "zeta.lat", "Lateral", 0.3, 1, 0.01, () => CHASE.zeta.lat, (v) => void (CHASE.zeta.lat = v)),
+  knob("Momentum", "zeta.up", "Vertical", 0.3, 1, 0.01, () => CHASE.zeta.up, (v) => void (CHASE.zeta.up = v)),
+  knob("Damping", "maxSpeed", "Max speed (0 off)", 0, 40, 0.5, () => CHASE.maxSpeed, (v) => void (CHASE.maxSpeed = v)),
+  knob("Look-ahead", "aheadVel", "Seconds", 0, 0.5, 0.01, () => CHASE.aheadVel, (v) => void (CHASE.aheadVel = v)),
+  knob("Look-ahead", "aheadMax", "Max (m)", 0, 12, 0.1, () => CHASE.aheadMax, (v) => void (CHASE.aheadMax = v)),
+  knob("Slide", "fovSlide", "FOV (deg)", 0, 10, 0.1, () => CHASE.fovSlide, (v) => void (CHASE.fovSlide = v)),
+  knob("Slide", "driftTilt", "Tilt (deg)", 0, 4, 0.1, () => CHASE.driftTilt, (v) => void (CHASE.driftTilt = v)),
+  knob("Landing", "landing.fall", "Fall (m/s)", 2, 12, 0.1, () => CHASE.landing.fall, (v) => void (CHASE.landing.fall = v)),
+  knob("Landing", "landing.zetaUp", "Bounce", 0.2, 1, 0.01, () => CHASE.landing.zetaUp, (v) => void (CHASE.landing.zetaUp = v)),
+  knob("Landing", "landing.hold", "Window (s)", 0.1, 1.5, 0.05, () => CHASE.landing.hold, (v) => void (CHASE.landing.hold = v)),
+  knob("Landing", "landing.wobble", "Wobble (deg)", 0, 2, 0.05, () => CHASE.landing.wobble, (v) => void (CHASE.landing.wobble = v)),
+  knob("Landing", "landing.wobbleHz", "Wobble (Hz)", 10, 40, 1, () => CHASE.landing.wobbleHz, (v) => void (CHASE.landing.wobbleHz = v)),
+];
 
 /**
  * Camera ride (visual): a small share of the followed car's drawn body heave and pitch (`Suspension`), so the seat
@@ -106,8 +180,10 @@ const RIDE = { heave: 0.5, lever: 0.8, tilt: 0.25, drop: 0.04, maxTilt: (0.6 * M
  * Chase / far chase / hood-cam rig for a driven car. Heading follows the car's
  * body (not its velocity, so reversing never swings the camera round), on a
  * critically damped spring for the swing-out on turns and to absorb yaw jolts
- * in a crash; position and aim move with the car's travel and spring onto their
- * offsets, so the car never trails at speed or jitters against the camera.
+ * in a crash; position and aim move with the car's travel, and the eye springs
+ * onto its offset with its own stiffness and damping per axis of the car's
+ * frame (`CHASE.pos`, `CHASE.zeta`), the aim onto the velocity's look-ahead,
+ * so the car never trails at speed or jitters against the camera.
  */
 export class DriveCam {
   private readonly pos = new Spring3();
@@ -117,6 +193,12 @@ export class DriveCam {
   private readonly lookPitch = new Spring();
   /** Camera ride on (`RIDE`): the engine sets it from the FX tier and reduced motion before each frame's rig. */
   ride = false;
+  /** Reduced motion: every axis stays critically damped and a landing does not wobble the view. */
+  reduceMotion = false;
+  /** Seconds in the air so far, the last frame's vertical speed, and the seconds left of a landing (`CHASE.landing`). */
+  private airS = 0;
+  private vyPrev = 0;
+  private landS = 0;
   private readonly rideY = new Spring();
   private readonly rideTilt = new Spring();
   private idle = 10;
@@ -154,7 +236,7 @@ export class DriveCam {
     const vel = car.velocity;
     const along = vel.x * fwd.x + vel.z * fwd.z;
     let yawT = Math.atan2(fwd.x, fwd.z);
-    if (along > 3 && view !== "first") {
+    if (along > CHASE.followSpeed && view !== "first") {
       // Look a little into a slide.
       yawT += THREE.MathUtils.clamp(wrapPiClosed(Math.atan2(vel.x, vel.z) - yawT), -0.5, 0.5) * 0.4;
     }
@@ -166,6 +248,16 @@ export class DriveCam {
     const moveZ = p.z - this.lastCarPos.z;
     this.car = car;
     this.lastCarPos.copy(p);
+    if (cut) {
+      this.airS = 0;
+      this.landS = 0;
+    }
+    if (car.airborne) this.airS += dt;
+    else {
+      if (this.airS >= CHASE.landing.minAir && this.vyPrev < -CHASE.landing.fall && (car.wheelsDown & 15) === 15) this.landS = CHASE.landing.hold;
+      this.airS = 0;
+    }
+    this.vyPrev = vel.y;
     if (cut) this.heading.snap(yawT);
     else this.heading.step(this.heading.x + wrapPiClosed(yawT - this.heading.x), view === "first" ? CHASE.eyeOmega : CHASE.headOmega, dt);
 
@@ -200,8 +292,19 @@ export class DriveCam {
       const elev = THREE.MathUtils.clamp(Math.atan2(c.height, dist) + this.lookPitch.x, 0.02, 1.25);
       const flat = r * Math.cos(elev);
       _v.set(p.x - sy * flat, p.y + r * Math.sin(elev), p.z - cy * flat);
-      const lead = THREE.MathUtils.clamp(along * CHASE.ahead, -0.5, 2.5);
-      _w.set(p.x + fwd.x * lead, p.y + c.aimUp, p.z + fwd.z * lead);
+      const lead = THREE.MathUtils.clamp(along * CHASE.aheadVel, -0.5, CHASE.aheadMax);
+      let lx = fwd.x * lead;
+      let lz = fwd.z * lead;
+      if (along > CHASE.followSpeed) {
+        lx = vel.x * CHASE.aheadVel;
+        lz = vel.z * CHASE.aheadVel;
+        const l = hypot2(lx, lz);
+        if (l > CHASE.aheadMax) {
+          lx *= CHASE.aheadMax / l;
+          lz *= CHASE.aheadMax / l;
+        }
+      }
+      _w.set(p.x + lx, p.y + c.aimUp, p.z + lz);
       if (enter && camera.position.distanceToSquared(p) <= CHASE.blendRange * CHASE.blendRange) {
         // Blend in from the current shot (orbit, another car, or the hood cam); a shot that far off (a scene change) is a cut.
         this.pos.snap(camera.position);
@@ -216,7 +319,11 @@ export class DriveCam {
         this.aim.x.x += moveX;
         this.aim.x.z += moveZ;
       }
-      this.pos.step(_v, CHASE.posOmega, dt);
+      const calm = this.reduceMotion;
+      _zeta.lon = calm ? 1 : CHASE.zeta.lon;
+      _zeta.lat = calm ? 1 : CHASE.zeta.lat;
+      _zeta.up = calm ? 1 : this.landS > 0 ? CHASE.landing.zetaUp : CHASE.zeta.up;
+      this.pos.stepBasis(_v, CHASE.pos, _zeta, CHASE.maxSpeed, dt, fwd.x, fwd.z);
       this.aim.step(_w, CHASE.aimOmega, dt);
       if (this.pos.x.y < CHASE.floor) {
         this.pos.x.y = CHASE.floor;
@@ -227,9 +334,27 @@ export class DriveCam {
     camera.lookAt(this.aim.x);
 
     this.rideStep(camera, car, view, dt);
+    if (view !== "first") this.landingWobble(camera);
+    if (view !== "first" && CHASE.driftTilt !== 0) {
+      const side = Math.sign(vel.x * fwd.z - vel.z * fwd.x);
+      camera.rotateZ(-side * car.drive.slide * CHASE.driftTilt * THREE.MathUtils.DEG2RAD);
+    }
+    this.landS = Math.max(0, this.landS - dt);
     const fov =
-      view === "first" ? CHASE.fovFirst : CHASE.fov + CHASE.fovSpeed * Math.min(1.4, Math.max(0, along) / DRIVE.maxFwd);
+      view === "first"
+        ? CHASE.fovFirst
+        : CHASE.fov + CHASE.fovSpeed * Math.min(1.4, Math.max(0, along) / DRIVE.maxFwd) + CHASE.fovSlide * car.drive.slide;
     easeFov(camera, fov, dt);
+  }
+
+  /** A landing's wobble: pitch and roll at `wobbleHz`, fading out linearly over `hold` s of the landing's own clock (not the wall's). */
+  private landingWobble(camera: THREE.PerspectiveCamera): void {
+    if (this.landS <= 0 || this.reduceMotion) return;
+    const l = CHASE.landing;
+    const a = (l.wobble * THREE.MathUtils.DEG2RAD * this.landS) / l.hold;
+    const phase = 2 * Math.PI * l.wobbleHz * (l.hold - this.landS);
+    camera.rotateX(a * Math.sin(phase));
+    camera.rotateZ(l.wobbleRoll * a * Math.cos(phase));
   }
 
   /** The ride over this frame's chase or hood shot (eased out by a look offset: that framing is the player's own). */
@@ -348,6 +473,7 @@ export class ChaseCamera {
     this.seat = seat;
     this.pad = pad;
     this.reduceMotion = reduceMotion;
+    this.drive.reduceMotion = reduceMotion;
     this.onClick = onClick;
     camera.position.copy(this.pos);
     this.baseFov = camera.fov;

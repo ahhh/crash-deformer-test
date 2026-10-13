@@ -22,6 +22,7 @@ import { copyText } from "@/lib/clipboard";
 import { sendSubmission, type Parcel } from "@/lib/submissions/status";
 import { ChangedDot, FIELD, NumberField, RangeRow } from "@/components/hud-controls";
 import type { CrashEngine } from "@/game/engine/engine";
+import { CHASE_KNOBS } from "@/game/present/engine-camera";
 import { DRIVER_CARS } from "@/game/match/types";
 import { Button } from "@/components/ui/button";
 import { FX_TIERS } from "@/game/present/engine-post";
@@ -432,7 +433,41 @@ function DebugSection({ state, engine }: HudProps) {
           </Button>
         ) : null}
       </div>
+      <ChaseKnobs engine={engine} />
       <p className="mt-1 text-[11px] text-muted">Build {__BUILD_SHA__}</p>
+    </>
+  );
+}
+
+/** The chase camera's tunables under the talk's three names (convergence, momentum, damping), then look-ahead, slide and landing; they live in `CHASE`, not in the saved settings. */
+function ChaseKnobs({ engine }: { engine: HudProps["engine"] }) {
+  const [values, setValues] = useState(() => CHASE_KNOBS.map((k) => k.get()));
+  const groups = [...new Set(CHASE_KNOBS.map((k) => k.group))];
+  return (
+    <>
+      {groups.map((group) => (
+        <div key={group}>
+          <p className="hud-label mt-1">Camera: {group.toLowerCase()}</p>
+          {CHASE_KNOBS.map((k, i) =>
+            k.group === group ? (
+              <RangeRow
+                key={k.id}
+                label={k.label}
+                name={`Camera ${group.toLowerCase()} ${k.label}`}
+                value={values[i]!}
+                min={k.min}
+                max={k.max}
+                step={k.step}
+                digits={Math.max(0, Math.ceil(-Math.log10(k.step)))}
+                onValue={(v) => {
+                  engine.current?.setChaseKnob(k.id, v);
+                  setValues(CHASE_KNOBS.map((x) => x.get()));
+                }}
+              />
+            ) : null,
+          )}
+        </div>
+      ))}
     </>
   );
 }

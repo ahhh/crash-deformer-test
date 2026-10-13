@@ -17,6 +17,23 @@ export class Spring {
     return this.x;
   }
 
+  /**
+   * Spring with damping ratio `zeta`, exact for any dt: below 1 it carries its velocity past the target (overshoot
+   * exp(-pi zeta / sqrt(1 - zeta^2))) and settles in ~3.9 / (zeta omega) s; from 1 up it is `step`.
+   */
+  stepDamped(target: number, omega: number, zeta: number, dt: number): number {
+    if (zeta >= 1) return this.step(target, omega, dt);
+    const e = this.x - target;
+    const wd = omega * Math.sqrt(1 - zeta * zeta);
+    const k = Math.exp(-zeta * omega * dt);
+    const c = Math.cos(wd * dt);
+    const s = Math.sin(wd * dt);
+    const b = (this.v + zeta * omega * e) / wd;
+    this.x = target + k * (e * c + b * s);
+    this.v = k * ((-zeta * omega * e + wd * b) * c + (-zeta * omega * b - wd * e) * s);
+    return this.x;
+  }
+
   snap(x: number): void {
     this.x = x;
     this.v = 0;
@@ -36,8 +53,39 @@ export class Spring3 {
     this.x.copy(target).addScaledVector(_e.add(_t), k);
   }
 
+  /**
+   * One spring per axis of a frame turned to face (`fx`, `fz`) (unit, flat): lon along it, lat to its right, up the world's y.
+   * Each axis has its own `omega` and damping ratio; `maxSpeed` > 0 caps the speed `v` carries relative to the target (m/s).
+   */
+  stepBasis(target: THREE.Vector3, omega: Axes, zeta: Axes, maxSpeed: number, dt: number, fx: number, fz: number): void {
+    const ex = this.x.x - target.x;
+    const ez = this.x.z - target.z;
+    _lon.x = ex * fx + ez * fz;
+    _lon.v = this.v.x * fx + this.v.z * fz;
+    _lat.x = ex * fz - ez * fx;
+    _lat.v = this.v.x * fz - this.v.z * fx;
+    _up.x = this.x.y - target.y;
+    _up.v = this.v.y;
+    _lon.stepDamped(0, omega.lon, zeta.lon, dt);
+    _lat.stepDamped(0, omega.lat, zeta.lat, dt);
+    _up.stepDamped(0, omega.up, zeta.up, dt);
+    this.x.set(target.x + _lon.x * fx + _lat.x * fz, target.y + _up.x, target.z + _lon.x * fz - _lat.x * fx);
+    this.v.set(_lon.v * fx + _lat.v * fz, _up.v, _lon.v * fz - _lat.v * fx);
+    if (maxSpeed > 0) {
+      const speed = this.v.length();
+      if (speed > maxSpeed) this.v.multiplyScalar(maxSpeed / speed);
+    }
+  }
+
   snap(x: THREE.Vector3): void {
     this.x.copy(x);
     this.v.set(0, 0, 0);
   }
 }
+
+/** A value per axis of a turned frame (see `Spring3.stepBasis`). */
+export type Axes = { lon: number; lat: number; up: number };
+
+const _lon = new Spring();
+const _lat = new Spring();
+const _up = new Spring();

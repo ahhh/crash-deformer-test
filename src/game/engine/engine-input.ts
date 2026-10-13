@@ -9,6 +9,7 @@ import type { DeformableCar } from "../vehicle/car.ts";
 import { cleanName, DRIVER_CARS, type DriverCar, type SubmitContext } from "../match/types.ts";
 import { driverCarApplies } from "../match/driver-pick.ts";
 import { FX_TIERS, type FxTier } from "../present/engine-post.ts";
+import { CHASE_KNOBS } from "../present/engine-camera.ts";
 import { loadUltra as fetchUltra } from "../present/ultra/load.ts";
 import { gameKey } from "../vehicle/drive-input.ts";
 import type { SceneId } from "../scenes/scene-id.ts";
@@ -255,6 +256,12 @@ export abstract class EngineInput extends EngineRigs {
     HANDLING.realism = THREE.MathUtils.clamp(value, KNOB_RANGES.realism.min, KNOB_RANGES.realism.max);
     for (const car of this.cars) armKill(car.deform, killClass(car), HANDLING.realism, this.derbyMode ? "derby" : "default");
     this.emitHud();
+  }
+
+  /** The debug panel's chase camera knob `id` (`CHASE_KNOBS`) to `value`, clamped to its range; the camera reads it live. */
+  setChaseKnob(id: string, value: number): void {
+    const knob = CHASE_KNOBS.find((k) => k.id === id);
+    if (knob && Number.isFinite(value)) knob.set(THREE.MathUtils.clamp(value, knob.min, knob.max));
   }
 
   /** The player's car (slot 0; every car in the Stack) becomes the `DRIVER_CARS` entry `id`; the field respawns and the camera follows it. */

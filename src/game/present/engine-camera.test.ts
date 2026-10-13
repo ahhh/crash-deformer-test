@@ -2,10 +2,14 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import * as THREE from "three";
 import { DeformableCar } from "../vehicle/car.ts";
-import { DriverSeat } from "../vehicle/car-drive.ts";
+import { applyDrive, DriverSeat, idleDrive, type DriveInput } from "../vehicle/car-drive.ts";
 import type { PadState } from "../vehicle/gamepad.ts";
-import { FLAT_GROUND } from "../world/ground.ts";
-import { CHASE, ChaseCamera, RIDE_PAUSE, type SpecScene } from "./engine-camera.ts";
+import { assignClass } from "../vehicle/vehicle-classes.ts";
+import { paint } from "../vehicle/test-support.ts";
+import { newWorld, stepWorld } from "../engine/world-step.ts";
+import { FLAT_GROUND, setGround } from "../world/ground.ts";
+import { Spring, Spring3 } from "./spring.ts";
+import { CHASE, ChaseCamera, DriveCam, RIDE_PAUSE, type SpecScene } from "./engine-camera.ts";
 import { occluder, type Sight } from "./spectate-cam.ts";
 
 const DT = 1 / 60;
@@ -252,5 +256,167 @@ describe("given a spectator camera taking a car up from another shot", () => {
   it("when the previous shot is farther off than the blend range, then the camera cuts to the chase shot, with no swoop across the map after a scene change", () => {
     const r = enter(426);
     assert.ok(r.first < 15, `the eye is ${r.first.toFixed(1)} m from the car on the first frame`);
+  });
+});
+
+describe("given the chase camera on a car driven by its own drive", () => {
+  const H = 1 / 240;
+
+  /** A sedan from `v0` under `input` for `seconds`, stepped as the engine does, followed by one rig at 240 Hz and one at 60 Hz. */
+  function followed(v0: number, input: (car: DeformableCar) => Partial<DriveInput>, seconds: number) {
+    setGround(null);
+    const car = new DeformableCar(paint(), new THREE.Scene());
+    assignClass(car, "sedan");
+    car.spawnFacing(0, 0, 0, v0);
+    const w = newWorld([car], null);
+    const rigs = [new DriveCam(), new DriveCam()];
+    const cams = [new THREE.PerspectiveCamera(56, 16 / 9, 0.1, 180), new THREE.PerspectiveCamera(56, 16 / 9, 0.1, 180)];
+    for (let i = 0, n = Math.round(seconds / H); i < n; i++) {
+      applyDrive(car, { ...idleDrive(), ...input(car) }, H);
+      stepWorld(w, H);
+      rigs[0]!.update(cams[0]!, car, "third", H, 0, 0);
+      if (i % 4 === 3) rigs[1]!.update(cams[1]!, car, "third", 4 * H, 0, 0);
+    }
+    for (const cam of cams) cam.updateMatrixWorld();
+    return { car, rigs, fine: cams[0]!, coarse: cams[1]! };
+  }
+
+  /** The car's sideways distance (m) from the camera's centre line, + = the car is to the camera's right. */
+  function offCentre(cam: THREE.PerspectiveCamera, car: DeformableCar): number {
+    const f = cam.getWorldDirection(new THREE.Vector3());
+    const l = Math.hypot(f.x, f.z);
+    return ((car.group.position.x - cam.position.x) * f.z - (car.group.position.z - cam.position.z) * f.x) / l;
+  }
+
+  it("when the car holds 20 m/s straight for 3 s, then the eye sits the chase offset behind it and 60 and 240 Hz agree", () => {
+    const r = followed(20, (car) => ({ throttle: Math.min(1, Math.max(0, 0.3 + (20 - car.speed) * 0.5)) }), 3);
+    const p = r.car.group.position;
+    const dist = CHASE.third.dist + Math.min(r.car.speed, 30) * CHASE.pullback;
+    const gap = Math.hypot(r.fine.position.x - (p.x - r.car.fwdFlat.x * dist), r.fine.position.y - (p.y + CHASE.third.height), r.fine.position.z - (p.z - r.car.fwdFlat.z * dist));
+    assert.ok(gap < 0.02, `the eye is ${(gap * 100).toFixed(1)} cm off the chase offset`);
+    const rates = r.fine.position.distanceTo(r.coarse.position);
+    assert.ok(rates < 0.01, `60 and 240 Hz eyes are ${(rates * 100).toFixed(2)} cm apart`);
+  });
+
+  it("when the car holds a 15 m/s turn at steer 0.5 for 2 s, then it sits off the camera's centre line, the same at 60 and 240 Hz", () => {
+    const r = followed(15, (car) => ({ throttle: Math.min(1, Math.max(0, 0.3 + (15 - car.speed) * 0.5)), steer: 0.5 }), 2);
+    const fine = Math.abs(offCentre(r.fine, r.car));
+    const coarse = Math.abs(offCentre(r.coarse, r.car));
+    assert.ok(fine >= 0.55, `the car is ${fine.toFixed(2)} m off the camera's centre line`);
+    assert.ok(Math.abs(fine - coarse) <= 0.05 * fine, `60 Hz ${coarse.toFixed(3)} m, 240 Hz ${fine.toFixed(3)} m`);
+  });
+
+  it("when the car slides 40 degrees off its heading at 12 m/s, then the aim leads along its velocity, not its nose", () => {
+    const car = new DeformableCar(paint(), new THREE.Scene());
+    assignClass(car, "sedan");
+    car.spawnFacing(0, 0, 0, 0);
+    const heading = (40 * Math.PI) / 180;
+    car.velocity.set(Math.sin(heading) * 12, 0, Math.cos(heading) * 12);
+    const rig = new DriveCam();
+    const cam = new THREE.PerspectiveCamera(56, 16 / 9, 0.1, 180);
+    for (let t = 0; t < 3; t += DT) rig.update(cam, car, "third", DT, 0, 0);
+    const aim = rig["aim"].x;
+    const p = car.group.position;
+    const off = (Math.atan2(aim.x - p.x, aim.z - p.z) * 180) / Math.PI;
+    assert.ok(Math.abs(off - 40) < 1, `the aim leads ${off.toFixed(1)} degrees round, the velocity 40`);
+    const lead = Math.hypot(aim.x - p.x, aim.z - p.z);
+    assert.ok(Math.abs(lead - 12 * CHASE.aheadVel) < 0.05, `the aim leads ${lead.toFixed(2)} m`);
+  });
+
+  /** The eye over a fall from 3.2 m at 8 m/s after 0.4 s in the air: how far it dips below where it settles, its height 1.5 s after touchdown against that, the view's roll and its pitch. */
+  function landing(h: number, reduceMotion: boolean) {
+    const car = new DeformableCar(paint(), new THREE.Scene());
+    assignClass(car, "sedan");
+    car.spawnFacing(0, 0, 0, 0);
+    const ground = car.group.position.y;
+    car.group.position.y = ground + 3.2;
+    const rig = new DriveCam();
+    rig.reduceMotion = reduceMotion;
+    const cam = new THREE.PerspectiveCamera(56, 16 / 9, 0.1, 180);
+    const fwd = new THREE.Vector3();
+    const step = () => {
+      rig.update(cam, car, "third", h, 0, 0);
+      cam.updateMatrixWorld();
+    };
+    for (let t = 0; t < 3; t += h) step();
+    car.airborne = true;
+    car.velocity.y = -8;
+    for (let t = 0; t < 0.4 - 1e-9; t += h) {
+      car.group.position.y -= 8 * h;
+      step();
+    }
+    car.group.position.y = ground;
+    car.airborne = false;
+    car.wheelsDown = 15;
+    car.velocity.y = 0;
+    const settled = ground + CHASE.third.height;
+    let low = Infinity;
+    let roll = 0;
+    const pitch: number[] = [];
+    let after = 0;
+    for (let t = 0; t < 1.5 - 1e-9; t += h) {
+      step();
+      low = Math.min(low, cam.position.y);
+      roll = Math.max(roll, Math.abs(Math.asin(cam.matrixWorld.elements[1]!)));
+      pitch.push(cam.getWorldDirection(fwd).y);
+      after = cam.position.y;
+    }
+    return { dip: settled - low, off: Math.abs(after - settled), roll, pitch };
+  }
+
+  it("when the car lands on four wheels after 0.4 s falling at 8 m/s, then the eye dips under its settled height and is back within 1 cm by 1.5 s", () => {
+    for (const h of [1 / 60, H]) {
+      const l = landing(h, false);
+      assert.ok(l.dip >= 0.03, `at ${Math.round(1 / h)} Hz the eye dipped ${(l.dip * 100).toFixed(1)} cm`);
+      assert.ok(l.off < 0.01, `at ${Math.round(1 / h)} Hz the eye was ${(l.off * 100).toFixed(1)} cm off its settled height after 1.5 s`);
+    }
+  });
+
+  it("when the car lands, then the view wobbles in pitch and roll for the landing's window", () => {
+    const l = landing(H, false);
+    const was = CHASE.landing.wobble;
+    CHASE.landing.wobble = 0;
+    const still = landing(H, false);
+    CHASE.landing.wobble = was;
+    let pitch = 0;
+    for (let i = 0; i < l.pitch.length; i++) pitch = Math.max(pitch, Math.abs(l.pitch[i]! - still.pitch[i]!));
+    assert.ok(pitch > 0.005, `the pitch moved ${pitch.toFixed(4)} against a still landing`);
+    assert.ok(l.roll > 0.005, `the roll reached ${l.roll.toFixed(4)} rad`);
+    assert.ok(still.roll < 1e-6, `a still landing rolled ${still.roll}`);
+  });
+
+  it("when motion is reduced, then the landing neither dips the eye past 1 cm nor wobbles the view", () => {
+    const l = landing(H, true);
+    assert.ok(l.dip <= 0.01, `the eye dipped ${(l.dip * 100).toFixed(1)} cm`);
+    assert.ok(l.roll < 1e-6, `the view rolled ${l.roll} rad`);
+  });
+});
+
+describe("given the chase eye's springs", () => {
+  it("when an underdamped spring runs at 60 and 240 Hz, then it overshoots its target by the damping ratio's share and lands in the same place", () => {
+    const zeta = 0.45;
+    const rates = [1 / 60, 1 / 240].map((h) => {
+      const s = new Spring();
+      s.x = 1;
+      let peak = 0;
+      for (let t = 0; t < 1 - 1e-9; t += h) peak = Math.max(peak, -s.stepDamped(0, 7, zeta, h));
+      return { x: s.x, peak };
+    });
+    const overshoot = Math.exp((-Math.PI * zeta) / Math.sqrt(1 - zeta * zeta));
+    assert.ok(Math.abs(rates[1]!.peak - overshoot) < 0.01, `overshoot ${rates[1]!.peak.toFixed(3)}, expected ${overshoot.toFixed(3)}`);
+    assert.ok(Math.abs(rates[0]!.x - rates[1]!.x) < 1e-9, `60 Hz ${rates[0]!.x}, 240 Hz ${rates[1]!.x}`);
+  });
+
+  it("when a speed cap is set, then the eye's speed relative to its target never passes it", () => {
+    const s = new Spring3();
+    const target = new THREE.Vector3(0, 0, 10);
+    const axes = { lon: 9, lat: 5.5, up: 7 };
+    const calm = { lon: 1, lat: 1, up: 1 };
+    let fastest = 0;
+    for (let t = 0; t < 2; t += DT) {
+      s.stepBasis(target, axes, calm, 3, DT, 0, 1);
+      fastest = Math.max(fastest, s.v.length());
+    }
+    assert.ok(fastest <= 3 + 1e-9, `the eye reached ${fastest.toFixed(2)} m/s`);
   });
 });
