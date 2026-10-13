@@ -28,7 +28,8 @@ import { activeGround } from "../world/ground.ts";
 import { BARRIER_HALF } from "../contact/sat.ts";
 import type { AutoFx } from "../present/auto-fx.ts";
 import type { DetailGovernor } from "../present/detail-governor.ts";
-import { DebrisSystem, SparkSystem, GlassDotSystem, TireSmokeSystem, CrashAudio } from "../present/engine-fx.ts";
+import { DebrisSystem, SparkSystem, GlassDotSystem, TireSmokeSystem } from "../present/engine-fx.ts";
+import type { GameAudio } from "../present/game-audio.ts";
 import { FX_REACH, Witness } from "../present/witness.ts";
 import type { RagdollSystem } from "../present/engine-ragdoll.ts";
 import { ChaseCamera } from "../present/engine-camera.ts";
@@ -207,7 +208,7 @@ export abstract class EngineCore {
   protected glassDots!: GlassDotSystem;
   protected smoke!: TireSmokeSystem;
   protected ragdolls!: RagdollSystem;
-  protected audio!: CrashAudio;
+  protected audio!: GameAudio;
   protected hudAcc = 0;
   protected resizeObs!: ResizeObserver;
   private ring!: THREE.Mesh;

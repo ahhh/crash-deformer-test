@@ -22,7 +22,8 @@ import { AutoFx, gpuRenderer, hardwareDesktop } from "../present/auto-fx.ts";
 import { PHONE_LEVEL } from "../present/car-detail.ts";
 import { DetailGovernor } from "../present/detail-governor.ts";
 import { sortByDrawClass } from "../present/draw-order.ts";
-import { DebrisSystem, SparkSystem, GlassDotSystem, TireSmokeSystem, CrashAudio } from "../present/engine-fx.ts";
+import { DebrisSystem, SparkSystem, GlassDotSystem, TireSmokeSystem } from "../present/engine-fx.ts";
+import { GameAudio } from "../present/game-audio.ts";
 import { FX_REACH } from "../present/witness.ts";
 import { RagdollSystem } from "../present/engine-ragdoll.ts";
 import { throwComing } from "../present/ragdoll-trigger.ts";
@@ -237,7 +238,7 @@ export class CrashEngine extends EngineGarage {
     // A phone starts on the nearer rung (a ~20 px car loses nothing the eye can use); the governor walks either way from the first match.
     this.detailGov = new DetailGovernor(desktop ? 0 : PHONE_LEVEL);
     this.detail.setLevel(this.detailGov.level);
-    this.audio = new CrashAudio();
+    this.audio = new GameAudio(this.camera, desktop);
     this.trace = new TraceRecorder({
       barrier: this.barrier,
       balls: this.balls,

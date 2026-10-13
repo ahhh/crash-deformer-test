@@ -162,7 +162,7 @@ function PlaybackSection({ state, engine }: HudProps) {
           <Orbit />
           Orbit
         </Toggle>
-        <Toggle on={state.audioOn} changed={ch("audio")} label="Toggle crash audio" onClick={() => engine.current?.toggleAudio()}>
+        <Toggle on={state.audioOn} changed={ch("audio")} label="Toggle audio" onClick={() => engine.current?.toggleAudio()}>
           {state.audioOn ? <Volume2 /> : <VolumeX />}
           Audio
         </Toggle>

@@ -107,6 +107,7 @@ export abstract class EngineInput extends EngineRigs {
   toggleAudio(): void {
     this.audioOn = !this.audioOn;
     this.tryUnlockAudio();
+    this.audio.setOn(this.audioOn);
     this.emitHud();
   }
 

@@ -3,9 +3,6 @@ import { hypot3, round4, snapshotPoints } from "../deform/physics-util.ts";
 import { GRAVITY } from "../kernel/constants.ts";
 import { landOn } from "../vehicle/loose-step.ts";
 
-/** The thump's gain per unit of impact impulse, on top of its 0.22 floor. */
-const THUMP_GAIN_PER_IMPULSE = 0.012;
-
 const _pv = new THREE.Vector3();
 const STILL = new THREE.Vector3();
 /** Pale blue-white: powdered glass. */
@@ -645,58 +642,3 @@ export class TireSmokeSystem {
 }
 
 const _smokeColor = new THREE.Color();
-
-export class CrashAudio {
-  private ctx: AudioContext | null = null;
-  unlocked = false;
-
-  unlock(): void {
-    if (this.unlocked) {
-      void this.ctx?.resume();
-      return;
-    }
-    const AC = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-    if (!AC) return;
-    this.ctx = new AC();
-    this.unlocked = true;
-    void this.ctx.resume();
-  }
-
-  impact(impulse: number): void {
-    if (!this.ctx) return;
-    const ctx = this.ctx;
-    const t = ctx.currentTime;
-    const dur = 0.35 + Math.min(0.4, impulse * 0.01);
-
-    const thump = ctx.createOscillator();
-    const thumpG = ctx.createGain();
-    thump.type = "sine";
-    thump.frequency.setValueAtTime(48, t);
-    thump.frequency.exponentialRampToValueAtTime(22, t + dur);
-    thumpG.gain.setValueAtTime(Math.min(0.7, 0.22 + impulse * THUMP_GAIN_PER_IMPULSE), t);
-    thumpG.gain.exponentialRampToValueAtTime(0.001, t + dur);
-    thump.connect(thumpG).connect(ctx.destination);
-    thump.start(t);
-    thump.stop(t + dur);
-
-    const noise = ctx.createBufferSource();
-    const nbuf = ctx.createBuffer(1, ctx.sampleRate * 0.25, ctx.sampleRate);
-    const data = nbuf.getChannelData(0);
-    for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / data.length);
-    noise.buffer = nbuf;
-    const ng = ctx.createGain();
-    const bp = ctx.createBiquadFilter();
-    bp.type = "bandpass";
-    bp.frequency.value = 900;
-    bp.Q.value = 0.7;
-    ng.gain.setValueAtTime(Math.min(0.45, 0.12 + impulse * 0.008), t);
-    ng.gain.exponentialRampToValueAtTime(0.001, t + 0.28);
-    noise.connect(bp).connect(ng).connect(ctx.destination);
-    noise.start(t);
-  }
-
-  dispose(): void {
-    void this.ctx?.close();
-    this.ctx = null;
-  }
-}
