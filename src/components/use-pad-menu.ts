@@ -1,44 +1,67 @@
 import { type RefObject, useEffect, useRef } from "react";
 import { GamepadInput, PAD_BUTTON } from "@/game/vehicle/gamepad";
-import { NavRepeat, navTarget, stickDir, type NavDir } from "@/game/hud/menu-nav";
+import { NavRepeat, navTarget, nearestNav, stickDir, type NavDir } from "@/game/hud/menu-nav";
 
 type PadMenuActions = {
   /** B / Esc. */
   onBack: (() => void) | null;
   /** Start / Menu button. */
   onStart: (() => void) | null;
+  /** Y / Backspace, and whatever wakes a `hidden` menu: slide the menu away or back (a sheet over the reel). */
+  onToggle?: (() => void) | null;
+  /** The menu is slid out of view: no focus, no navigation. */
+  hidden?: boolean;
 };
 
-const ARROWS: Record<string, NavDir> = { ArrowUp: "up", ArrowDown: "down", ArrowLeft: "left", ArrowRight: "right" };
+const ARROWS: Record<string, NavDir> = {
+  ArrowUp: "up",
+  ArrowDown: "down",
+  ArrowLeft: "left",
+  ArrowRight: "right",
+};
+/** The keys that bring a hidden menu back: the ones that would have acted on it. */
+const WAKE: Record<string, true> = {
+  ArrowUp: true,
+  ArrowDown: true,
+  ArrowLeft: true,
+  ArrowRight: true,
+  Enter: true,
+  " ": true,
+  Escape: true,
+  Tab: true,
+  Backspace: true,
+};
 const bit = (button: number): number => 1 << button;
 
 /**
  * Drives one open menu rooted at `root`: focuses its first `[data-nav]` item whenever `id`
- * changes or focus leaves the menu, then D-pad / left stick / arrows move focus spatially (with
+ * changes, and the item nearest the old one's spot (no scrolling, so a long list keeps its place) when focus leaves the
+ * menu, then D-pad / left stick / arrows move focus spatially (with
  * repeat), left/right on a `[data-adjust]` item clicks its `[data-step="-1"|"1"]` control
  * instead, A / Enter / Space click the focused item, B / Esc call `onBack`, Start calls
- * `onStart`, Tab cycles inside the menu. The gamepad is polled only while mounted; buttons
- * already held when it mounts are ignored.
+ * `onStart`, Y / Backspace call `onToggle`, Tab cycles inside the menu. While `hidden` the menu is slid away: no
+ * focus or navigation acts on it, and any menu key or pad button that would have acted calls `onToggle` instead.
+ * The gamepad is polled only while mounted; buttons already held when it mounts are ignored.
  */
 export function usePadMenu(root: RefObject<HTMLElement | null>, id: string, actions: PadMenuActions): void {
   const latest = useRef(actions);
+  const wasHidden = useRef(false);
+  const hidden = actions.hidden === true;
   useEffect(() => {
     latest.current = actions;
   });
-
   useEffect(() => {
     const menu = root.current;
     if (!menu) return;
-    const items = (): HTMLElement[] =>
-      Array.from(menu.querySelectorAll<HTMLElement>("[data-nav]")).filter((el) => !el.matches(":disabled") && el.getClientRects().length > 0);
+    const items = (): HTMLElement[] => Array.from(menu.querySelectorAll<HTMLElement>("[data-nav]")).filter((el) => !el.matches(":disabled") && el.getClientRects().length > 0);
     const current = (): HTMLElement | null => {
       const active = document.activeElement;
       return active instanceof HTMLElement && menu.contains(active) ? active.closest<HTMLElement>("[data-nav]") : null;
     };
-    const focus = (el: HTMLElement | undefined): void => {
+    const focus = (el: HTMLElement | undefined, scroll = true): void => {
       if (!el) return;
       el.focus({ preventScroll: true });
-      el.scrollIntoView({ block: "nearest" });
+      if (scroll) el.scrollIntoView({ block: "nearest" });
     };
     const move = (dir: NavDir): void => {
       const cur = current();
@@ -62,11 +85,46 @@ export function usePadMenu(root: RefObject<HTMLElement | null>, id: string, acti
       else focus(items()[0]);
     };
 
-    focus(items()[0]);
+    // Where the focused item sits on the page, kept as it is focused and as the menu scrolls: its unmounting (the item
+    // is gone before the next frame) leaves this as the only record of where focus was.
+    let anchor: { x: number; y: number } | null = null;
+    const note = (el: Element | null): void => {
+      if (!el || !menu.contains(el)) return;
+      const r = el.getBoundingClientRect();
+      anchor = { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+    };
+    const onFocusIn = (e: FocusEvent): void => note(e.target instanceof Element ? e.target : null);
+    const onScroll = (): void => note(document.activeElement);
+    const listeners = new AbortController();
+    menu.addEventListener("focusin", onFocusIn, { signal: listeners.signal });
+    menu.addEventListener("scroll", onScroll, { capture: true, signal: listeners.signal });
+    const recover = (): void => {
+      const list = items();
+      const near = anchor
+        ? nearestNav(
+            list.map((el) => el.getBoundingClientRect()),
+            anchor.x,
+            anchor.y,
+          )
+        : -1;
+      if (near >= 0) focus(list[near], false);
+      else focus(list[0]);
+    };
+
+    // Back from hidden: focus the first item where it stands (the panel is still sliding in).
+    if (!hidden) focus(items()[0], !wasHidden.current);
+    wasHidden.current = hidden;
 
     const onKeyDown = (e: KeyboardEvent): void => {
       // A text field (the race setup's name) keeps space and caret ←/→; ↑/↓, Tab, Enter and Esc still drive the menu.
       if (e.target instanceof HTMLInputElement && e.target.type === "text" && (e.key === " " || e.key === "ArrowLeft" || e.key === "ArrowRight")) return;
+      // Hidden: a menu key brings the menu back and nothing else acts on it.
+      if (hidden) {
+        if (!WAKE[e.key]) return;
+        if (!e.repeat) latest.current.onToggle?.();
+        e.preventDefault();
+        return;
+      }
       const dir = ARROWS[e.key];
       if (dir) move(dir);
       else if (e.key === "Enter" || e.key === " ") {
@@ -81,6 +139,8 @@ export function usePadMenu(root: RefObject<HTMLElement | null>, id: string, acti
           const at = list.indexOf(current() ?? list[0]!);
           focus(list[(at + (e.shiftKey ? n - 1 : 1)) % n]);
         }
+      } else if (e.key === "Backspace" && latest.current.onToggle) {
+        if (!e.repeat) latest.current.onToggle();
       } else return;
       e.preventDefault();
     };
@@ -95,29 +155,27 @@ export function usePadMenu(root: RefObject<HTMLElement | null>, id: string, acti
     let raf = 0;
     const frame = (now: number): void => {
       raf = requestAnimationFrame(frame);
-      // The focused item can unmount under us (menu content swapped, button hidden): refocus the first.
-      if (!menu.contains(document.activeElement)) focus(items()[0]);
+      // The focused item can unmount under us (a deleted row, menu content swapped): focus the item now where it was,
+      // without scrolling, so the list keeps its place. A hidden menu has nothing to focus.
+      if (!hidden && !menu.contains(document.activeElement)) recover();
       const s = pad.poll();
       const held = s.held;
-      const dir: NavDir | null =
-        held & bit(PAD_BUTTON.up)
-          ? "up"
-          : held & bit(PAD_BUTTON.down)
-            ? "down"
-            : held & bit(PAD_BUTTON.left)
-              ? "left"
-              : held & bit(PAD_BUTTON.right)
-                ? "right"
-                : stickDir(s.lx, s.ly);
+      const dir: NavDir | null = held & bit(PAD_BUTTON.up) ? "up" : held & bit(PAD_BUTTON.down) ? "down" : held & bit(PAD_BUTTON.left) ? "left" : held & bit(PAD_BUTTON.right) ? "right" : stickDir(s.lx, s.ly);
       const fire = repeat.step(dir, now);
       if (!primed) {
         primed = true;
+        return;
+      }
+      // Hidden: a direction or any of A / B / Start / Y brings the menu back, and nothing else acts on it.
+      if (hidden) {
+        if (fire || s.pressed & (bit(PAD_BUTTON.south) | bit(PAD_BUTTON.east) | bit(PAD_BUTTON.start) | bit(PAD_BUTTON.north))) latest.current.onToggle?.();
         return;
       }
       if (fire && dir) move(dir);
       if (s.pressed & bit(PAD_BUTTON.south)) activate();
       else if (s.pressed & bit(PAD_BUTTON.east)) latest.current.onBack?.();
       else if (s.pressed & bit(PAD_BUTTON.start)) latest.current.onStart?.();
+      else if (s.pressed & bit(PAD_BUTTON.north)) latest.current.onToggle?.();
     };
     raf = requestAnimationFrame(frame);
     window.addEventListener("keydown", onKeyDown);
@@ -126,6 +184,7 @@ export function usePadMenu(root: RefObject<HTMLElement | null>, id: string, acti
       cancelAnimationFrame(raf);
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
+      listeners.abort();
     };
-  }, [root, id]);
+  }, [root, id, hidden]);
 }

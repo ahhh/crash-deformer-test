@@ -383,7 +383,9 @@ bar, and one "Full menu" button (H). Full view adds the sandbox title, settings 
 setup (course cards, Name, Car, You: Drive / Watch, laps 1–5, AI cars 1–15, max aggression, respawn / no reset, Police Off
 / Chase, Start race, Campaign, Back), pause (Resume, Restart, End race, Full menu / Race view, Quit to menu), dead, results
 (Next course / Standings, Retry, Menu), campaign standings (Next round / champion, Menu). D-pad / left stick move focus
-spatially (350 ms then 120 ms repeat), ←/→ adjust, A confirms, B backs out, Start resumes.
+spatially (350 ms then 120 ms repeat), ←/→ adjust, A confirms, B backs out, Start resumes. When the focused item unmounts (a
+deleted saved replay, a stepper that disables at its bound) focus moves to the item now nearest where it was (`nearestNav`),
+without scrolling, so a long menu keeps its scroll offset; it never falls back to the first item (the Name field at the top).
 
 ## Tests
 

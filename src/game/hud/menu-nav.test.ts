@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { NAV_REPEAT_DELAY, NAV_REPEAT_RATE, NavRepeat, navTarget, stickDir, type NavRect } from "./menu-nav.ts";
+import { NAV_REPEAT_DELAY, NAV_REPEAT_RATE, NavRepeat, navTarget, nearestNav, stickDir, type NavRect } from "./menu-nav.ts";
 
 const rect = (left: number, top: number, width: number, height: number): NavRect => ({ left, top, width, height });
 
@@ -51,6 +51,18 @@ describe("given the setup menu's items (three course cards, a full-width stepper
     assert.equal(navTarget(SETUP, CARD0, "left"), CARD0);
     assert.equal(navTarget(SETUP, CARD1, "up"), CARD1);
     assert.equal(navTarget([rect(0, 0, 10, 10)], 0, "down"), 0);
+  });
+});
+
+describe("given a focused menu item that unmounted (a saved replay's Delete button, a stepper's bound)", () => {
+  it("when the point it held is looked up, then the item now under it wins, else the nearest one, and no items gives -1", () => {
+    // A list of rows 40 tall; the row at y 40-80 was deleted, so the row that was below it now sits at 40-80.
+    const rows = [rect(0, 0, 300, 40), rect(0, 40, 300, 40), rect(0, 80, 300, 40)];
+    assert.equal(nearestNav(rows, 150, 60), 1, "the row that slid into the deleted one's place");
+    assert.equal(nearestNav(rows, 150, 200), 2, "past the last row: the last row, not the first");
+    assert.equal(nearestNav(rows, 150, -50), 0);
+    assert.equal(nearestNav(rows, 150, 40), 0, "an edge shared by two rows goes to the lower index");
+    assert.equal(nearestNav([], 0, 0), -1);
   });
 });
 

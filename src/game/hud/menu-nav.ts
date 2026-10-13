@@ -60,6 +60,25 @@ export function navTarget(rects: readonly NavRect[], from: number, dir: NavDir):
 /** Stick deflection (after `readPad`'s deadzone and curve) that counts as a direction. */
 const STICK_NAV = 0.35;
 
+/**
+ * Index of the item nearest the point (`x`, `y`): 0 distance inside an item, ties to the lower index, -1 for no items. A menu
+ * whose focused item unmounted focuses this one, at the spot the old item held, so the scroll offset stays where it was.
+ */
+export function nearestNav(rects: readonly NavRect[], x: number, y: number): number {
+  let best = -1;
+  let bestDist = Infinity;
+  for (const [i, r] of rects.entries()) {
+    const dx = Math.max(r.left - x, 0, x - (r.left + r.width));
+    const dy = Math.max(r.top - y, 0, y - (r.top + r.height));
+    const dist = dx * dx + dy * dy;
+    if (dist < bestDist) {
+      bestDist = dist;
+      best = i;
+    }
+  }
+  return best;
+}
+
 /** Dominant stick direction, null inside `STICK_NAV`. DOM signs: +x right, +y down. */
 export function stickDir(x: number, y: number): NavDir | null {
   if (Math.abs(x) >= Math.abs(y)) return x > STICK_NAV ? "right" : x < -STICK_NAV ? "left" : null;

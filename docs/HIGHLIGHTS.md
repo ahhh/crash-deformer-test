@@ -348,6 +348,15 @@ plays, `coverLens` takes the strip of the canvas clear of every open panel with 
 the view from every edge, and frames that room as a bare canvas's inner 80 % (the rest of the canvas shows what lies past
 it), so every rig's centred subject plays in the free part, clear of the panels as of the canvas's edges.
 
+**Hiding the sheet** (owner request 2026-10-13: the menu covered the reel, worst on a phone). `MenuShell` in sheet mode carries a
+small tab on the panel's edge (the top edge of the bottom sheet, the left edge of the right-hand panel) that slides the
+whole panel off the screen and back (200 ms), leaving the tab at the bottom or right edge of the screen. Hidden, the panel
+is `inert` (nothing in it takes focus), `useReelCover` is sent no cover (so `coverLens` fits the reel to the whole view),
+and `usePadMenu` stops navigating it: an arrow, Enter, Space, Tab, Esc or Backspace, or a pad direction, A, B, Start or Y,
+only brings the panel back (the key does nothing else), and Backspace or Y hides it again. When it slides back in, the
+cover is reported only after the slide (240 ms), since the panel's box moves while it slides. The hidden state is the
+results screen's own (the sheet's component state): the standings sheet, a new mount, starts shown.
+
 ### FX tier
 
 The reel has no FX switch of its own. A race starts on `minimal` under the automatic tier and lifts back to the ceiling at green + 3 s if its frame work has room (docs/CINEMATIC.md "Auto"); its end,
