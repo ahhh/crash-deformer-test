@@ -1,6 +1,6 @@
 import { type RefObject, useEffect, useRef } from "react";
 import { GamepadInput, PAD_BUTTON } from "@/game/vehicle/gamepad";
-import { NavRepeat, navTarget, nearestNav, stickDir, type NavDir } from "@/game/hud/menu-nav";
+import { NavRepeat, navTarget, nearestNav, stickDir, textKeepsKey, type NavDir } from "@/game/hud/menu-nav";
 
 type PadMenuActions = {
   /** B / Esc. */
@@ -116,8 +116,8 @@ export function usePadMenu(root: RefObject<HTMLElement | null>, id: string, acti
     wasHidden.current = hidden;
 
     const onKeyDown = (e: KeyboardEvent): void => {
-      // A text field (the race setup's name) keeps space and caret ←/→; ↑/↓, Tab, Enter and Esc still drive the menu.
-      if (e.target instanceof HTMLInputElement && e.target.type === "text" && (e.key === " " || e.key === "ArrowLeft" || e.key === "ArrowRight")) return;
+      // A text field (the race setup's name) keeps typing, deleting and caret ←/→; ↑/↓, Tab, Enter and Esc still drive the menu.
+      if (e.target instanceof HTMLInputElement && e.target.type === "text" && textKeepsKey(e.key)) return;
       // Hidden: a menu key brings the menu back and nothing else acts on it.
       if (hidden) {
         if (!WAKE[e.key]) return;

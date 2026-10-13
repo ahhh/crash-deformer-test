@@ -52,6 +52,11 @@ export type Entrant = {
   aggression: number;
 };
 
+/** A single race on one course, or a campaign over a list of them. */
+export const RACE_MODE = { single: "single", campaign: "campaign" } as const;
+export const RACE_MODES = Object.values(RACE_MODE);
+export type RaceMode = (typeof RACE_MODE)[keyof typeof RACE_MODE];
+
 export type RaceOptions = {
   trackId: string;
   /** 1–5 in the menu; the rules accept any ≥ 1. */
@@ -70,10 +75,12 @@ export type RaceOptions = {
   police: boolean;
   /** The campaign's courses, raced in this order (the menu's tap order). Course ids; empty is "not startable yet". */
   campaign: readonly string[];
+  /** The setup menu's Mode row: the course cards pick one course ("single") or the campaign's list ("campaign"). Kept here, not in the menu, so it outlives the menu's mount; the Start button runs the matching command. */
+  mode: RaceMode;
 };
 
 /** The campaign defaults to every course in `TRACK_ID` order, which is `CAMPAIGN`'s (pinned by test: `tracks/index.ts` is not imported here, it carries the course JSON). */
-export const DEFAULT_RACE_OPTIONS: RaceOptions = { trackId: TRACK_ID.oval, laps: 3, noReset: false, aiCount: 7, aggression: 0.35, aiDifficulty: AI_EVERY_SLICE, spectate: false, police: false, campaign: Object.values(TRACK_ID) };
+export const DEFAULT_RACE_OPTIONS: RaceOptions = { trackId: TRACK_ID.oval, laps: 3, noReset: false, aiCount: 7, aggression: 0.35, aiDifficulty: AI_EVERY_SLICE, spectate: false, police: false, campaign: Object.values(TRACK_ID), mode: RACE_MODE.single };
 
 /** Per-step input to the rules for one car (same order as the entrants). */
 export type CarPose = {
@@ -392,7 +399,7 @@ export type SurvivalHud = {
 export type RaceHud = {
   menu: RaceMenu;
   /** "campaign" while a campaign is running (results → standings → next round). */
-  mode: "single" | "campaign";
+  mode: RaceMode;
   options: RaceOptions;
   courses: { id: string; name: string; blurb: string }[];
   phase: RacePhase | null;

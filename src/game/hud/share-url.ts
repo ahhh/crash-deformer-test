@@ -7,7 +7,7 @@
 
 import { AI_DIFFICULTIES } from "../ai/constants.ts";
 import { INITIAL_HUD, KNOB_RANGES } from "./hud-store.ts";
-import { DEFAULT_RACE_OPTIONS, DRIVER_CARS } from "../match/types.ts";
+import { DEFAULT_RACE_OPTIONS, DRIVER_CARS, RACE_MODES } from "../match/types.ts";
 import { NET_TX } from "../net/net-ports.ts";
 import { CHASE_DEFAULTS, CHASE_KNOBS, type ChaseKnobId } from "../present/engine-camera.ts";
 import { FX_TIERS } from "../present/engine-post.ts";
@@ -125,6 +125,7 @@ const BASE_FIELDS = {
   dside: pick(["left", "right"] as const, D.doors.side < 0 ? "left" : "right"),
   track: slug(O.trackId),
   camp: slugs(O.campaign),
+  mode: pick(RACE_MODES, O.mode),
   laps: num(1, 9, O.laps, true),
   ai: num(1, MAX_CARS - 1, O.aiCount, true),
   aggr: num(0, 1, O.aggression),

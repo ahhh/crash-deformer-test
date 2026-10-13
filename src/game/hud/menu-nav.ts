@@ -85,6 +85,9 @@ export function stickDir(x: number, y: number): NavDir | null {
   return y > STICK_NAV ? "down" : y < -STICK_NAV ? "up" : null;
 }
 
+/** The keys a focused text field keeps for itself (typing a space, deleting, moving the caret); a menu key never acts on them. */
+export const textKeepsKey = (key: string): boolean => key === " " || key === "Backspace" || key === "ArrowLeft" || key === "ArrowRight";
+
 /** Held-direction repeat (ms): fire on press, again after `NAV_REPEAT_DELAY`, then every `NAV_REPEAT_RATE`. */
 export const NAV_REPEAT_DELAY = 350;
 export const NAV_REPEAT_RATE = 120;

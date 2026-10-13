@@ -1,6 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { DEFAULT_RACE_OPTIONS, type RaceOptions } from "../match/types.ts";
+import { DEFAULT_RACE_OPTIONS, type RaceMode, type RaceOptions } from "../match/types.ts";
+import { courseTap, selectAll } from "../hud/setup-patch.ts";
 import { setGround } from "./ground.ts";
 import { frame, makeWorld, type World } from "./race-world.test-util.ts";
 import { CAMPAIGN } from "./tracks/index.ts";
@@ -119,6 +120,54 @@ describe("given a Watch campaign of the rally and then the oval, the reverse of 
       w.race.command({ type: "next" });
       w.race.command({ type: "next" });
       assert.equal(w.race.menu, "setup", "the two picked rounds were the whole campaign");
+    });
+  });
+});
+
+describe("given the setup card's Mode row set to Campaign", () => {
+  it("when a campaign is started and quit again, then the Mode is still Campaign with its picks (it lives in the options, not in the menu's mount), and an unknown mode is ignored", () => {
+    inRaceMode((w) => {
+      assert.equal(optionsOf(w).mode, "single");
+      w.race.command({ type: "options", options: { mode: "campaign", laps: 1, aiCount: 3, spectate: true, campaign: ["oval"] } });
+      w.race.command({ type: "campaign" });
+      w.race.command({ type: "quit" });
+      assert.equal(optionsOf(w).mode, "campaign");
+      assert.deepEqual(optionsOf(w).campaign, ["oval"]);
+      w.race.command({ type: "options", options: { mode: "tournament" as unknown as RaceMode } });
+      assert.equal(optionsOf(w).mode, "campaign");
+    });
+  });
+});
+
+describe("given a setup menu rendered from a HUD snapshot older than the last option change", () => {
+  it("when a course card is tapped, then it sends only the course (its own key) and the newer option survives", () => {
+    inRaceMode((w) => {
+      const stale = optionsOf(w);
+      w.race.command({ type: "options", options: { laps: 5, police: true } });
+      const patch = courseTap(stale, "city");
+      assert.deepEqual(Object.keys(patch), ["trackId"]);
+      w.race.command({ type: "options", options: patch });
+      assert.equal(optionsOf(w).trackId, "city");
+      assert.equal(optionsOf(w).laps, 5);
+      assert.equal(optionsOf(w).police, true);
+    });
+  });
+
+  it("when a card is tapped in Campaign mode, or Select all is, then it sends only the campaign list and the newer option survives", () => {
+    inRaceMode((w) => {
+      w.race.command({ type: "options", options: { mode: "campaign", campaign: [] } });
+      const stale = optionsOf(w);
+      w.race.command({ type: "options", options: { aiCount: 4 } });
+      const tick = courseTap(stale, "rally");
+      assert.deepEqual(Object.keys(tick), ["campaign"]);
+      w.race.command({ type: "options", options: tick });
+      const all = selectAll(optionsOf(w), w.race.hud().courses.map((c) => c.id));
+      assert.deepEqual(Object.keys(all), ["campaign"]);
+      assert.equal(optionsOf(w).aiCount, 4);
+      assert.deepEqual(optionsOf(w).campaign, ["rally"]);
+      w.race.command({ type: "options", options: all });
+      assert.equal(optionsOf(w).campaign.length, w.race.hud().courses.length);
+      assert.equal(optionsOf(w).mode, "campaign");
     });
   });
 });

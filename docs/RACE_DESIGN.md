@@ -165,11 +165,13 @@ entry order (player last); later grids are the standings, leader on pole. Retry 
 Watch campaign runs every round in spectate mode. Nothing is saved: a campaign lives only in the running page.
 
 The courses are the player's pick (`RaceOptions.campaign`, share key `camp`), defaulting to all eight in `CAMPAIGN` order. The
-setup menu's **Mode** row switches the course cards to Campaign: a tap ticks a card at the end of the order (a number shows its
+setup menu's **Mode** row (`RaceOptions.mode`, share key `mode`: `single` or `campaign`, an unknown value is ignored; it is an option like the rest, so it survives the menu unmounting for a solo replay view or a scene change and rides in a link) switches the course cards to Campaign: a tap ticks a card at the end of the order (a number shows its
 round) or unticks it, **Select all** / **Unselect all** is one toggle, and tap order is play order (after Unselect all, the order
 tapped is the campaign). **Start campaign** is disabled with nothing ticked, and the `campaign` command ignores an empty list.
 The `options` command drops unknown and repeated ids and keeps the rest in order. The pick survives a campaign and other option
 changes; picking a single-race course (`trackId`) never touches it, and the reverse.
+Every setup control sends only the keys it owns (a course card `{ trackId }`, or `{ campaign }` in Campaign; `src/game/hud/setup-patch.ts`),
+never the HUD snapshot's whole options: the snapshot can be a publish old, and a full copy would write an older value back over a change just made.
 
 ## Controller slots and multiplayer
 

@@ -56,6 +56,7 @@ describe("given a share state with every kind of field set", () => {
       dside: "left",
       track: "figure8",
       camp: ["rally", "oval", "city"],
+      mode: "campaign",
       laps: 5,
       ai: 11,
       aggr: 0.9,
@@ -90,6 +91,14 @@ describe("given the campaign's picked courses in a share link", () => {
 
   it("when the list has repeats and malformed ids, then repeats and malformed ids drop and the rest keep their order", () => {
     assert.deepEqual(decodeShare("#camp=rally,oval,rally,..%2Fx,city").camp, ["rally", "oval", "city"]);
+  });
+
+  it("when the setup menu's Mode is Campaign, then the link writes mode=campaign and reads it back, Single race writes nothing, and an unknown mode reads as Single race", () => {
+    const s: ShareState = { ...DEFAULTS, mode: "campaign" };
+    assert.equal(encodeShare(s), "mode=campaign");
+    assert.equal(decodeShare(`#${encodeShare(s)}`).mode, "campaign");
+    assert.equal(encodeShare({ ...DEFAULTS, mode: "single" }), "");
+    assert.equal(decodeShare("#mode=tournament").mode, "single");
   });
 });
 

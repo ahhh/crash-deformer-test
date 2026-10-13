@@ -32,6 +32,7 @@ import { SurvivalResults } from "@/components/survival-hud";
 import { useReelCover } from "@/components/use-reel-cover";
 import { AI_DIFFICULTIES } from "@/game/ai/constants";
 import { missedCheckpointText, type ResetInput } from "@/game/hud/reset-prompt";
+import { courseTap, selectAll } from "@/game/hud/setup-patch";
 import type { CarStatus, RaceCommand, RaceHud, RaceHudRow, RaceOptions } from "@/game/match/types";
 import { fmtGap, fmtTime } from "@/game/hud/race-clock";
 import { cn } from "@/lib/utils";
@@ -473,17 +474,15 @@ function Choice({ label, off, on, value, onSet }: { label: string; off: string; 
 function SetupMenu({ race, pad, onCommand, onSurvival }: { race: RaceHud; pad: boolean; onCommand: Send; onSurvival: (() => void) | null }) {
   const o = race.options;
   const options = (patch: Partial<RaceOptions>) => onCommand({ type: "options", options: patch });
-  const [campaign, setCampaign] = useState(false);
+  const campaign = o.mode === "campaign";
   const all = race.courses.map((c) => c.id);
   const allOn = all.every((id) => o.campaign.includes(id));
-  // A tap ticks a course at the end of the campaign's order (so tap order is play order) or unticks it, closing the gap.
-  const tick = (id: string) => options({ campaign: o.campaign.includes(id) ? o.campaign.filter((x) => x !== id) : [...o.campaign, id] });
   return (
     <MenuShell id="setup" eyebrow="Race" title={campaign ? "Pick the campaign" : "Pick a course"} pad={pad} wide adjust onBack={() => onCommand({ type: "quit" })} onStart={null}>
       <div className="mb-2 grid gap-1.5">
-        <Choice label="Mode" off="Single race" on="Campaign" value={campaign} onSet={setCampaign} />
+        <Choice label="Mode" off="Single race" on="Campaign" value={campaign} onSet={(on) => options({ mode: on ? "campaign" : "single" })} />
         {campaign ? (
-          <NavButton variant="secondary" onClick={() => options({ campaign: allOn ? [] : all })}>
+          <NavButton variant="secondary" onClick={() => options(selectAll(o, all))}>
             {allOn ? "Unselect all" : "Select all"}
           </NavButton>
         ) : null}
@@ -498,7 +497,7 @@ function SetupMenu({ race, pad, onCommand, onSurvival }: { race: RaceHud; pad: b
               type="button"
               data-nav
               aria-pressed={on}
-              onClick={() => (campaign ? tick(c.id) : options({ trackId: c.id }))}
+              onClick={() => options(courseTap(o, c.id))}
               className={cn(
                 "flex min-h-11 flex-col items-start rounded-md px-2 py-1.5 text-left shadow-[var(--shadow-border)] transition-colors duration-[var(--motion-quick)]",
                 on ? "bg-accent text-accent-fg" : "bg-surface-2 text-fg hover:bg-surface",

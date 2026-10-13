@@ -20,6 +20,8 @@ import { carClass, classStats } from "../vehicle/vehicle-classes.ts";
 import { DRAFT, RaceSession } from "../match/session.ts";
 import {
   cleanName,
+  RACE_MODE,
+  RACE_MODES,
   type Entrant,
   type RaceCommand,
   type RaceHud,
@@ -183,6 +185,7 @@ export class RaceDirector extends RaceWatch {
         o.aiCount = clamp(Math.round(o.aiCount), 1, MAX_CARS - 1);
         o.aggression = clamp(o.aggression, 0, 1);
         if (!AI_DIFFICULTIES.includes(o.aiDifficulty)) o.aiDifficulty = this.options.aiDifficulty;
+        if (!RACE_MODES.includes(o.mode)) o.mode = this.options.mode;
         if (!this.courses.some((c) => c.id === o.trackId)) o.trackId = this.options.trackId;
         // The campaign's pick keeps the caller's order; unknown and repeated ids drop. Empty stays: the menu has nothing ticked yet.
         if (cmd.options.campaign) o.campaign = cmd.options.campaign.filter((id, i, all) => this.courses.some((c) => c.id === id) && all.indexOf(id) === i);
@@ -776,7 +779,7 @@ export class RaceDirector extends RaceWatch {
       this.spectating && seat.carIndex >= 0 ? (this.entrants[seat.carIndex]?.name ?? (seat.carIndex >= this.policeFrom ? "Police" : null)) : null;
     return {
       menu: this.menu,
-      mode: this.campaign ? "campaign" : "single",
+      mode: this.campaign ? RACE_MODE.campaign : RACE_MODE.single,
       options: { ...this.options },
       courses: this.courses,
       phase: s ? s.phase : null,

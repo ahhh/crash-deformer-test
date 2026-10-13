@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { NAV_REPEAT_DELAY, NAV_REPEAT_RATE, NavRepeat, navTarget, nearestNav, stickDir, type NavRect } from "./menu-nav.ts";
+import { NAV_REPEAT_DELAY, NAV_REPEAT_RATE, NavRepeat, navTarget, nearestNav, stickDir, textKeepsKey, type NavRect } from "./menu-nav.ts";
 
 const rect = (left: number, top: number, width: number, height: number): NavRect => ({ left, top, width, height });
 
@@ -89,5 +89,12 @@ describe("given a direction held on a menu (auto-repeat of the highlight move)",
     assert.equal(r.step("down", 610), true);
     assert.equal(r.step("left", 620), true, "a new direction fires at once");
     assert.equal(r.step("left", 700), false);
+  });
+});
+
+describe("given a focused text field in a sheet menu (the race setup's name)", () => {
+  it("when Backspace, space or a caret arrow is pressed, then the field keeps it, and the menu's own keys (Esc, Enter, Tab, up, down) are not kept", () => {
+    for (const key of ["Backspace", " ", "ArrowLeft", "ArrowRight"]) assert.equal(textKeepsKey(key), true, key);
+    for (const key of ["Escape", "Enter", "Tab", "ArrowUp", "ArrowDown", "a"]) assert.equal(textKeepsKey(key), false, key);
   });
 });
