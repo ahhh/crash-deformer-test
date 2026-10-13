@@ -4,6 +4,7 @@ import * as THREE from "three";
 import { DeformableCar } from "../vehicle/car.ts";
 import { fleetClass, fleetStyle, MAX_CARS } from "../scenes/fleet.ts";
 import type { ContactHit } from "../scenes/engine-props.ts";
+import { CAGES } from "../kernel/rig-spec.ts";
 import { CrashRecorder } from "./engine-record.ts";
 import { applyDrive, type DriveInput } from "../vehicle/car-drive.ts";
 import { assignClass, HANDLING } from "../vehicle/vehicle-classes.ts";
@@ -210,5 +211,68 @@ describe("given a racer that hits a cop, and the cop being destroyed later", () 
     assert.deepEqual(run(1), { open: 1, kills: 1 }, "a kill inside QUIET_GAP joins the cluster");
     // 2 s after: the cluster is still open (POST_ROLL) but an impact would not join it, so neither does the kill.
     assert.deepEqual(run(2), { open: 1, kills: 0 }, "a kill past QUIET_GAP opened a cluster of its own: a clip starting on a non-crash");
+  });
+});
+
+/** A fresh car's nose took an impact 2 m ahead (`speed` m/s), then 50 steps on: cages moved, `massActive`. */
+function crashed(car: DeformableCar, speed: number): void {
+  car.group.updateMatrixWorld(true);
+  const hit = car.group.position.clone().addScaledVector(car.forward, 2.05);
+  hit.y = 0.4;
+  car.applyImpact(hit, car.forward.clone().negate(), speed, speed);
+  for (let s = 0; s < 50; s++) car.step(H);
+}
+
+/** The plain definition of each cage's strain, read off the car's own cages. */
+function plainStrain(car: DeformableCar): number[] {
+  return CAGES.map((c) => {
+    const cage = car.deform["cageByPart"].get(c.name)!;
+    let max = 0;
+    for (let a = 0; a < 8; a++) {
+      for (let b = a + 1; b < 8; b++) max = Math.max(max, Math.abs(cage.corners[a]!.distanceTo(cage.corners[b]!) - cage.restCorners[a]!.distanceTo(cage.restCorners[b]!)));
+    }
+    return max;
+  });
+}
+
+describe("given a car the recorder read while crashed, then respawned with the recorder off and crashed gently up to the same corner serial", () => {
+  /** The recorder with the first crash's row cached, the car crashed again, and the first row. */
+  function setup(): { rec: CrashRecorder; car: DeformableCar; rowA: Float32Array } {
+    const car = new DeformableCar({ body: 0x808080, accent: 0, name: "c0" }, new THREE.Scene(), null, fleetStyle(0));
+    car.spawn(0, 0, 0);
+    const rec = new CrashRecorder();
+    rec.begin("oval", HANDLING.realism, false, 1, () => "c0", 1);
+    crashed(car, 40);
+    const rowA = new Float32Array(CAGES.length);
+    rec["readStrain"](car, rowA, 0, 0);
+    const serialA = car.deform.cornerSerial;
+    car.spawn(0, 0, 0);
+    assert.equal(car.deform.massActive, false, "the respawn left no wreck");
+    car.group.updateMatrixWorld(true);
+    const hit = car.group.position.clone().addScaledVector(car.forward, 2.05);
+    hit.y = 0.4;
+    car.applyImpact(hit, car.forward.clone().negate(), 15, 15);
+    for (let s = 0; s < 2400 && car.deform.cornerSerial < serialA; s++) car.step(H);
+    assert.ok(car.deform.massActive && car.deform.cornerSerial >= serialA, "the gentle crash reached the cached serial");
+    return { rec, car, rowA };
+  }
+
+  it("when the recorder begins again and reads the car, then the row is the second crash's", () => {
+    const { rec, car, rowA } = setup();
+    rec.begin("oval", HANDLING.realism, false, 1, () => "c0", 1);
+    const rowB = new Float32Array(CAGES.length);
+    rec["readStrain"](car, rowB, 0, 0);
+    const plain = plainStrain(car);
+    for (let k = 0; k < CAGES.length; k++) assert.ok(Math.abs(rowB[k]! - plain[k]!) < 1e-6, `cage ${CAGES[k]!.name}: ${rowB[k]} != ${plain[k]}`);
+    assert.ok(rowB.some((v, k) => v !== rowA[k]), "the second crash's row differs from the first's");
+  });
+
+  it("when a step starts after the respawn without a new begin, then the step's strain row is the second crash's", () => {
+    const { rec, car, rowA } = setup();
+    rec.startStep([car]);
+    const rowB = rec["strainPre"].subarray(0, CAGES.length);
+    const plain = plainStrain(car);
+    for (let k = 0; k < CAGES.length; k++) assert.ok(Math.abs(rowB[k]! - plain[k]!) < 1e-6, `cage ${CAGES[k]!.name}: ${rowB[k]} != ${plain[k]}`);
+    assert.ok(rowB.some((v, k) => v !== rowA[k]), "the second crash's row differs from the first's");
   });
 });

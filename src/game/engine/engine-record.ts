@@ -206,6 +206,7 @@ export class CrashRecorder {
     this.knocked.length = 0;
     this.alive.fill(1);
     this.tracked = 0;
+    this.strainCar.fill(null);
     this.pairAt.fill(-Infinity);
     this.touchAt.fill(-Infinity);
     this.wallAt.fill(-Infinity);
@@ -259,6 +260,7 @@ export class CrashRecorder {
       const f = s.cars[i]!;
       const car = cars[i]!;
       readCarPose(car, f);
+      if (car.placements !== this.placed[i]) this.strainCar[i] = null;
       this.readStrain(car, this.strainPre, i * CAGES.length, i);
       // Placed (a respawn, a wake, a put-away, wherever it landed): the replay cannot drive there, so a keyframe is taken at once, and a clip keeps it for this car.
       if (i < prev && car.placements !== this.placed[i]) placed |= 1 << i;
