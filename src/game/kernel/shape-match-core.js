@@ -235,7 +235,6 @@ function extractRotation(A, flip, q) {
       oz = tz * s;
       o2 = ox * ox + oy * oy + oz * oz;
       if (o2 < ROT_TOL2) break;
-      // Turn by atan|w|: dq = (ŵ·tan(θ/2), 1).
       const h = 1 / (1 + Math.sqrt(1 + o2));
       dx = ox * h;
       dy = oy * h;
@@ -613,7 +612,6 @@ function matchCluster(c, particles, beta) {
   // Σ m (x − cm) q^T = Σ m x q^T − cm (Σ m q)^T
   fitInto(p0 - cmx * ux, p1 - cmx * uy, p2 - cmx * uz, p3 - cmy * ux, p4 - cmy * uy, p5 - cmy * uz, p6 - cmz * ux, p7 - cmz * uy, p8 - cmz * uz, c.AqqInv, c.A);
   if (c.planar && !completePlanarInto(c.A, c.n, c.Rprev)) {
-    // A folded flat cluster pulls back to its last orientation, unstretched.
     m3Copy(c.Rprev, c.R);
     m3Id(c.S);
   } else {
@@ -642,7 +640,6 @@ function applyPlasticity(c, particles) {
   const creepRef = Math.min(0.85, (0.35 + squash * 1.25 + buckle * 0.55) * (1 / 120) * 10);
   const creep = 1 - Math.pow(1 - creepRef, dt * CREEP_REF_HZ);
   {
-    // Sp ← Sp·(I + creep·(S − I))
     const u = 1 - creep;
     const t0 = u + S[0] * creep, t1 = S[1] * creep, t2 = S[2] * creep;
     const t3 = S[3] * creep, t4 = u + S[4] * creep, t5 = S[5] * creep;
