@@ -5,9 +5,9 @@ import { DeformableCar } from "../vehicle/car.ts";
 import { assignClass } from "../vehicle/vehicle-classes.ts";
 import { paint } from "../vehicle/test-support.ts";
 import { makeWorld, tickWorld } from "../contact/crash-scenarios.test-util.ts";
-import { armTops, C_H, C_OWNER, HIT_SIZE, PQ_SIZE, PQ_X, PQ_Y, PQ_Z, pointContact, wheelContact } from "./surfaces.ts";
+import { armSolids, armTops, C_H, C_OWNER, HIT_SIZE, PQ_SIZE, PQ_X, PQ_Y, PQ_Z, pointContact, Surface, wheelContact } from "./surfaces.ts";
 import { SKIN } from "../vehicle/car-surfaces.ts";
-import { setGround } from "./ground.ts";
+import { Ground, setGround } from "./ground.ts";
 
 /**
  * A tyre's footprint asks the surfaces from its hub's height: a face lower than the hub is the ground it sits in, a taller one is a wall
@@ -64,5 +64,34 @@ describe("given a sedan standing with a roof, and a tyre's hub over its crown", 
     hub[2] = 0;
     wheelContact(hub, axes, 1, -1, out);
     assert.ok(out[C_OWNER]! >= 0 && out[C_H]! > 0, `rise ${out[C_H]} owner ${out[C_OWNER]} over a roof 0.2 m under the hub`);
+  });
+});
+
+/** The prism's top height (m): under the hub, over the plain. */
+const PRISM_TOP = 0.3;
+/** The radius (m) of a shoulder ring of the tyre's footprint (`RINGS`). */
+const SHOULDER_RADIUS = 0.314;
+
+describe("given a prism standing on the plain, and a tyre whose hub is over its edge", () => {
+  afterEach(() => {
+    armSolids(null);
+    setGround(null);
+  });
+
+  it("when no static edge is near, then the prism's top is the tyre's ground where its footprint reaches it, as the plain is where it does not", () => {
+    const plain = new Ground();
+    plain.addPlane(0, -1e3, 1e3, -1e3, 1e3, Infinity);
+    setGround(plain);
+    const solids = new Surface();
+    solids.addPrism({ x: 0, z: 0, yaw: 0, hx: 1, hz: 3, base: 0, top: PRISM_TOP, id: 0, moves: false });
+    armSolids(solids);
+    // Over the prism's −x edge, the hub 0.6 m up: the footprint reaches 0.4 m either side of the edge, the plain on one and the prism on the other.
+    hub[0] = -1;
+    hub[1] = 0.6;
+    hub[2] = 0;
+    wheelContact(hub, axes, 1, -1, out);
+    // The contact is a rise over the tread point (`C_H`): the +x shoulder ring (`RINGS`, offset 0.082, radius 0.314) stands on the prism.
+    const rise = PRISM_TOP - (hub[1]! - SHOULDER_RADIUS);
+    assert.ok(Math.abs(out[C_H]! - rise) < 1e-6, `rise ${out[C_H]} over a prism ${PRISM_TOP} m high, the shoulder ring's bottom ${hub[1]! - SHOULDER_RADIUS} m up`);
   });
 });

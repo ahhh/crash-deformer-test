@@ -10,7 +10,7 @@ import { makeWorld, tickWorld, type CrashWorld } from "../contact/crash-scenario
 import { BARRIER_TOP } from "../contact/sat.ts";
 import { FleetRamps, RAMP } from "../scenes/fleet-ramps.ts";
 import { Ground, setGround } from "../world/ground.ts";
-import { RIG, WALL } from "../world/surfaces.ts";
+import { armSolids, RIG, Surface, WALL } from "../world/surfaces.ts";
 
 /**
  * Owner, 2026-10-08: "a driver should be able to drive on a box prop, a jersey barrier, a ramp, or a roof, all the same". A sedan
@@ -243,4 +243,41 @@ describe("given a sedan driven off the edge of a solid's top", () => {
       assert.ok(Math.abs(r.time - freeFall) <= SLICE, `flew ${r.time.toFixed(4)} s over a ${r.fell.toFixed(3)} m fall, the free fall from ${r.vy0.toFixed(3)} m/s takes ${freeFall.toFixed(4)} s`);
     });
   }
+});
+
+/**
+ * A wreck with no tyres left rests on its body points: over a prism's top they are asked of the solids as well as of the static ground
+ * (a wreck over the ground's 0 m cleared every point against it and fell through a prism's top). The prism's top (m), and its half side (m), well past the sedan's plan box on every side.
+ */
+const SLAB_TOP = 1;
+const SLAB_HALF = 4;
+/** How far (m) the wreck's origin starts over the prism's top, and how far its centre of mass must stay over it: the sedan's tyres are 0.3 m deep. */
+const DROP = 0.3;
+const KEEP_OVER = 0.15;
+
+describe("given a wrecked sedan with no tyres dropped onto a prism's top, no other car near", () => {
+  afterEach(() => {
+    armSolids(null);
+    setGround(null);
+  });
+
+  it("when it comes down on the top, then it rests on it: its centre of mass never falls below the top's height plus 0.15 m", () => {
+    setGround(new Platform(0));
+    const solids = new Surface();
+    solids.addPrism({ x: 0, z: 0, yaw: 0, hx: SLAB_HALF, hz: SLAB_HALF, base: 0, top: SLAB_TOP, id: 0, moves: false });
+    armSolids(solids);
+    const car = sedan(0, 0, 0, 0);
+    car.parked = false;
+    car.applyImpact(car.group.position.clone().addScaledVector(car.forward, 2).setY(0.5), car.forward.clone().negate(), 20, 12);
+    assert.ok(car.crashed && car.deform.massActive, "the hit did not make a wreck");
+    for (const hub of ["hubFL", "hubFR", "hubRL", "hubRR"]) car.deform.popHub(car.deform.masses.find((m) => m.name === hub)!);
+    car.group.position.y = SLAB_TOP + DROP;
+    const w = makeWorld([car], false, false);
+    let lowest = Infinity;
+    for (let f = 0; f < 2 / FRAME; f++) {
+      tickWorld(w, FRAME);
+      lowest = Math.min(lowest, centreY(car));
+    }
+    assert.ok(lowest >= SLAB_TOP + KEEP_OVER, `the centre of mass fell to ${lowest.toFixed(3)} m over a prism top at ${SLAB_TOP} m`);
+  });
 });

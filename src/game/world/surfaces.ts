@@ -2151,7 +2151,7 @@ export function wheelContact(hub: Float64Array, axes: Float64Array, scale: numbe
   _pq[PQ_Y] = y;
   _foot[FOOT_SCALE] = scale;
   treadReach.tops = tops !== null && edgeIn(tops, _pq, skip) ? tops : null;
-  const n = treadReach.tops !== null || (live.statics !== null && edgeIn(live.statics, _pq, skip)) ? FOOT : BASE;
+  const n = treadReach.tops !== null || (live.statics !== null && edgeIn(live.statics, _pq, skip)) || (live.solids !== null && edgeIn(live.solids, _pq, skip)) ? FOOT : BASE;
   // The footprint turns in the rolling plane to face the surface under the hub: each ring's bottom is then its point nearest that
   // surface, as the drawn tyre's is (a car pitched 10° on three wheels held a rear tyre's shoulder 5 mm off the floor at its body-down point).
   seek(_pq, skip, treadReach.tops, treadReach.list, treadReach.count);
@@ -2171,9 +2171,12 @@ export function wheelContact(hub: Float64Array, axes: Float64Array, scale: numbe
   _foot[FOOT_COS] = c;
   _foot[FOOT_SIN] = s;
   // With no car top asked (`treadReach.tops` null: none within the tyre's reach) and the rings' bottoms alone (no patch ends within reach),
-  // the static surface's highest over the footprint bounds every point's surface; otherwise every point is asked (a top's own height
-  // is not in the bound, and the arcs' pass reads every rise).
-  _foot[FOOT_TOP] = treadReach.tops !== null || n === FOOT ? Infinity : live.statics === null ? NONE : staticTop(live.statics, x - r, x + r, z - r, z + r);
+  // the static surface's and the solids' highest over the footprint bounds every point's surface; otherwise every point is asked (a top's
+  // own height is not in the bound, and the arcs' pass reads every rise).
+  _foot[FOOT_TOP] =
+    treadReach.tops !== null || n === FOOT
+      ? Infinity
+      : Math.max(live.statics === null ? NONE : staticTop(live.statics, x - r, x + r, z - r, z + r), solidTop(x - r, x + r, z - r, z + r));
   for (let k = 0; k < n; k++) tread(hub, axes, skip, k, out);
   // Near an edge a ring's highest point is where it crosses onto the patch that holds it, between two arcs: the chord to the
   // neighbour on another patch is halved (`edgeCross`; a front tyre leaving the wedge's side read 1.6 cm lower at its nearest arc

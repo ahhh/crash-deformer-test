@@ -373,11 +373,10 @@ function crossedPlanFromSide(hit: Float64Array, pen: number, r: THREE.Vector3): 
  * Contact rows, from row `n` on, for the loaded points `from` to `to` (`loadPoints`, `loadShape`) as the body stands: those that meet a
  * surface within the slice, a point at most `SPECULATIVE_GAP` above one a row that lets it close that gap and no more. Returns the row
  * count past the last. The points from `bellyFrom` on are a car's belly: read (`BX`, `BRISE`, `BPATCH`) for its edges, no rows. With
- * `gate` a point that stays higher than the static surface anywhere within its slice's plan travel, by its descent over the slice and a
- * speculative gap, neither meets nor nears it: not asked; one above `bound` (`centredTop`) by that is so without its own read. With
- * `tops` (a car top within the body's reach) a body point must also stand that clear of the solids (`solidTop`) and of the tops its own
- * query would ask (`topsTop` over the same list, `CarSurfaces.near`), and the belly is always read (its edges and ridges lie between its
- * points). A part
+ * `gate` a point that stays higher than the static surface and the solids anywhere within its slice's plan travel, by its descent over
+ * the slice and a speculative gap, neither meets nor nears it: not asked; one above `bound` (`centredTop`) by that is so without its own
+ * read. With `tops` (a car top within the body's reach) such a point must also stand that clear of the tops its own query would ask
+ * (`topsTop` over the same list, `CarSurfaces.near`), and the belly is always read (its edges and ridges lie between its points). A part
  * also meets a prism's side face (`C_H` NO_FLOOR: the depth it is in, out along the face's normal), asks the car tops its caller held
  * (`holdTops`) and gives the point's own velocity for the way out.
  */
@@ -404,12 +403,10 @@ export function readPoints(from: number, to: number, bellyFrom: number, n: numbe
       held = true;
     }
     let clear = gate && (bound < low || staticTop(statics, px - planTravel, px + planTravel, pz - planTravel, pz + planTravel) < low);
-    if (clear && tops) {
+    if (clear) {
       if (solids !== solids) solids = solidTop(centreOfMass.x - solidReach, centreOfMass.x + solidReach, centreOfMass.z - solidReach, centreOfMass.z + solidReach);
-      clear =
-        i < bellyFrom &&
-        (solids < low || solidTop(px - planTravel, px + planTravel, pz - planTravel, pz + planTravel) < low) &&
-        (own ? topsTopNear : topsTop)(skip, px - planTravel, px + planTravel, pz - planTravel, pz + planTravel) < low;
+      clear = solids < low || solidTop(px - planTravel, px + planTravel, pz - planTravel, pz + planTravel) < low;
+      if (clear && tops) clear = i < bellyFrom && (own ? topsTopNear : topsTop)(skip, px - planTravel, px + planTravel, pz - planTravel, pz + planTravel) < low;
     }
     if (i >= bellyFrom) {
       BX[i] = px;
@@ -1390,7 +1387,11 @@ function centredTop(statics: Surface, turnRate: number, dt: number, pointEnd: nu
     reach2 = Math.max(reach2, x * x + y * y + z * z);
   }
   const pad = (hypot2(v.x, v.z) + turnRate * Math.sqrt(reach2)) * dt + CLEAR_ROUND;
-  return staticTop(statics, centreOfMass.x + xMin - pad, centreOfMass.x + xMax + pad, centreOfMass.z + zMin - pad, centreOfMass.z + zMax + pad, true);
+  const x0 = centreOfMass.x + xMin - pad;
+  const x1 = centreOfMass.x + xMax + pad;
+  const z0 = centreOfMass.z + zMin - pad;
+  const z1 = centreOfMass.z + zMax + pad;
+  return Math.max(staticTop(statics, x0, x1, z0, z1, true), solidTop(x0, x1, z0, z1));
 }
 
 /**
@@ -1530,7 +1531,11 @@ export function stepFree(car: DeformableCar, dt: number): boolean {
       low = Math.min(low, _e[1]! * x + _e[4]! * y + _e[7]! * z);
     }
     const descent = (Math.max(0, -v.y) + turn) * dt + SPECULATIVE_GAP + CLEAR_ROUND;
-    const top = staticTop(statics, centreOfMass.x + xMin - pad, centreOfMass.x + xMax + pad, centreOfMass.z + zMin - pad, centreOfMass.z + zMax + pad, true);
+    const x0 = centreOfMass.x + xMin - pad;
+    const x1 = centreOfMass.x + xMax + pad;
+    const z0 = centreOfMass.z + zMin - pad;
+    const z1 = centreOfMass.z + zMax + pad;
+    const top = Math.max(staticTop(statics, x0, x1, z0, z1, true), solidTop(x0, x1, z0, z1));
     allClear = top < centreOfMass.y + low - descent;
     bodyTop = allClear || body.centre === CAR_CENTRE ? top : centredTop(statics, turnRate, dt, pointEnd);
   }
@@ -1552,7 +1557,7 @@ export function stepFree(car: DeformableCar, dt: number): boolean {
       const xMax = Math.max(BX[a]!, BX[b]!);
       const zMin = Math.min(BZ[a]!, BZ[b]!);
       const zMax = Math.max(BZ[a]!, BZ[b]!);
-      if (staticTop(statics, xMin, xMax, zMin, zMax) < Math.min(BY[a]!, BY[b]!)) continue;
+      if (Math.max(staticTop(statics, xMin, xMax, zMin, zMax), solidTop(xMin, xMax, zMin, zMax)) < Math.min(BY[a]!, BY[b]!)) continue;
     }
     if (UNREAD[a] === 1) readBelly(a, car.slot);
     if (UNREAD[b] === 1) readBelly(b, car.slot);
