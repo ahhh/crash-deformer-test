@@ -64,7 +64,7 @@ const ROOF_HALF = 0.04;
  * A pane's slab is `PANE_HALF` thick inside the glass and runs `PANE_PAD` past its sides, which closes the pillars between
  * panes; hollow under the roof, so a pane that is gone (shattered by the crash, a torso or the throw) lets a dummy through.
  */
-export const PANE_HALF = 0.03;
+const PANE_HALF = 0.03;
 const PANE_PAD = 0.05;
 /** A pane's state in `CarCore.glassBits` (two bits per pane) when it is gone: shattered out. */
 export const PANE_GONE = 2;

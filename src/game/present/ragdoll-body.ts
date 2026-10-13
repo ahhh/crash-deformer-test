@@ -1,6 +1,6 @@
 import { hypot3 } from "../kernel/physics-core.js";
 import * as THREE from "three";
-import type { RigidBody } from "@dimforge/rapier3d-simd";
+import type { Collider, RigidBody } from "@dimforge/rapier3d-simd";
 
 /**
  * The thrown dummy's body (`RagdollSystem` builds and steps it): its parts and joints, its damping, and the only
@@ -175,3 +175,29 @@ export function blendPose(a: Float32Array, c: Float32Array, o: number, alpha: nu
   p.set(a[o]! + (c[o]! - a[o]!) * alpha, a[o + 1]! + (c[o + 1]! - a[o + 1]!) * alpha, a[o + 2]! + (c[o + 2]! - a[o + 2]!) * alpha);
   q.set(a[o + 3]!, a[o + 4]!, a[o + 5]!, a[o + 6]!).slerp(_qb.set(c[o + 3]!, c[o + 4]!, c[o + 5]!, c[o + 6]!), alpha);
 }
+
+export type Doll = {
+  bodies: RigidBody[];
+  live: boolean;
+  age: number;
+  /** Sim seconds he lies about before he goes: `LIFE` for a thrown driver, as long as the scene wants for a placed one (`place`). */
+  life: number;
+  /** Sim seconds the torso has been under `REST_SPEED`. */
+  still: number;
+  patch: Collider[];
+  /** The car he was thrown from. */
+  car: number;
+  /** The ride-along may frame him (`launch`'s `rides`). */
+  rides: boolean;
+  /** Each part's pose (position xyz, rotation xyzw) after the last step and the one before it: the draw blends them. */
+  prev: Float32Array;
+  cur: Float32Array;
+  /** Touched the ground (`hits`): damped harder from then on. */
+  ground: boolean;
+  /** Lying settled (`calm`): damped harder still. */
+  settled: boolean;
+  /** Sim seconds he has been under `CALM_ENERGY` (`calm`). */
+  calm: number;
+  /** Torso speed (m/s) at the end of the last frame: how far he may travel toward a pane in the next (`glassNear`). */
+  speed: number;
+};

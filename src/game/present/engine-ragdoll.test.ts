@@ -190,7 +190,7 @@ describe("given the ride-along camera (the camera that rides along with thrown d
     let far = 0;
     await ride([[-40, 0], [0, 0], [40, 0]], 6, 240, (camera, ragdolls) => {
       // Between shots the camera is flying to the next one; the framing is judged where it has arrived.
-      if (ragdolls["cam"]["blend"] >= 1) far = Math.max(far, camera.position.distanceTo(ragdolls.rideLook));
+      if (ragdolls["ride"].cam["blend"] >= 1) far = Math.max(far, camera.position.distanceTo(ragdolls.rideLook));
     });
     // `CAM_NEAR` 6 m: (4.5 + 1.6·6) back, (1.8 + 0.5·6) aside, (1.3 + 0.4·6) up is 15.4 m. On main: about 63 m.
     assert.ok(far > 4 && far < 15.5, `camera ${far.toFixed(1)} m from its target`);
@@ -401,7 +401,7 @@ async function rideShots(cars: DeformableCar[], barrier: boolean): Promise<{ rid
     if (!ragdolls.rideAlong) continue;
     if (ragdolls.frameCamera(camera, FRAME, false, -1, false, 50, sight) === "none") break;
     camera.getWorldDirection(dir);
-    const now = ragdolls["cam"].shot;
+    const now = ragdolls["ride"].cam.shot;
     shots.add(now);
     if (riding > 0) {
       maxTurn = Math.max(maxTurn, dir.angleTo(prevDir));
@@ -512,7 +512,7 @@ describe("given a highlight's ride-along on its own crash's thrown driver, while
     for (let f = 0; f < 60; f++) {
       ragdolls.update(FRAME, [], true, true, null);
       assert.equal(ragdolls.frameCamera(camera, FRAME, false, -1, false, 50, OPEN), "shot");
-      if (ragdolls["primary"] !== own) framedOther++;
+      if (ragdolls["ride"]["primary"] !== own) framedOther++;
       const t = ragdolls["dolls"][own]!.bodies[0]!.translation();
       far = Math.max(far, ragdolls.rideLook.distanceTo(torso.set(t.x, t.y, t.z)));
     }
@@ -542,17 +542,17 @@ describe("given the user's drag holding the ride-along camera, while the cut to 
       return ragdolls.frameCamera(camera, FRAME, false, -1, held, 50, OPEN);
     };
     for (let f = 0; f < 90; f++) frame();
-    first = ragdolls["primary"];
+    first = ragdolls["ride"]["primary"];
     held = true;
     const userPos = camera.position.clone().add(new THREE.Vector3(3, 2, 3));
     const userQuat = camera.quaternion.clone();
     camera.position.copy(userPos);
     for (let f = 0; f < 120; f++) assert.equal(frame(), "held");
-    assert.equal(ragdolls["primary"], first, "no cut while held");
+    assert.equal(ragdolls["ride"]["primary"], first, "no cut while held");
     assert.ok(camera.position.equals(userPos) && camera.quaternion.equals(userQuat), "the ride leaves the user's camera alone");
     held = false;
     assert.equal(frame(), "shot");
-    assert.notEqual(ragdolls["primary"], first, "the cut lands once released");
+    assert.notEqual(ragdolls["ride"]["primary"], first, "the cut lands once released");
     assert.ok(camera.position.distanceTo(userPos) < 0.5, `moved ${camera.position.distanceTo(userPos).toFixed(2)} m on the first frame`);
     assert.ok(camera.quaternion.angleTo(userQuat) < 0.1, "turned only a little on the first frame");
     for (let f = 0; f < 150; f++) frame();
