@@ -15,6 +15,7 @@ import { setGround } from "./ground.ts";
 import { parseTrack } from "./track-schema.ts";
 import { Track, blankPoint, blankProjection } from "./track.ts";
 import { TRACKS } from "./tracks/index.ts";
+import { AI_EVERY_SLICE, type AiDifficulty } from "../ai/constants.ts";
 import { DEFAULT_RACE_OPTIONS, type CarRecord, type RaceResultRow, type RaceSnapshot } from "../match/types.ts";
 
 /**
@@ -207,12 +208,21 @@ const RACE_LAPS = 2;
 
 /**
  * One race of 4 AI rivals (plus the AI-driven player slot) with the aggression slider at `slider`;
- * the field rolls its random picks (each rival's aggression in [0, slider]) with `seed`.
+ * the field rolls its random picks (each rival's aggression in [0, slider]) with `seed`. `difficulty` sets how often the rivals think.
  */
-export function raceOnce(w: World, track: Track, bound: number, seed: number, slider: number, afterFrame?: (n: number) => void, aiCount = 4): Outcome {
+export function raceOnce(
+  w: World,
+  track: Track,
+  bound: number,
+  seed: number,
+  slider: number,
+  afterFrame?: (n: number) => void,
+  aiCount = 4,
+  difficulty: AiDifficulty = AI_EVERY_SLICE,
+): Outcome {
   const r = w.race;
   r.command({ type: "quit" });
-  r.command({ type: "options", options: { trackId: track.id, laps: RACE_LAPS, aiCount, noReset: false, aggression: slider } });
+  r.command({ type: "options", options: { trackId: track.id, laps: RACE_LAPS, aiCount, noReset: false, aggression: slider, aiDifficulty: difficulty } });
   // The start command's new field rolls with this seed: the same path a player's race takes.
   r.reseed(seed);
   r.command({ type: "start" });

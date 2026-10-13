@@ -30,6 +30,7 @@ import { ResetPrompt } from "@/components/reset-prompt";
 import { StartLights } from "@/components/start-lights";
 import { SurvivalResults } from "@/components/survival-hud";
 import { useReelCover } from "@/components/use-reel-cover";
+import { AI_DIFFICULTIES } from "@/game/ai/constants";
 import { missedCheckpointText, type ResetInput } from "@/game/hud/reset-prompt";
 import type { CarStatus, RaceCommand, RaceHud, RaceHudRow, RaceOptions } from "@/game/match/types";
 import { fmtGap, fmtTime } from "@/game/hud/race-clock";
@@ -511,6 +512,16 @@ function SetupMenu({ race, pad, onCommand, onSurvival }: { race: RaceHud; pad: b
           slider
           hint="Each rival rolls its own 0–max, kept all campaign · 0 avoids hits · 50% hits weaker cars when safe · 100% rams"
           onSet={(aggression) => options({ aggression })}
+        />
+        <Stepper
+          label="AI difficulty"
+          value={AI_DIFFICULTIES.indexOf(o.aiDifficulty)}
+          min={0}
+          max={AI_DIFFICULTIES.length - 1}
+          step={1}
+          shown={o.aiDifficulty}
+          hint="How fast rivals react: hard decides every physics step, easy up to 200 ms late"
+          onSet={(k) => options({ aiDifficulty: AI_DIFFICULTIES[k]! })}
         />
         <Choice label="Wrecks" off="Respawn" on="No reset" value={o.noReset} onSet={(noReset) => options({ noReset })} />
         <Choice label="Police" off="Off" on="Chase" value={o.police} onSet={(police) => options({ police })} />

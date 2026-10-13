@@ -1,3 +1,4 @@
+import { AI_EVERY_SLICE } from "../ai/constants.ts";
 import type { RaceCommand } from "../match/types.ts";
 import type { LabPresetId } from "../scenes/lab.ts";
 import { LAB_PRESET } from "../scenes/constants.ts";
@@ -11,7 +12,7 @@ import { BENCH_KIND, BENCH_QUERY, COURSE_QUERY, STRIP_QUERY, ULTRA_QUERY } from 
 
 /** The city bench's race on course `trackId`: its own field and rules as a program over the player's options, which it never touches. */
 function benchRace(trackId: string): RaceCommand {
-  return { type: "program", options: { trackId, laps: 9, aiCount: 15, police: true, aggression: 1, spectate: false, noReset: false } };
+  return { type: "program", options: { trackId, laps: 9, aiCount: 15, police: true, aggression: 1, aiDifficulty: AI_EVERY_SLICE, spectate: false, noReset: false } };
 }
 export const BENCH_RACE: RaceCommand = benchRace(TRACK_ID.city);
 
@@ -97,7 +98,7 @@ export function benchPlan(search: string): BenchPlan | null {
   const strip: StripSpec = { length, props: parseProps(q.get(STRIP_QUERY.props) ?? STRIP_DEFAULTS.props), traffic: parseTraffic(q.get(STRIP_QUERY.traffic) ?? STRIP_DEFAULTS.traffic) };
   return {
     id: BENCH_STRIP_ID,
-    race: { type: "program", options: { trackId: BENCH_STRIP_ID, laps: 1, aiCount: racers - 1, police: false, aggression: 0.5, spectate: false, noReset: false } },
+    race: { type: "program", options: { trackId: BENCH_STRIP_ID, laps: 1, aiCount: racers - 1, police: false, aggression: 0.5, aiDifficulty: AI_EVERY_SLICE, spectate: false, noReset: false } },
     course: stripCourse(strip),
     warmS: 8,
     racers,

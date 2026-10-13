@@ -241,6 +241,8 @@ export abstract class RaceField {
   protected readonly scratch: DriveInput = idleDrive();
   /** Per car id: last input received for a remote slot. */
   protected readonly remote: DriveInput[] = Array.from({ length: MAX_CARS }, () => idleDrive());
+  /** Per car id: the AI racer's last think, held between thinks (`RaceBrain.due`). */
+  protected readonly held: DriveInput[] = Array.from({ length: MAX_CARS }, () => idleDrive());
   protected readonly cruise: DriveInput = idleDrive();
   protected readonly hold: DriveInput = { ...idleDrive(), brake: 1 };
   /** A car whose driver was thrown out (`driverOut`) freewheels: no throttle, brake or steering and no engine braking (`DriveInput.neutral`), only the tyres and the road. */
@@ -353,6 +355,8 @@ export abstract class RaceField {
       const slot = sv ? { ...humanSlot(sv.start, human++), y: 0 } : tr.gridSlot(k);
       this.place(car, slot.x, slot.z, slot.yaw, slot.y);
       this.brain!.setAggression(id, this.entrants[id]!.aggression);
+      this.brain!.setDifficulty(id, this.rules.aiDifficulty);
+      this.held[id] = idleDrive();
       this.brain!.setClass(id, classStats(carClass(car)));
     }
     if (this.police instanceof HunterBrain) {

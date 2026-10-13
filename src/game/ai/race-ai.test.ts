@@ -8,7 +8,8 @@ import { blankAiCar, type AiCar } from "./derby-ai.ts";
 import { snapshotAiCar } from "../match/derby.ts";
 import { fleetStyle } from "../scenes/fleet.ts";
 import { SURFACES } from "../world/catalog.ts";
-import { RaceBrain, onSurface } from "./race-ai.ts";
+import { RaceBrain, copyDrive, onSurface } from "./race-ai.ts";
+import { AI_DIFFICULTIES, AI_EVERY_SLICE, type AiDifficulty } from "./constants.ts";
 import { fieldAggression, mood } from "./ai-aggression.ts";
 import { RaceSession } from "../match/session.ts";
 import { Track, blankProjection, projectPath } from "../world/track.ts";
@@ -26,7 +27,7 @@ type Run = { session: RaceSession; onRoad: number; samples: number };
  * Real cars on the real drive model (kinematic, as every car is until it crashes) on the course's
  * ground, no car-to-car contact: the AI alone has to keep them on the road and round the laps.
  */
-function race(track: Track, n: number, aggression: number, laps: number, limit: number): Run {
+function race(track: Track, n: number, aggression: number, laps: number, limit: number, difficulty: AiDifficulty = AI_EVERY_SLICE): Run {
   const scene = new THREE.Scene();
   const ground = track.ground();
   setGround(ground);
@@ -38,10 +39,12 @@ function race(track: Track, n: number, aggression: number, laps: number, limit: 
     const g = track.gridSlot(i);
     c.spawnFacing(g.x, g.z, g.yaw, 0);
     brain.setAggression(i, aggression);
+    brain.setDifficulty(i, difficulty);
   }
   const snaps: AiCar[] = cars.map((_, i) => blankAiCar(i));
   const poses: CarPose[] = cars.map(() => ({ x: 0, z: 0, yaw: 0, vx: 0, vz: 0, alive: true }));
   const hold = { ...idleDrive(), brake: 1 };
+  const held = cars.map(() => idleDrive());
   const scratch = idleDrive();
   const p = blankProjection();
   let onRoad = 0;
@@ -52,7 +55,11 @@ function race(track: Track, n: number, aggression: number, laps: number, limit: 
     for (const [i, c] of cars.entries()) {
       const rec = session.cars[i]!;
       const surf = SURFACES[ground.surfaceAt(c.group.position.x, c.group.position.z)];
-      const input = session.phase === "racing" && rec.status === "racing" ? brain.think(snaps[i]!, snaps, rec, DT) : hold;
+      let input = hold;
+      if (session.phase === "racing" && rec.status === "racing") {
+        if (brain.due(i, DT)) copyDrive(brain.think(snaps[i]!, snaps, rec, brain.elapsed(i)), held[i]!);
+        input = brain.guard(snaps[i]!, snaps, held[i]!);
+      }
       applyDrive(c, onSurface(input, surf, scratch), DT);
       c.integrate(DT);
     }
@@ -93,22 +100,26 @@ function race(track: Track, n: number, aggression: number, laps: number, limit: 
 
 const at = (id: number, x: number, z: number, vz: number): AiCar => ({ ...blankAiCar(id), x, z, vz });
 
-describe("given 8 clean AI cars (aggression 0) on the grid of every course", () => {
-  for (const json of TRACKS) {
-    const track = new Track(json);
-    it(`when they race 3 laps on ${track.id}, then all 8 finish, they stay on the road at least 95% of the time, and the winner finishes within the time bound`, () => {
-      // Half the drive model's top speed on average, plus the countdown and grid.
-      const limit = (3 * track.length) / (DRIVE.maxFwd / 2) + 10;
-      const { session, onRoad, samples } = race(track, 8, 0, 3, limit);
-      const fin = session.cars.filter((c) => c.status === "finished");
-      assert.equal(fin.length, 8, `finished ${fin.length}/8 by ${session.time.toFixed(0)} s (bound ${limit.toFixed(0)} s); laps ${session.cars.map((c) => c.lap).join(",")}`);
-      const share = onRoad / samples;
-      assert.ok(share >= 0.95, `on the road ${(share * 100).toFixed(1)}% of ${samples} samples`);
-      const winner = session.cars.find((c) => c.id === session.winnerId)!;
-      assert.ok(winner.finishTime! < limit);
-    });
-  }
-});
+for (const difficulty of AI_DIFFICULTIES) {
+  describe(`given 8 clean AI cars (aggression 0) at ${difficulty} difficulty on the grid of every course`, () => {
+    for (const json of TRACKS) {
+      const track = new Track(json);
+      it(`when they race 3 laps on ${track.id}, then all 8 finish, they stay on the road at least 95% of the time, and the winner finishes within the time bound`, (t) => {
+        // Half the drive model's top speed on average, plus the countdown and grid.
+        const limit = (3 * track.length) / (DRIVE.maxFwd / 2) + 10;
+        const { session, onRoad, samples } = race(track, 8, 0, 3, limit, difficulty);
+        const fin = session.cars.filter((c) => c.status === "finished");
+        const laps = session.cars.flatMap((c) => c.lapTimes);
+        t.diagnostic(`${track.id} ${difficulty}: winner ${session.cars.find((c) => c.id === session.winnerId)?.finishTime?.toFixed(1)} s, best lap ${Math.min(...laps).toFixed(2)} s, slowest lap ${Math.max(...laps).toFixed(2)} s, on road ${((100 * onRoad) / samples).toFixed(1)}%`);
+        assert.equal(fin.length, 8, `finished ${fin.length}/8 by ${session.time.toFixed(0)} s (bound ${limit.toFixed(0)} s); laps ${session.cars.map((c) => c.lap).join(",")}`);
+        const share = onRoad / samples;
+        assert.ok(share >= 0.95, `on the road ${(share * 100).toFixed(1)}% of ${samples} samples`);
+        const winner = session.cars.find((c) => c.id === session.winnerId)!;
+        assert.ok(winner.finishTime! < limit);
+      });
+    }
+  });
+}
 
 const oval = new Track(TRACKS[0]);
 const s0 = 40;

@@ -4,6 +4,7 @@
  * pick (`DRIVER_CARS`, `cleanName`), which the HUD stores and the engine and netplay read.
  */
 
+import { AI_EVERY_SLICE, type AiDifficulty } from "../ai/constants.ts";
 import { TRACK_ID } from "../world/constants.ts";
 import { CAR_STYLE_IDS, type CarStyleId } from "../vehicle/car-variants.ts";
 import { CLASSES, STYLE_CLASS, VEHICLE_CLASS_IDS, type VehicleClassId } from "../vehicle/vehicle-classes.ts";
@@ -61,13 +62,15 @@ export type RaceOptions = {
   aiCount: number;
   /** Field aggression 0–1; each AI gets a personal spread around it. */
   aggression: number;
+  /** How often each rival re-decides: hard every physics slice (today's AI), medium 96–192 Hz, easy 5–96 Hz. */
+  aiDifficulty: AiDifficulty;
   /** Watch only: this browser's car is one more AI racer and the camera follows the field (no player car). */
   spectate: boolean;
   /** Police chase: packs of police cars park beside the course from a third of the first lap on and hunt the racers. */
   police: boolean;
 };
 
-export const DEFAULT_RACE_OPTIONS: RaceOptions = { trackId: TRACK_ID.oval, laps: 3, noReset: false, aiCount: 7, aggression: 0.35, spectate: false, police: false };
+export const DEFAULT_RACE_OPTIONS: RaceOptions = { trackId: TRACK_ID.oval, laps: 3, noReset: false, aiCount: 7, aggression: 0.35, aiDifficulty: AI_EVERY_SLICE, spectate: false, police: false };
 
 /** Per-step input to the rules for one car (same order as the entrants). */
 export type CarPose = {

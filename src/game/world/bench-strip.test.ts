@@ -73,7 +73,7 @@ describe("given a page's bench query", () => {
     }
     assert.equal(strip.traffic!.lanes, SPEC.traffic!.lanes);
     assert.equal(strip.traffic!.count, SPEC.traffic!.count);
-    assert.deepEqual(plan.race, { type: "program", options: { trackId: "bench", laps: 1, aiCount: 15, police: false, aggression: 0.5, spectate: false, noReset: false } });
+    assert.deepEqual(plan.race, { type: "program", options: { trackId: "bench", laps: 1, aiCount: 15, police: false, aggression: 0.5, aiDifficulty: "hard", spectate: false, noReset: false } });
   });
 
   const queries: { q: string; check: (p: BenchPlan) => void; what: string }[] = [

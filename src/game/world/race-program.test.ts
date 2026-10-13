@@ -92,8 +92,8 @@ describe("given a pasted share URL that names the city course, 9 laps, 15 AI car
   it("when the page applies it as the player's own settings, then the race options hold exactly those settings", () => {
     inRaceMode((w) => {
       const t = decodeShare("#scene=race&track=city&laps=9&ai=15&aggr=1&police=1");
-      w.race.command({ type: "options", options: { trackId: t.track, laps: t.laps, aiCount: t.ai, aggression: t.aggr, police: t.police, noReset: t.noreset, spectate: t.spectate } });
-      assert.deepEqual(playersOptions(w), { trackId: "city", laps: 9, aiCount: 15, aggression: 1, police: true, noReset: false, spectate: false });
+      w.race.command({ type: "options", options: { trackId: t.track, laps: t.laps, aiCount: t.ai, aggression: t.aggr, aiDifficulty: t.diff, police: t.police, noReset: t.noreset, spectate: t.spectate } });
+      assert.deepEqual(playersOptions(w), { trackId: "city", laps: 9, aiCount: 15, aggression: 1, aiDifficulty: "hard", police: true, noReset: false, spectate: false });
     });
   });
 });

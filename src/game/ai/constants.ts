@@ -12,3 +12,14 @@ export const REVERSE_THROTTLE = -0.9;
 export const TURN_ROUND_THROTTLE = 0.6;
 /** A road's curvature (1/m) below this is a straight: no corner to slow for. */
 export const STRAIGHT_CURV = 1e-4;
+/** The AI difficulties a race offers (menu order). */
+export const AI_DIFFICULTIES = ["easy", "medium", "hard"] as const;
+export type AiDifficulty = (typeof AI_DIFFICULTIES)[number];
+/** The difficulty whose rivals think every physics slice (today's AI, bit for bit); the default. */
+export const AI_EVERY_SLICE: AiDifficulty = AI_DIFFICULTIES[2];
+/** Think rate band per difficulty (Hz of sim time); each rival rolls its own rate in the band once (`hash01`, salt `THINK_SALT`). `hard` is documentation: it thinks every slice. */
+export const THINK_HZ: Readonly<Record<AiDifficulty, readonly [number, number]>> = { hard: [192, 240], medium: [96, 192], easy: [5, 96] };
+/** `hash01` salt of a rival's think rate roll (`personality.ts` takes 2-10). */
+export const THINK_SALT = 11;
+/** Seconds a car may think early: slices are float32, so a sum of them lands a hair under a whole think interval. */
+export const THINK_DUE_SLACK = 1e-9;

@@ -58,6 +58,7 @@ describe("given a share state with every kind of field set", () => {
       laps: 5,
       ai: 11,
       aggr: 0.9,
+      diff: "easy",
       police: true,
       noreset: true,
       spectate: true,

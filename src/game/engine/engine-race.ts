@@ -12,7 +12,8 @@ import { SURFACES } from "../world/catalog.ts";
 import { PoliceBrain } from "../ai/police.ts";
 import { HunterBrain } from "../ai/hunter.ts";
 import type { AiCar } from "../ai/derby-ai.ts";
-import { onSurface } from "../ai/race-ai.ts";
+import { copyDrive, onSurface } from "../ai/race-ai.ts";
+import { AI_DIFFICULTIES } from "../ai/constants.ts";
 import { DRAFT, RaceSession } from "../match/session.ts";
 import { CAMPAIGN } from "../world/tracks/index.ts";
 import {
@@ -179,6 +180,7 @@ export class RaceDirector extends RaceWatch {
         o.laps = clamp(Math.round(o.laps), 1, 9);
         o.aiCount = clamp(Math.round(o.aiCount), 1, MAX_CARS - 1);
         o.aggression = clamp(o.aggression, 0, 1);
+        if (!AI_DIFFICULTIES.includes(o.aiDifficulty)) o.aiDifficulty = this.options.aiDifficulty;
         if (!this.courses.some((c) => c.id === o.trackId)) o.trackId = this.options.trackId;
         const moved = o.trackId !== this.options.trackId || o.aiCount !== this.options.aiCount || o.spectate !== this.options.spectate;
         this.options = o;
@@ -554,7 +556,10 @@ export class RaceDirector extends RaceWatch {
         const kind = this.entrants[i]!.kind;
         if (kind === "remote") input = this.remote[i]!;
         else if (this.seatDrives(i)) input = this.host.seat.input(car, dt);
-        else input = brain.think(snaps[i]!, snaps, rec, dt);
+        else {
+          if (brain.due(i, dt)) copyDrive(brain.think(snaps[i]!, snaps, rec, brain.elapsed(i)), this.held[i]!);
+          input = brain.guard(snaps[i]!, snaps, this.held[i]!);
+        }
       } else if (rec.status === "finished") {
         // Cool-down lap on the racing line.
         const ai = brain.think(snaps[i]!, snaps, rec, dt);

@@ -148,6 +148,15 @@ into `fight = clamp(mood, 0, 1)` and `shy = clamp(−mood, 0, 1)`. The derby AI 
   crest. A careful shove swings the lane at no more than `SHOVE_LAT` (0.5 m/s). Above 0.5 `mood` alone decides; aggression
   0 never fights.
 
+## AI difficulty (`ai/constants.ts`, `RaceBrain.due`)
+
+The setup's **AI difficulty** (`RaceOptions.aiDifficulty`: easy, medium, hard; share link `diff`) sets how often a racing rival
+re-decides, in sim time. Each rival rolls its rate once per race in its band (`hash01(id, 11)`, `THINK_HZ`): **hard** 192–240 Hz
+and thinks every physics slice (the default, the bench's setting, the AI as it was before the dial); **medium** 96–192 Hz;
+**easy** 5–96 Hz, up to 200 ms late. Between thinks the car holds its last input (`engine-race-field.ts` `held`); `think`'s
+`dt` is the time since its last think. Police, traffic and the cool-down lap think every slice. Only the host thinks and a
+replay stores inputs, so neither the wire nor replays change.
+
 ## Campaign
 
 `CAMPAIGN` = oval, rally, city, stunt, four-count, dam-spine, razor-shelf, breaker-yard (8 rounds). Points 10, 8, 6, 5, 4,

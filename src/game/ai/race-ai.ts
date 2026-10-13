@@ -1,7 +1,7 @@
 import { hypot2, detSin, detCos } from "../kernel/physics-core.js";
 import { chargeBoost, idleDrive, topUpBoost, type DriveInput } from "../vehicle/car-drive.ts";
 import { mood } from "./ai-aggression.ts";
-import { GUARD_BRAKE_IDX, GUARD_COUNT, GUARD_LEAD_IDX, GUARD_TURN_IDX, REVERSE_THROTTLE, STRAIGHT_CURV, TURN_ROUND_THROTTLE } from "./constants.ts";
+import { AI_EVERY_SLICE, GUARD_BRAKE_IDX, GUARD_COUNT, GUARD_LEAD_IDX, GUARD_TURN_IDX, REVERSE_THROTTLE, STRAIGHT_CURV, THINK_DUE_SLACK, THINK_HZ, THINK_SALT, TURN_ROUND_THROTTLE, type AiDifficulty } from "./constants.ts";
 import { guardContact } from "./contact-guard.ts";
 import { DERBY_RULES, STUCK_SPEED, type AiCar } from "./derby-ai.ts";
 import { personality, type Personality } from "./personality.ts";
@@ -25,6 +25,16 @@ export function onSurface(input: DriveInput, surf: Surface, out: DriveInput): Dr
   out.boost = input.boost;
   out.neutral = input.neutral;
   return out;
+}
+
+/** `from`'s six fields into `to` (a brain's scratch output kept as a held input between thinks). */
+export function copyDrive(from: DriveInput, to: DriveInput): void {
+  to.throttle = from.throttle;
+  to.steer = from.steer;
+  to.brake = from.brake;
+  to.ebrake = from.ebrake;
+  to.boost = from.boost;
+  to.neutral = from.neutral;
 }
 
 /** Corner margin: plan every turn as if this share of its radius, so a car keeps this share of its class's
@@ -182,11 +192,14 @@ export class RaceBrain {
   private readonly recover = new Float64Array(MAX_CARS);
   private readonly recoverSteer = new Float64Array(MAX_CARS);
   private readonly lastThrottle = new Float64Array(MAX_CARS);
+  /** Per car: seconds between thinks (0: every slice, `AI_EVERY_SLICE`) and the sim time since the last one. */
+  private readonly thinkEvery = new Float64Array(MAX_CARS);
+  private readonly sinceThink = new Float64Array(MAX_CARS);
   private readonly mainProj = blankProjection();
   private readonly subProj = blankProjection();
   private readonly args = new Float64Array(ARG_COUNT);
-  /** The tune `guardContact` reads (`GUARD_*_IDX`). */
-  private readonly guard = new Float64Array(GUARD_COUNT);
+  /** Per car id: the tune `guardContact` reads (`GUARD_*_IDX`), as of its last think. */
+  private readonly tunes = Array.from({ length: MAX_CARS }, () => new Float64Array(GUARD_COUNT));
   private readonly pt: TrackPoint = blankPoint();
   /** Speed of the car we are boxed in behind this call, NaN when the way is clear. */
   private follow = Number.NaN;
@@ -198,6 +211,8 @@ export class RaceBrain {
   private chase = 0;
   /** Per car id, this call: 1 for a rival this driver is fighting (the contact guard leaves it alone), else 0. */
   private readonly hit = new Uint8Array(MAX_CARS);
+  /** Per car id: the `hit` of its last think, kept for `guard` between thinks (only for drivers that hold their input). */
+  private readonly hitOf = Array.from({ length: MAX_CARS }, () => new Uint8Array(MAX_CARS));
   /** This call: the shortcut being turned into (−1 none), the distance (m) to its mouth while short of it, and the turn (rad) still to make onto it. */
   private entry = -1;
   private lead = 0;
@@ -246,11 +261,43 @@ export class RaceBrain {
     this.lastThrottle.fill(0);
     this.meter.fill(1);
     this.burst.fill(0);
+    this.sinceThink.fill(0);
   }
 
   /** 0 avoids every hit … 1 rams regardless of its own state (see `mood`). */
   setAggression(id: number, a: number): void {
     this.aggression[id] = clamp(a, 0, 1);
+  }
+
+  /** The car's think rate: `AI_EVERY_SLICE` thinks every physics slice, the others once per 1 / (a rate rolled once in the difficulty's `THINK_HZ` band) s. */
+  setDifficulty(id: number, d: AiDifficulty): void {
+    const [lo, hi] = THINK_HZ[d];
+    this.thinkEvery[id] = d === AI_EVERY_SLICE ? 0 : 1 / (lo + (hi - lo) * hash01(id, THINK_SALT));
+  }
+
+  /** A step of `dt` s passed for car `i`: true when it is due to think (always, at `AI_EVERY_SLICE`). */
+  due(i: number, dt: number): boolean {
+    this.sinceThink[i]! += dt;
+    return this.thinkEvery[i] === 0 || this.sinceThink[i]! >= this.thinkEvery[i]! - THINK_DUE_SLACK;
+  }
+
+  /** The sim time (s) since car `i` last thought, restarting the count: `think`'s `dt` (the slice itself at `AI_EVERY_SLICE`). */
+  elapsed(i: number): number {
+    const s = this.sinceThink[i]!;
+    this.sinceThink[i] = 0;
+    return s;
+  }
+
+  /**
+   * The input car `self` drives this slice from its held one: with `AI_EVERY_SLICE` the held input is final (`think` guarded it);
+   * otherwise the contact guard runs on every slice, so a reaction to a car ahead never waits for the next think (scratch output).
+   */
+  guard(self: AiCar, others: readonly AiCar[], held: DriveInput): DriveInput {
+    const i = self.id;
+    if (this.thinkEvery[i] === 0 || i >= this.racers || !self.alive || this.recover[i]! > 0) return held;
+    copyDrive(held, this.out);
+    guardContact(self, others, this.guarded, this.hitOf[i]!, this.tunes[i]!, this.out);
+    return this.out;
   }
 
   /** The car's class figures, so lines and braking points fit what it can do. */
@@ -404,11 +451,13 @@ export class RaceBrain {
 
     // Last rule, for a racer (police drive this line too and hit on purpose): no car it is closing on is driven into, except the ones it means to hit (`hit`); a car ahead is taken to brake as the plan does (`PLAN_BRAKE`).
     if (i < this.racers) {
-      const g = this.guard;
+      const g = this.tunes[i]!;
       g[GUARD_BRAKE_IDX] = cls.brake * GUARD_BRAKE;
       g[GUARD_LEAD_IDX] = cls.brake * PLAN_BRAKE;
       g[GUARD_TURN_IDX] = turnMax;
-      guardContact(self, others, this.guarded, this.hit, g, out);
+      // A driver that thinks every slice guards here; one that holds its input between thinks is guarded every slice by `guard`, on what it saw now.
+      if (this.thinkEvery[i] === 0) guardContact(self, others, this.guarded, this.hit, g, out);
+      else this.hitOf[i]!.set(this.hit);
     }
 
     // L0: wedged against something.

@@ -5,6 +5,7 @@
  * range). The engine applies the result through the setters the HUD uses (`engine-share.ts`).
  */
 
+import { AI_DIFFICULTIES } from "../ai/constants.ts";
 import { INITIAL_HUD, KNOB_RANGES } from "./hud-store.ts";
 import { DEFAULT_RACE_OPTIONS, DRIVER_CARS } from "../match/types.ts";
 import { NET_TX } from "../net/net-ports.ts";
@@ -119,6 +120,7 @@ const FIELDS = {
   laps: num(1, 9, O.laps, true),
   ai: num(1, MAX_CARS - 1, O.aiCount, true),
   aggr: num(0, 1, O.aggression),
+  diff: pick(AI_DIFFICULTIES, O.aiDifficulty),
   police: flag(O.police),
   noreset: flag(O.noReset),
   spectate: flag(O.spectate),

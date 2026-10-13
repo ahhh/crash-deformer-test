@@ -1,3 +1,4 @@
+import { AI_EVERY_SLICE, type AiDifficulty } from "../ai/constants.ts";
 import { DERBY_RULES } from "../ai/derby-ai.ts";
 import { crestSpeed } from "../ai/race-ai.ts";
 import type { Track } from "./track.ts";
@@ -79,7 +80,7 @@ const KEEP = Math.round(KNOCK / FRAME) + 1;
 const SAME = 20;
 
 /** One `raceOnce` with every contact of a racer classified, racer-racer or racer-traffic (`traffic`; police off: `raceOnce` never switches them on). */
-export function contactRace(w: World, track: Track, bound: number, seed: number, slider: number, aiCount = 4): ContactRace {
+export function contactRace(w: World, track: Track, bound: number, seed: number, slider: number, aiCount = 4, difficulty: AiDifficulty = AI_EVERY_SLICE): ContactRace {
   const contacts: ContactEvent[] = [];
   const hist: Sample[][] = [];
   const lastBump = new Map<number, number>();
@@ -147,7 +148,7 @@ export function contactRace(w: World, track: Track, bound: number, seed: number,
         });
         if (h.length > KEEP) h.shift();
       }
-    }, aiCount);
+    }, aiCount, difficulty);
     return { outcome, contacts };
   } finally {
     w.onPairContact = null;
