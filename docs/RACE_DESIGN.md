@@ -91,7 +91,7 @@ and demands no `missed`, no `wrongWay` and the laps done.
 - Player reset: R / D-pad ↓ / the thumb pad's button. A **tap** (released inside 0.8 s, `RESET_HOLD`) takes 1.5 s and puts
   a repaired car back. A **hold** (0.8 s, a fill shows under the banners; `ResetHold`) puts the car back **at once with its
   damage kept** (the host captures its net state and writes it over the fresh placement, `placeKeeping`), at rest and
-  upright. A hold works in a no-reset race too, and is refused in Survival, while spectating, in a menu, and for a car that
+  upright; the parts and wheels already off it stay where they lie (`resetVisual(keepTorn)`), not thrown again. A hold works in a no-reset race too, and is refused in Survival, while spectating, in a menu, and for a car that
   is respawning, out or finished. A netplay client's hold rides the input packet's flags byte to the host. AI reset: a car
   the race AI drives that gains < 25 m of track in 8 s takes the same tap reset.
 - Where a reset puts the car (`RaceSession.spot`): on the centreline of the path it is on, at its own spot if that is on the

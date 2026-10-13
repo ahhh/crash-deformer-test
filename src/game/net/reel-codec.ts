@@ -114,10 +114,12 @@ import { makeSnapshot, MAX_NET_CARS, MSG, NET_VERSION, readEjection, readSnapsho
  * posts, past the centre to the far side of their ring (`layoutFleet` rejects more bearings, the lone car spawns between two posts and the last-resort
  * ring steps off the post lines), so the spawns of a seed differ; 72: a pair's contact axis lying within 17° of square to its centre
  * line (wrecks interlocked past the outline's reach) is the centre line pointing apart, where it took its sign from a few mm of centre offset
- * (a pile's pairs flipped it every slice and were pushed 6 mm to and fro), so a replayed pile's push-out goes along the centre line.
+ * (a pile's pairs flipped it every slice and were pushed 6 mm to and fro), so a replayed pile's push-out goes along the centre line;
+ * 73: a held reset leaves the parts and wheels already off a car where they lie (it threw them again from the new spot) and a car's net
+ * skin inputs follow the state written to it (a second hold crushed the body flat), so a replayed clip's held reset moves its debris and skins differently.
  * A saved clip also records `NET_VERSION` (its snapshots' layout).
  */
-const REPLAY_VERSION = 72;
+const REPLAY_VERSION = 73;
 /** Bounds a decoder enforces (a clip is ≤ 13 s at ≤ 300 steps/s, ≤ 15 keyframes). */
 const MAX_STEPS = 8192;
 const MAX_KEYS = 64;

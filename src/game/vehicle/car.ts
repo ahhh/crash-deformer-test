@@ -146,8 +146,9 @@ export class DeformableCar extends CarParts {
     this.placeAt(x, z, Math.atan2(this.forward.x, this.forward.z), speed, this.forward);
   }
 
-  spawnFacing(x: number, z: number, yaw: number, speed: number): void {
-    this.resetVisual();
+  /** `keepTorn`: the parts and wheels already off the car stay in the world where they lie (a held reset), not back on it (`resetVisual`). */
+  spawnFacing(x: number, z: number, yaw: number, speed: number, keepTorn = false): void {
+    this.resetVisual(keepTorn);
     this.placeAt(x, z, yaw, speed, this.fwdFlat);
   }
 
@@ -174,7 +175,7 @@ export class DeformableCar extends CarParts {
     this.settleCasters();
   }
 
-  resetVisual(): void {
+  resetVisual(keepTorn = false): void {
     this.wake();
     this.vaporized = false;
     this.falling = false;
@@ -182,7 +183,7 @@ export class DeformableCar extends CarParts {
     this.group.scale.setScalar(1);
     this.deform.reset();
     // Before the rest restores below: a dent's saved copy may be a crumpled skin the rest restore then overwrites.
-    for (const p of this.parts) clearDents(p.dent);
+    for (const p of this.parts) if (!keepTorn || !p.detached) clearDents(p.dent);
     this.deform.restoreRest(this.body.geometry);
     this.restoreRest(this.hood.geometry, this.hoodRest);
     this.restoreRest(this.trunk.geometry, this.trunkRest);
@@ -195,6 +196,7 @@ export class DeformableCar extends CarParts {
     for (let i = 0; i < this.wheels.length; i++) {
       const w = this.wheels[i]!;
       const loose = this.looseWheels[i]!;
+      if (keepTorn && loose.loose) continue;
       if (loose.loose) {
         this.world.remove(w);
         this.group.add(w);
@@ -216,6 +218,7 @@ export class DeformableCar extends CarParts {
     this.endReach = Infinity;
     this.endSqueeze = false;
     for (const p of this.parts) {
+      if (keepTorn && p.detached) continue;
       if (p.detached) {
         this.world.remove(p.object);
         if (p.name === "mirrorL") this.doorL.add(p.object);

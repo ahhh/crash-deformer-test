@@ -646,9 +646,9 @@ export abstract class RaceField {
     };
   }
 
-  /** Spawn a car at (x, z) facing `yaw` (moving `speed` m/s that way), standing on the ground layer nearest `y`, dressed. */
-  private place(car: DeformableCar, x: number, z: number, yaw: number, y: number, speed = 0): void {
-    car.spawnFacing(x, z, yaw, speed);
+  /** Spawn a car at (x, z) facing `yaw` (moving `speed` m/s that way), standing on the ground layer nearest `y`, dressed; `keepTorn`: what is off it stays where it lies (`spawnFacing`). */
+  private place(car: DeformableCar, x: number, z: number, yaw: number, y: number, speed = 0, keepTorn = false): void {
+    car.spawnFacing(x, z, yaw, speed, keepTorn);
     car.group.position.y = this.track ? this.track.ground().heightAt(x, z, y + 0.5) : 0;
     if (this.track) layOnGround(car);
     this.host.dress(car);
@@ -685,7 +685,7 @@ export abstract class RaceField {
     car.readPartNetState(f.parts);
     const { crashed } = car;
     const { squash, buckle, mode } = car.deform;
-    this.place(car, x, z, yaw, y);
+    this.place(car, x, z, yaw, y, 0, true);
     car.crashed = crashed;
     // A wreck stays one (its net state's `massActive`): its masses run again from the new place, at rest, before the net state lays its
     // dents on them. The net state sets the flag alone, and a wreck's rigid step and contact rows over masses never armed read NaN.

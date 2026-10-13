@@ -725,10 +725,12 @@ export class StreamedDeformation extends DeformSolve {
     this.wrinkleAmp = im[6]!;
     this.buckle = im[7]!;
     this.squash = im[8]!;
-    // The skin cuts the roof to the host's imprint as the host drew it.
-    this.netImpact[9] = im[9]!;
-    this.netImpact[10] = im[10]!;
-    this.netImpact[11] = im[11]!;
+    // The bake inputs as the host baked them: `readNetState` hands them on, and a car read again (a held reset puts a damaged car
+    // back through its own net state) skins from them. Left at the last local bake (zeros after a reset) the second read crushes it flat.
+    this.netImpact.set(im);
+    this.netSkinXf.set(src.skinXf);
+    this.netPopped = src.skinPopped;
+    this.netFlags = f & 28;
     // Saturates the wrinkle and lattice ramps: the host's value already carries its ramp.
     this.elapsed = Math.max(this.elapsed, 1);
     let maxC = 0;
