@@ -151,7 +151,10 @@ scenarios at the engine's slices), `scenes/contact-parity.test-util.ts` (striker
 
 ## 8. Size
 
-- **S1.** Production files ≤ 800 lines, functions ≤ 150 lines. *Check C8*, report-only.
+- **S1.** Production files ≤ 800 lines, functions ≤ 150 lines. *Check C8*, report-only. Tests are not counted. The six rows it still
+  reports are hot-path solvers kept whole on purpose: splitting them would cut a hot loop or a kernel paired with its WASM build, and a
+  split is judged on measured inlining, not line count. They are `car-air.ts` `solveRows` and `stepFree`, `cage-mesh.ts` `decimate`,
+  `streamed-deform.ts` `skin`, `world/surfaces.ts` (one store for every surface query) and `kernel/shape-match-core.js` (mirrored by the skin kernel).
 
 ## 9. Code map
 
