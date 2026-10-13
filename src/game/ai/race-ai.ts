@@ -504,7 +504,7 @@ export class RaceBrain {
       out.brake = clamp(-err / 6, 0.2, 1);
     }
 
-    // Last rule, for a racer (police drive this line too and hit on purpose): no car it is closing on is driven into, except the ones it means to hit (`hit`); a car ahead is taken to brake as the plan does (`PLAN_BRAKE`).
+    // Last rule, for a racer (police drive this line too and hit on purpose): no car it is closing on is driven into, except the ones it means to hit (`hit`); a car ahead is taken to brake as the plan does (`PLAN_BRAKE`). A rival that holds its input between thinks is guarded every slice by `guard`, on what it saw now.
     if (i < this.racers) {
       const g = this.tunes[i]!;
       g[GUARD_BRAKE_IDX] = cls.brake * GUARD_BRAKE;
