@@ -16,7 +16,7 @@ import type { SceneId } from "../scenes/scene-id.ts";
 import { MouseLook } from "./mouse-look.ts";
 import { PAD_BUTTON, type TouchPad } from "../vehicle/gamepad.ts";
 import { ResetHold } from "../hud/reset-hold.ts";
-import type { BenchParts } from "./engine-bench.ts";
+import type { BenchParts } from "./bench-measure.ts";
 import { DETAIL_LEVELS } from "../present/car-detail.ts";
 import { EngineRigs } from "./engine-rigs.ts";
 import { SETTING_KEY } from "./constants.ts";
