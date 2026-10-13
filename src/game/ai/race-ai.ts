@@ -329,7 +329,6 @@ export class RaceBrain {
     const speed = hypot2(self.vx, self.vz);
     const a = this.args;
     a[ARG_DT_IDX] = dt;
-
     if (this.recover[i]! > 0) {
       this.recover[i]! -= dt;
       out.throttle = REVERSE_THROTTLE;
@@ -343,7 +342,6 @@ export class RaceBrain {
     const fresh = this.seg[i] === -1;
     const main = projectPath(tr.path, self.x, self.z, this.seg[i]!, this.mainProj);
     this.seg[i] = main.k;
-    // First look (race start, respawn): the line starts where the car is, no swerve to the middle.
     if (fresh) this.lane[i] = clamp(main.lateral, -tr.path.half[main.k]!, tr.path.half[main.k]!);
     a[ARG_MAIN_S_IDX] = main.s;
     this.pickRoute(i, race, self, others);
@@ -372,7 +370,7 @@ export class RaceBrain {
     const fz = detCos(self.yaw);
     const along = self.vx * fx + self.vz * fz;
 
-    // L2: the line. A shortcut is narrow, drive its middle: only the following gap (`follow`) applies there.
+    // A shortcut is narrow, drive its middle: only the following gap (`follow`) applies there.
     this.follow = Number.NaN;
     this.chase = 0;
     this.swerve = 0;
@@ -389,14 +387,11 @@ export class RaceBrain {
     this.lane[i] = route < 0 ? this.lane[i]! + clamp(want - this.lane[i]!, -step, step) : 0;
     const lane = this.lane[i]!;
 
-    // L3: pursue a point on the line.
     const ld = clamp(5 + 0.5 * speed, 7, LOOK);
-    // Short of a shortcut's mouth: head for the mouth itself so the car goes through its gate.
     const toMouth = route >= 0 ? hypot2(self.x - path.x[0]!, self.z - path.z[0]!) : 0;
     const early = route >= 0 && proj.s < 0.5 && toMouth > 4;
-    // Onto a shortcut, until a look-ahead into it: the turn still to make onto its heading, from the
-    // car's heading and (short of the mouth, `lead` m on) from the run in to the mouth. On the loop:
-    // the next mouth this lap's coin will take, planned before the coin is tossed.
+    // Onto a shortcut, until a look-ahead into it: the turn still to make onto its heading, from the car's heading and (short of the mouth,
+    // `lead` m on) from the run in to the mouth. On the loop: the next mouth this lap's coin will take, planned before the coin is tossed.
     this.entry = route;
     this.lead = early ? toMouth : 0;
     this.turnIn = route >= 0 && proj.s < LOOK ? Math.abs(wrapPi(this.mouthYaw[route]! - self.yaw)) : 0;
@@ -427,8 +422,7 @@ export class RaceBrain {
         target = boosted;
       }
     }
-    // Off the road, a pursuit asking for more than full lock is a corner the plan does not see: the car (pushed wide, off the
-    // road) slows to what it can turn back onto the line at, instead of holding the road's plan at full lock while it runs on out.
+    // Off the road, a pursuit asking for more than full lock is a corner the plan does not see: slow to what the car can turn back onto the line at.
     if (Math.abs(proj.lateral) > path.half[k]! && Math.abs(omega) > turnMax) {
       const arc = cornerSpeed(cls, reach / (2 * Math.abs(detSin(alpha))), surf.grip);
       if (arc < target) {
@@ -438,12 +432,10 @@ export class RaceBrain {
     }
     const err = target - along;
     if (Math.abs(alpha) > 1.9 && speed < 6) {
-      // Facing the wrong way: full lock and crawl round.
       out.throttle = TURN_ROUND_THROTTLE;
       out.steer = Math.sign(alpha) || p.side;
     } else if (err >= -1.5) {
-      // `applyDrive` runs up to throttle × top at the class's full rate, so ask for the target
-      // itself (a throttle proportional to the error would settle ~10% short of it).
+      // `applyDrive` runs to throttle × top at full rate: ask for the target itself (proportional-to-error settles ~10% short).
       out.throttle = clamp(target / (top * surf.speed * (out.boost ? cls.boostTop : 1)), err > 0.4 ? 0.35 : 0, 1);
     } else {
       out.brake = clamp(-err / 6, 0.2, 1);
@@ -455,18 +447,15 @@ export class RaceBrain {
       g[GUARD_BRAKE_IDX] = cls.brake * GUARD_BRAKE;
       g[GUARD_LEAD_IDX] = cls.brake * PLAN_BRAKE;
       g[GUARD_TURN_IDX] = turnMax;
-      // A driver that thinks every slice guards here; one that holds its input between thinks is guarded every slice by `guard`, on what it saw now.
       if (this.thinkEvery[i] === 0) guardContact(self, others, this.guarded, this.hit, g, out);
       else this.hitOf[i]!.set(this.hit);
     }
 
-    // L0: wedged against something.
     if (this.lastThrottle[i]! > 0.35 && speed < STUCK_SPEED) this.stuck[i]! += dt;
     else this.stuck[i] = Math.max(0, this.stuck[i]! - dt * 2);
     if (this.stuck[i]! > p.patience + 0.4) {
       this.stuck[i] = 0;
       this.recover[i] = 0.9 + 0.4 * p.patience;
-      // Either gear swings the nose the same way in this drive model.
       this.recoverSteer[i] = Math.sign(alpha) || p.side;
       out.throttle = REVERSE_THROTTLE;
       out.brake = 0;

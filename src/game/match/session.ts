@@ -24,9 +24,8 @@ export const RESPAWN_REQUEST_DELAY = 1.5;
 /** A respawn spot keeps this far (m) from every other car. */
 export const CLEARANCE = 6;
 /**
- * After the winner, every other car finishes the next time it crosses the line (the chequered flag),
- * classified by laps completed. A car that hasn't got there by its deadline is DNF: this long after
- * the winner, or `LAP_SLACK` × its own lap pace after it started its current lap, whichever is later.
+ * After the winner, every other car finishes the next time it crosses the line, classified by laps completed. A car not there by its
+ * deadline is DNF: `FINISH_GRACE` after the winner, or `LAP_SLACK` × its own lap pace after its current lap started, whichever is later.
  */
 export const FINISH_GRACE = 30;
 const LAP_SLACK = 1.5;
@@ -41,15 +40,11 @@ const TELEPORT = 25;
 export const GATE_MARGIN = 3;
 const RESPAWN_TRIES = 12;
 /**
- * Drafting: a racing car `near`–`far` m straight behind another racing car (along its travel), within `half` m of
- * its line, both doing over `speed` m/s that way. Every `every` s of it unbroken earns `bonus` of a boost meter;
- * while it lasts its top speed is × `top` (`applyDrive`'s `topScale`).
+ * Drafting: a racing car `near`–`far` m straight behind another (along its travel), within `half` m of its line, both over `speed` m/s.
+ * Every `every` s unbroken earns `bonus` of a boost meter; while it lasts top speed is × `top` (`applyDrive`'s `topScale`).
  */
 export const DRAFT = { near: 2, far: 15, half: 1.5, speed: 15, every: 2, bonus: 0.05, top: 1.02 };
-/**
- * Busted: a racing car held under `kph` within `near` m of a chasing police car for more than `time` s in a
- * row is out of the race, the way a DNF is (DNF; out in a no-reset race, where a dead car is out).
- */
+/** Busted: a racing car held under `kph` within `near` m of a chasing police car for over `time` s in a row is out, as a DNF is (out in a no-reset race). */
 export const BUST = { near: 20, kph: 20, time: 4 };
 
 /** 0 off, 1 red, 2 yellow, 3 green (held 1.5 s after the start). */
@@ -63,10 +58,7 @@ export function startLights(time: number): 0 | 1 | 2 | 3 {
 const NO_EVENTS: readonly RaceEvent[] = [];
 const NO_COPS: readonly { x: number; z: number }[] = [];
 
-/**
- * Slots of `RaceSession.io`: the step's window and the car's move, written by `step` and `stepCar`, read by the rules that run
- * per car per step. A number handed to a call V8 does not inline is boxed on the heap; a slot is not.
- */
+/** Slots of `RaceSession.io`, written by `step`/`stepCar`, read by the per-car rules. A number passed to a call V8 does not inline is heap-boxed; a slot is not. */
 const WIN_FROM_IDX = 0; // race clock (s) where the step's racing part starts
 const WIN_SPAN_IDX = 1; // its length (s); 0 where the clock does not run (no wrong-way timer)
 const MOVE_X0_IDX = 2; // the car's position when the step began
@@ -114,11 +106,9 @@ function newRecord(e: Entrant, grid: number, x: number, z: number): CarRecord {
 }
 
 /**
- * The race rules for one course: grid → countdown → racing → finished. Deterministic for a given
- * sequence of `step(dt, poses)` calls; no THREE scene, no DOM, no clock of its own. The host
- * feeds one `CarPose` per entrant (entrant order) every fixed step, drains `events()` after it
- * (respawn placements, laps, finishes) and acts on them. `snapshot()` / `RaceSession.restore`
- * round-trip the whole state through plain JSON.
+ * The race rules for one course: grid → countdown → racing → finished. Deterministic for a given sequence of `step(dt, poses)`
+ * calls (one `CarPose` per entrant per fixed step); no scene, DOM or clock. The host drains `events()` after each step.
+ * `snapshot()` / `RaceSession.restore` round-trip the whole state through plain JSON.
  */
 export class RaceSession {
   readonly track: Track;
@@ -144,7 +134,6 @@ export class RaceSession {
   private readonly pt = blankPoint();
   /** `stretch`'s result (a field, not a returned object: it runs per car per step). */
   private readonly span = { lo: 0, hi: 0, u: 0, at: NaN };
-  /** The step's window and the car's move (`WIN_*`, `MOVE_*`, `VEL_*` slots). */
   private readonly io = new Float64Array(IO_COUNT);
 
   /** `entrants` in grid order (index 0 on pole). */
@@ -236,7 +225,6 @@ export class RaceSession {
     this.settle();
   }
 
-  /** The green light: `go` for the host. */
   private announceGo(): void {
     this.queue.push({ type: "go" });
   }
@@ -347,9 +335,8 @@ export class RaceSession {
   }
 
   /**
-   * Co-op: the humans (cars no AI drives) of an event, as one team. Null with fewer than two. Race: `place` is the best human place,
-   * `won` once the event is over says a human finished first; nobody has to finish, the finish and DNF rules end the event as ever.
-   * Survival: the run ends when no human is free (`settle`), so it is only ever lost.
+   * Co-op: the humans (cars no AI drives) as one team; null with fewer than two. Race: `place` is the best human place, `won` once
+   * the event is over says a human finished first. Survival: ends when no human is free (`settle`), so only ever lost.
    */
   team(): TeamHud | null {
     let humans = 0;
@@ -425,14 +412,10 @@ export class RaceSession {
   }
 
   /**
-   * Gate credit for the move (x0, z0) → (c.x, c.z) over [t0, t0 + dt] (the `io` slots). A designed shortcut counts
-   * from any of its gates but the last, through any later one: a car that drives its own line
-   * across the shortcut's ground (skipping a gate of it) still took the shortcut. Main checkpoints
-   * stay strict; crossing a later one with a checkpoint still owed sets `missed`. Which road the car is
-   * on follows where it crosses: a shortcut's gate counts as entering it only off the main road (the gates
-   * at a mouth lie across the road the shortcut leaves), a main gate counts as back on it only on the
-   * main road (a shortcut that runs beside the road lies within a gate's reach), and where several
-   * shortcuts leave one checkpoint the car is on the one whose road is nearest.
+   * Gate credit for the move (x0, z0) → (c.x, c.z) over [t0, t0 + dt] (the `io` slots). A designed shortcut counts from any of its
+   * gates but the last, through any later one, so a car driving its own line across the shortcut's ground still took it. Main
+   * checkpoints stay strict: crossing a later one with one owed sets `missed`. A shortcut gate counts as entering only off the main
+   * road, a main gate as back on it only on the main road; among shortcuts leaving one checkpoint the car is on the nearest road's.
    */
   private gates(i: number): void {
     const c = this.cars[i]!;
@@ -465,7 +448,6 @@ export class RaceSession {
             continue;
           }
         }
-        // Back on the main road past `from`: the shortcut is abandoned.
         const g = crossGate(tr.gates[c.next]!, x0, z0, c.x, c.z);
         if (g < 0 || !tr.onRoad(x0 + (c.x - x0) * g, z0 + (c.z - z0) * g, this.back)) return;
         this.leaveRoute(c, c.next);
@@ -500,9 +482,8 @@ export class RaceSession {
   }
 
   /**
-   * Onto a shortcut the car is not on yet, or onto a sibling one (another shortcut from the same checkpoint): of the shortcuts
-   * with a gate (but the exit) crossed this move off the main road, the car takes the one whose road is nearest, and a car
-   * already on one only moves to a nearer.
+   * Onto a shortcut not yet on, or a sibling: of the shortcuts with a gate (but the exit) crossed this move off the main road, the car
+   * takes the one whose road is nearest; a car already on one only moves to a nearer.
    */
   private reroute(c: CarRecord): void {
     const x0 = this.io[MOVE_X0_IDX]!;
@@ -575,10 +556,9 @@ export class RaceSession {
   }
 
   /**
-   * Fills `span` for car `c` on the path it is on (`p` its projection onto it, `road` whether it is on that road): the stretch of the path
-   * that lies between the last checkpoint it hit (`lo`) and the first it owes (`hi`: the main loop's checkpoints, or the shortcut's gates),
-   * `u` its arc length on it (the main loop's wrapped to within half a lap of the stretch), and `at` that arc length when the car stands on
-   * the road inside the stretch, NaN when it does not. `measure` records `at` as the car's safe spot, `spot` puts a reset there.
+   * Fills `span` for car `c` on its path (`p` its projection, `road` whether it is on that road): the stretch between the last checkpoint hit (`lo`)
+   * and the first owed (`hi`), `u` the car's arc length (main loop wrapped to within half a lap of the stretch), `at` that arc length when on the
+   * road inside the stretch, else NaN. `measure` records `at` as the safe spot, `spot` puts a reset there.
    */
   private stretch(c: CarRecord, p: Projection, road: boolean): void {
     const tr = this.track;
@@ -683,10 +663,8 @@ export class RaceSession {
   }
 
   /**
-   * The driver holds reset: back on the road at once, the car as it is (the host keeps its damage). Allowed in a no-reset race,
-   * where the car is still racing (an engine that runs, a driver in the car; a dead one is out, and a thrown-out driver or a dead
-   * engine in a respawn race is put back, repaired, by the 3 s reset); refused in an endless run (there is no road to go back
-   * to), when the race is not on, and for a car that is respawning, out or finished.
+   * The driver holds reset: back on the road at once, car as it is (host keeps its damage). Allowed in a no-reset race while the
+   * car is still racing; refused in an endless run, when the race is not on, and for a car respawning, out or finished.
    */
   holdReset(id: number): boolean {
     const i = this.cars.findIndex((c) => c.id === id);
@@ -703,10 +681,8 @@ export class RaceSession {
   }
 
   /**
-   * Where car `i` goes back to, on the centreline of the path it is on, `GATE_MARGIN` short of the checkpoint it owes at most and never
-   * behind the last one it hit: the car's own spot if that is on the road between the two, else the last such spot it passed
-   * (`CarRecord.safe`), else the checkpoint it last hit. A car that drove round a checkpoint, or crashed in the field, goes back where
-   * it left the road before that checkpoint, not to the nearest road in the field and not past it. Clear of the other cars.
+   * Where car `i` goes back to: on its path's centreline, `GATE_MARGIN` short of the checkpoint it owes and never behind the last it hit.
+   * Its own spot if on the road between the two, else the last such spot it passed (`CarRecord.safe`), else the checkpoint it last hit. Clear of the other cars.
    */
   private spot(i: number): { x: number; z: number; yaw: number } {
     const c = this.cars[i]!;
@@ -775,7 +751,6 @@ export class RaceSession {
     return a.grid < b.grid;
   }
 
-  /** Finish events, the winner, the last-alive rule and the close. */
   private settle(): void {
     if (this.finishers.length > 0) this.announceFinishers();
     let winTime = Number.NaN;
