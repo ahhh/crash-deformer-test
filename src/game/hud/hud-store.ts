@@ -6,7 +6,7 @@ import { crushStroke } from "../kernel/physics-core.js";
 import { DEFAULT_REALISM } from "../vehicle/vehicle-classes.ts";
 import { DRIVER_CARS, type RaceHud, type RaceView } from "../match/types.ts";
 import type { CrashPhase } from "../match/phase.ts";
-import type { SpecView } from "../present/engine-camera.ts";
+import { CHASE_DEFAULTS, type ChaseKnobId, type SpecView } from "../present/engine-camera.ts";
 import type { CarPart, PersonPick } from "../match/look-data.ts";
 import type { DriverLook } from "../present/driver-look.ts";
 import { DEFAULT_BUCKLE, DEFAULT_SQUASH } from "../deform/constants.ts";
@@ -161,7 +161,8 @@ export type CrashHudState = {
   playerCar: string;
   /** Mouse look (pointer lock) is on. */
   mouseLook: boolean;
-};
+  /** The debug panel's camera sliders (`CHASE_KNOBS`), keyed `cam.<path>`. */
+} & Record<ChaseKnobId, number>;
 
 /** The stroke slider reads out at 56 km/h, the NCAP full-frontal barrier speed. */
 const STROKE_REF_MPS = 56 / 3.6;
@@ -264,6 +265,7 @@ export const INITIAL_HUD: CrashHudState = {
   realism: DEFAULT_REALISM,
   playerCar: DRIVER_CARS[0]!.id,
   mouseLook: false,
+  ...CHASE_DEFAULTS,
 };
 
 /** The HUD's read model: the engine publishes a fresh snapshot, the UI subscribes. CrashLab makes one per engine. */

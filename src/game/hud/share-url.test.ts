@@ -62,6 +62,9 @@ describe("given a share state with every kind of field set", () => {
       police: true,
       noreset: true,
       spectate: true,
+      "cam.pos.lat": 3.25,
+      "cam.zeta.up": 0.5,
+      "cam.landing.hold": 1.2,
       seed: 0xffffffff,
     };
     assert.equal(json(decodeShare(`#${encodeShare(s)}`)), json({ ...s, squash: Math.round(s.squash * 1e4) / 1e4 }));
@@ -108,6 +111,23 @@ describe("given a link with out-of-range numbers", () => {
     assert.equal(d.laps, 9);
     assert.equal(d.aggr, 1);
     assert.equal(d.squash, KNOB_RANGES.squash.max);
+  });
+});
+
+describe("given a camera slider in a share link, keyed cam.<chase path>", () => {
+  it("when one slider is off its default, then only its key is written, one at its default is dropped even when set explicitly, and the fragment reads back", () => {
+    assert.equal(encodeShare({ ...DEFAULTS, "cam.pos.lon": 9.5 }), "cam.pos.lon=9.5");
+    assert.equal(encodeShare({ ...DEFAULTS, "cam.pos.lon": INITIAL_HUD["cam.pos.lon"] }), "");
+    assert.equal(encodeShare({ ...DEFAULTS, "cam.landing.wobbleHz": 22, "cam.driftLean": 0.25 }), "cam.driftLean=0.25&cam.landing.wobbleHz=22");
+    assert.equal(decodeShare("#cam.pos.lon=9.5&cam.landing.wobbleHz=22")["cam.pos.lon"], 9.5);
+    assert.equal(decodeShare("#cam.pos.lon=9.5&cam.landing.wobbleHz=22")["cam.landing.wobbleHz"], 22);
+  });
+
+  it("when a slider is out of range or unreadable, then it clamps to the slider's range or is the default", () => {
+    const d = decodeShare("cam.pos.lon=99&cam.zeta.lat=0&cam.pos.up=abc");
+    assert.equal(d["cam.pos.lon"], 14);
+    assert.equal(d["cam.zeta.lat"], 0.3);
+    assert.equal(d["cam.pos.up"], INITIAL_HUD["cam.pos.up"]);
   });
 });
 

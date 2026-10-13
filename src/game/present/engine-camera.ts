@@ -134,8 +134,16 @@ export const CHASE = {
 /** The debug panel's groups: the talk's three tuning parameters (masterclass 29:27), then what else the chase tunes. */
 type ChaseGroup = "Convergence" | "Momentum" | "Damping" | "Look-ahead" | "Slide" | "Landing";
 
+/** A chase knob's id is its HUD field, its settings entry and its share-URL key: `cam.` plus the `CHASE` path. */
+export type ChaseKnobId =
+  | "cam.pos.lon" | "cam.pos.lat" | "cam.pos.up"
+  | "cam.zeta.lon" | "cam.zeta.lat" | "cam.zeta.up"
+  | "cam.maxSpeed" | "cam.aheadVel" | "cam.aheadMax"
+  | "cam.fovSlide" | "cam.driftTilt" | "cam.driftLean"
+  | "cam.landing.fall" | "cam.landing.zetaUp" | "cam.landing.hold" | "cam.landing.wobble" | "cam.landing.wobbleHz";
+
 type ChaseKnob = {
-  id: string;
+  id: ChaseKnobId;
   group: ChaseGroup;
   label: string;
   min: number;
@@ -145,30 +153,43 @@ type ChaseKnob = {
   set: (value: number) => void;
 };
 
-function knob(group: ChaseGroup, id: string, label: string, min: number, max: number, step: number, get: () => number, set: (value: number) => void): ChaseKnob {
+function knob(group: ChaseGroup, id: ChaseKnobId, label: string, min: number, max: number, step: number, get: () => number, set: (value: number) => void): ChaseKnob {
   return { id, group, label, min, max, step, get, set };
 }
 
-/** Every `CHASE` value the debug panel tunes live (not persisted, not shared); the ranges keep the eye above `floor` and the car in view. */
+/**
+ * Every `CHASE` value the debug panel tunes live: HUD fields, settings (changed dot, reset) and share-URL keys like any other setting.
+ * The ranges keep the eye above `floor` and the car in view. `knob-defaults.test.ts` pins that every `ChaseKnobId` has a row.
+ */
 export const CHASE_KNOBS: readonly ChaseKnob[] = [
-  knob("Convergence", "pos.lon", "Forward", 3, 14, 0.1, () => CHASE.pos.lon, (v) => void (CHASE.pos.lon = v)),
-  knob("Convergence", "pos.lat", "Lateral", 2, 12, 0.1, () => CHASE.pos.lat, (v) => void (CHASE.pos.lat = v)),
-  knob("Convergence", "pos.up", "Vertical", 3, 12, 0.1, () => CHASE.pos.up, (v) => void (CHASE.pos.up = v)),
-  knob("Momentum", "zeta.lon", "Forward", 0.3, 1, 0.01, () => CHASE.zeta.lon, (v) => void (CHASE.zeta.lon = v)),
-  knob("Momentum", "zeta.lat", "Lateral", 0.3, 1, 0.01, () => CHASE.zeta.lat, (v) => void (CHASE.zeta.lat = v)),
-  knob("Momentum", "zeta.up", "Vertical", 0.3, 1, 0.01, () => CHASE.zeta.up, (v) => void (CHASE.zeta.up = v)),
-  knob("Damping", "maxSpeed", "Max speed (0 off)", 0, 40, 0.5, () => CHASE.maxSpeed, (v) => void (CHASE.maxSpeed = v)),
-  knob("Look-ahead", "aheadVel", "Seconds", 0, 0.5, 0.01, () => CHASE.aheadVel, (v) => void (CHASE.aheadVel = v)),
-  knob("Look-ahead", "aheadMax", "Max (m)", 0, 12, 0.1, () => CHASE.aheadMax, (v) => void (CHASE.aheadMax = v)),
-  knob("Slide", "fovSlide", "FOV (deg)", 0, 10, 0.1, () => CHASE.fovSlide, (v) => void (CHASE.fovSlide = v)),
-  knob("Slide", "driftTilt", "Tilt (deg)", 0, 4, 0.1, () => CHASE.driftTilt, (v) => void (CHASE.driftTilt = v)),
-  knob("Slide", "driftLean", "Drift lean", 0, 1.2, 0.01, () => LOAD_FEEL.driftLean, (v) => void (LOAD_FEEL.driftLean = v)),
-  knob("Landing", "landing.fall", "Fall (m/s)", 2, 12, 0.1, () => CHASE.landing.fall, (v) => void (CHASE.landing.fall = v)),
-  knob("Landing", "landing.zetaUp", "Bounce", 0.2, 1, 0.01, () => CHASE.landing.zetaUp, (v) => void (CHASE.landing.zetaUp = v)),
-  knob("Landing", "landing.hold", "Window (s)", 0.1, 1.5, 0.05, () => CHASE.landing.hold, (v) => void (CHASE.landing.hold = v)),
-  knob("Landing", "landing.wobble", "Wobble (deg)", 0, 2, 0.05, () => CHASE.landing.wobble, (v) => void (CHASE.landing.wobble = v)),
-  knob("Landing", "landing.wobbleHz", "Wobble (Hz)", 10, 40, 1, () => CHASE.landing.wobbleHz, (v) => void (CHASE.landing.wobbleHz = v)),
+  knob("Convergence", "cam.pos.lon", "Forward", 3, 14, 0.1, () => CHASE.pos.lon, (v) => void (CHASE.pos.lon = v)),
+  knob("Convergence", "cam.pos.lat", "Lateral", 2, 12, 0.1, () => CHASE.pos.lat, (v) => void (CHASE.pos.lat = v)),
+  knob("Convergence", "cam.pos.up", "Vertical", 3, 12, 0.1, () => CHASE.pos.up, (v) => void (CHASE.pos.up = v)),
+  knob("Momentum", "cam.zeta.lon", "Forward", 0.3, 1, 0.01, () => CHASE.zeta.lon, (v) => void (CHASE.zeta.lon = v)),
+  knob("Momentum", "cam.zeta.lat", "Lateral", 0.3, 1, 0.01, () => CHASE.zeta.lat, (v) => void (CHASE.zeta.lat = v)),
+  knob("Momentum", "cam.zeta.up", "Vertical", 0.3, 1, 0.01, () => CHASE.zeta.up, (v) => void (CHASE.zeta.up = v)),
+  knob("Damping", "cam.maxSpeed", "Max speed (0 off)", 0, 40, 0.5, () => CHASE.maxSpeed, (v) => void (CHASE.maxSpeed = v)),
+  knob("Look-ahead", "cam.aheadVel", "Seconds", 0, 0.5, 0.01, () => CHASE.aheadVel, (v) => void (CHASE.aheadVel = v)),
+  knob("Look-ahead", "cam.aheadMax", "Max (m)", 0, 12, 0.1, () => CHASE.aheadMax, (v) => void (CHASE.aheadMax = v)),
+  knob("Slide", "cam.fovSlide", "FOV (deg)", 0, 10, 0.1, () => CHASE.fovSlide, (v) => void (CHASE.fovSlide = v)),
+  knob("Slide", "cam.driftTilt", "Tilt (deg)", 0, 4, 0.1, () => CHASE.driftTilt, (v) => void (CHASE.driftTilt = v)),
+  knob("Slide", "cam.driftLean", "Drift lean", 0, 1.2, 0.01, () => LOAD_FEEL.driftLean, (v) => void (LOAD_FEEL.driftLean = v)),
+  knob("Landing", "cam.landing.fall", "Fall (m/s)", 2, 12, 0.1, () => CHASE.landing.fall, (v) => void (CHASE.landing.fall = v)),
+  knob("Landing", "cam.landing.zetaUp", "Bounce", 0.2, 1, 0.01, () => CHASE.landing.zetaUp, (v) => void (CHASE.landing.zetaUp = v)),
+  knob("Landing", "cam.landing.hold", "Window (s)", 0.1, 1.5, 0.05, () => CHASE.landing.hold, (v) => void (CHASE.landing.hold = v)),
+  knob("Landing", "cam.landing.wobble", "Wobble (deg)", 0, 2, 0.05, () => CHASE.landing.wobble, (v) => void (CHASE.landing.wobble = v)),
+  knob("Landing", "cam.landing.wobbleHz", "Wobble (Hz)", 10, 40, 1, () => CHASE.landing.wobbleHz, (v) => void (CHASE.landing.wobbleHz = v)),
 ];
+
+/** Every chase knob's live value by id (the HUD fields and share-state keys). The cast holds: `CHASE_KNOBS` has a row per id (pinned by test). */
+export function chaseValues(): Record<ChaseKnobId, number> {
+  const out = {} as Record<ChaseKnobId, number>;
+  for (let i = 0; i < CHASE_KNOBS.length; i++) out[CHASE_KNOBS[i]!.id] = CHASE_KNOBS[i]!.get();
+  return out;
+}
+
+/** The knobs' values at module load: before anything mutates `CHASE` or `LOAD_FEEL`, so the defaults of `INITIAL_HUD`, the settings and the share URL. */
+export const CHASE_DEFAULTS = chaseValues();
 
 /**
  * Camera ride (visual): a small share of the followed car's drawn body heave and pitch (`Suspension`), so the seat

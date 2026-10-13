@@ -1,3 +1,4 @@
+import { CHASE_KNOBS, type ChaseKnobId } from "../present/engine-camera.ts";
 import { INITIAL_HUD, type CrashHudState } from "./hud-store.ts";
 
 /** The settings menu's sections (`HudSections`). */
@@ -19,8 +20,8 @@ type Setting = {
   shown?: (s: CrashHudState) => boolean;
 };
 
-/** Every setting the menu offers a value for, in menu order. Auto FX, Auto cel and Auto time scale are the defaults. */
-export const SETTINGS = {
+/** The menu's settings but the camera sliders, in menu order. Auto FX, Auto cel and Auto time scale are the defaults. */
+const BASE_SETTINGS = {
   loop: { section: "playback", label: "Loop", defaults: { looping: D.looping } },
   slomo: { section: "playback", label: "Slow-mo", defaults: { autoSlomo: D.autoSlomo } },
   orbit: { section: "playback", label: "Orbit", defaults: { autoRotate: D.autoRotate } },
@@ -42,6 +43,12 @@ export const SETTINGS = {
   particles: { section: "debug", label: "Particles", defaults: { showParticles: D.showParticles } },
   capture: { section: "debug", label: "Capture", defaults: { captureTrace: D.captureTrace } },
 } as const satisfies Record<string, Setting>;
+
+/** One setting per camera slider (`CHASE_KNOBS`), under the knob's own id: its HUD field is the one at its default. The cast holds: a row per `ChaseKnobId` (pinned by test). */
+const CAMERA_SETTINGS = {} as Record<ChaseKnobId, Setting>;
+for (const k of CHASE_KNOBS) CAMERA_SETTINGS[k.id] = { section: "debug", label: `Camera ${k.group.toLowerCase()} ${k.label}`, defaults: { [k.id]: D[k.id] } };
+
+export const SETTINGS: typeof BASE_SETTINGS & Record<ChaseKnobId, Setting> = { ...BASE_SETTINGS, ...CAMERA_SETTINGS };
 export type SettingId = keyof typeof SETTINGS;
 export const SETTING_IDS = Object.keys(SETTINGS) as SettingId[];
 

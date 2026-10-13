@@ -433,36 +433,33 @@ function DebugSection({ state, engine }: HudProps) {
           </Button>
         ) : null}
       </div>
-      <ChaseKnobs engine={engine} />
+      <ChaseKnobs state={state} engine={engine} />
       <p className="mt-1 text-[11px] text-muted">Build {__BUILD_SHA__}</p>
     </>
   );
 }
 
-/** The chase camera's tunables under the talk's three names (convergence, momentum, damping), then look-ahead, slide and landing; they live in `CHASE`, not in the saved settings. */
-function ChaseKnobs({ engine }: { engine: HudProps["engine"] }) {
-  const [values, setValues] = useState(() => CHASE_KNOBS.map((k) => k.get()));
+/** The chase camera's tunables under the talk's three names (convergence, momentum, damping), then look-ahead, slide and landing; settings like the rest (`CHASE_KNOBS`): dot, reset chip, share URL. */
+function ChaseKnobs({ state, engine }: Pick<HudProps, "state" | "engine">) {
   const groups = [...new Set(CHASE_KNOBS.map((k) => k.group))];
   return (
     <>
       {groups.map((group) => (
         <div key={group}>
           <p className="hud-label mt-1">Camera: {group.toLowerCase()}</p>
-          {CHASE_KNOBS.map((k, i) =>
+          {CHASE_KNOBS.map((k) =>
             k.group === group ? (
               <RangeRow
                 key={k.id}
                 label={k.label}
                 name={`Camera ${group.toLowerCase()} ${k.label}`}
-                value={values[i]!}
+                value={state[k.id]}
                 min={k.min}
                 max={k.max}
                 step={k.step}
                 digits={Math.max(0, Math.ceil(-Math.log10(k.step)))}
-                onValue={(v) => {
-                  engine.current?.setChaseKnob(k.id, v);
-                  setValues(CHASE_KNOBS.map((x) => x.get()));
-                }}
+                changed={isChanged(state, k.id)}
+                onValue={(v) => engine.current?.setChaseKnob(k.id, v)}
               />
             ) : null,
           )}

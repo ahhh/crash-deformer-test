@@ -9,6 +9,7 @@ import { AI_DIFFICULTIES } from "../ai/constants.ts";
 import { INITIAL_HUD, KNOB_RANGES } from "./hud-store.ts";
 import { DEFAULT_RACE_OPTIONS, DRIVER_CARS } from "../match/types.ts";
 import { NET_TX } from "../net/net-ports.ts";
+import { CHASE_DEFAULTS, CHASE_KNOBS, type ChaseKnobId } from "../present/engine-camera.ts";
 import { FX_TIERS } from "../present/engine-post.ts";
 import { MAX_CARS } from "../scenes/fleet.ts";
 import { SCENE_IDS, SOLO_SCENES } from "../scenes/scene-id.ts";
@@ -73,10 +74,10 @@ const D = INITIAL_HUD;
 const O = DEFAULT_RACE_OPTIONS;
 
 /**
- * Every shared setting, in URL order: the trace JSON's settings (`engine-trace.ts`) plus the piston and door
+ * Every shared setting but the camera sliders, in URL order: the trace JSON's settings (`engine-trace.ts`) plus the piston and door
  * rigs' knobs and the race setup. The piston and door ranges mirror the rigs' own setter clamps, which apply again.
  */
-const FIELDS = {
+const BASE_FIELDS = {
   // The room first: it is what a link is for. `tx` is `bc` only for two tabs of one browser.
   room: roomCode,
   tx: pick([NET_TX.rtc, NET_TX.bc] as const, NET_TX.rtc),
@@ -126,6 +127,12 @@ const FIELDS = {
   spectate: flag(O.spectate),
   seed: hex,
 };
+
+/** The camera sliders, each under its own id (`cam.pos.lon`), clamped to its range like the other knobs. The cast holds: a row per `ChaseKnobId` (pinned by test). */
+const CAMERA_FIELDS = {} as Record<ChaseKnobId, Field<number>>;
+for (const k of CHASE_KNOBS) CAMERA_FIELDS[k.id] = num(k.min, k.max, CHASE_DEFAULTS[k.id]);
+
+const FIELDS = { ...BASE_FIELDS, ...CAMERA_FIELDS };
 
 export type ShareState = { [K in keyof typeof FIELDS]: (typeof FIELDS)[K]["def"] };
 const KEYS = Object.keys(FIELDS) as (keyof ShareState)[];

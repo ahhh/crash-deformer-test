@@ -9,7 +9,7 @@ import type { DeformableCar } from "../vehicle/car.ts";
 import { cleanName, DRIVER_CARS, type DriverCar, type SubmitContext } from "../match/types.ts";
 import { driverCarApplies } from "../match/driver-pick.ts";
 import { FX_TIERS, type FxTier } from "../present/engine-post.ts";
-import { CHASE_KNOBS } from "../present/engine-camera.ts";
+import { CHASE_KNOBS, type ChaseKnobId } from "../present/engine-camera.ts";
 import { loadUltra as fetchUltra } from "../present/ultra/load.ts";
 import { gameKey } from "../vehicle/drive-input.ts";
 import type { SceneId } from "../scenes/scene-id.ts";
@@ -258,10 +258,12 @@ export abstract class EngineInput extends EngineRigs {
     this.emitHud();
   }
 
-  /** The debug panel's chase camera knob `id` (`CHASE_KNOBS`) to `value`, clamped to its range; the camera reads it live. */
-  setChaseKnob(id: string, value: number): void {
+  /** The camera slider `id` (`CHASE_KNOBS`) to `value`, clamped to its range; the camera reads it live, the HUD and the share URL follow. */
+  setChaseKnob(id: ChaseKnobId, value: number): void {
     const knob = CHASE_KNOBS.find((k) => k.id === id);
-    if (knob && Number.isFinite(value)) knob.set(THREE.MathUtils.clamp(value, knob.min, knob.max));
+    if (!knob || !Number.isFinite(value)) return;
+    knob.set(THREE.MathUtils.clamp(value, knob.min, knob.max));
+    this.emitHud();
   }
 
   /** The player's car (slot 0; every car in the Stack) becomes the `DRIVER_CARS` entry `id`; the field respawns and the camera follows it. */
@@ -410,6 +412,9 @@ export abstract class EngineInput extends EngineRigs {
         break;
       case "capture":
         if (this.captureTrace) this.toggleCapture();
+        break;
+      default:
+        this.setChaseKnob(id, D[id]);
         break;
     }
   }

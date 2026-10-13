@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { INITIAL_HUD, type CrashHudState } from "./hud-store.ts";
 import { changedSettings, isChanged, SETTING_IDS, SETTINGS, type SettingId } from "./settings-changes.ts";
 import { DRIVER_CARS } from "../match/types.ts";
+import { CHASE_KNOBS, type ChaseKnobId } from "../present/engine-camera.ts";
 
 /** The menu after the user moved a Cinematic FX pick (Auto off) and the crumple stroke. */
 const touched: CrashHudState = { ...INITIAL_HUD, fxAuto: false, fxTier: "high", squash: 0.2 };
@@ -43,6 +44,8 @@ describe("given the settings menu, where each setting is a group of HUD fields w
   });
 
   it("when every setting is changed and then each is reset in turn, then each reads as unchanged right after its reset and the menu ends as the defaults", () => {
+    const camera: Partial<Record<ChaseKnobId, number>> = {};
+    for (const k of CHASE_KNOBS) camera[k.id] = INITIAL_HUD[k.id] === k.max ? k.min : k.max;
     const all: CrashHudState = {
       ...INITIAL_HUD,
       looping: !INITIAL_HUD.looping,
@@ -66,6 +69,7 @@ describe("given the settings menu, where each setting is a group of HUD fields w
       showRig: true,
       showParticles: true,
       captureTrace: true,
+      ...camera,
     };
     let s = all;
     const order = changedSettings(s);
@@ -83,6 +87,15 @@ describe("given the settings menu, where each setting is a group of HUD fields w
     const range = { ...INITIAL_HUD, carCount: 1, range: { distance: null, landed: false } };
     assert.equal(isChanged(range, "cars"), false, "the range's one car is the scene's");
     assert.equal(isChanged({ ...INITIAL_HUD, carCount: 1 }, "cars"), true);
+  });
+
+  it("when a camera slider is moved off its default or only a hair off, then it is a changed Debug setting only when moved, and resetting it clears it", () => {
+    assert.equal(isChanged({ ...INITIAL_HUD, "cam.pos.lon": INITIAL_HUD["cam.pos.lon"] + 1e-6 }, "cam.pos.lon"), false);
+    const moved = { ...INITIAL_HUD, "cam.pos.lon": INITIAL_HUD["cam.pos.lon"] + 1 };
+    assert.deepEqual(changedSettings(moved), ["cam.pos.lon"]);
+    assert.deepEqual(changedSettings(moved, "debug"), ["cam.pos.lon"]);
+    assert.deepEqual(changedSettings(moved, "playback"), []);
+    assert.deepEqual(changedSettings(reset(moved, "cam.pos.lon")), []);
   });
 });
 

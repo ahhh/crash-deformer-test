@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import * as THREE from "three";
 import { INITIAL_HUD, KNOB_RANGES, squashForStroke, strokeAt56 } from "./hud-store.ts";
 import { StreamedDeformation } from "../deform/streamed-deform.ts";
+import { CHASE_KNOBS, type ChaseKnobId } from "../present/engine-camera.ts";
 
 // The engine seeds and resets its knobs from INITIAL_HUD and pushes them into every car's
 // deformer (`dressCar`); headless cars and tests use the deformer's own field defaults.
@@ -19,6 +20,23 @@ describe("given the calibrated crash knob defaults (squash, buckle and realism)"
       assert.ok(r.min < r.max, `${k} range ${r.min}–${r.max}`);
       assert.ok(INITIAL_HUD[k] >= r.min && INITIAL_HUD[k] <= r.max, `${k} ${INITIAL_HUD[k]} outside ${r.min}–${r.max}`);
     }
+  });
+
+  it("when each camera slider's default is compared with its range, then it sits inside the range, and every ChaseKnobId has its own row", () => {
+    for (const k of CHASE_KNOBS) {
+      assert.ok(k.min < k.max, `${k.id} range ${k.min}–${k.max}`);
+      assert.ok(INITIAL_HUD[k.id] >= k.min && INITIAL_HUD[k.id] <= k.max, `${k.id} ${INITIAL_HUD[k.id]} outside ${k.min}–${k.max}`);
+    }
+    assert.equal(new Set(CHASE_KNOBS.map((k) => k.id)).size, CHASE_KNOBS.length, "no two rows share an id");
+    // `Record<ChaseKnobId, true>` fails tsc when an id is missing here or unknown to the type; the rows must be exactly these ids.
+    const ids: Record<ChaseKnobId, true> = {
+      "cam.pos.lon": true, "cam.pos.lat": true, "cam.pos.up": true,
+      "cam.zeta.lon": true, "cam.zeta.lat": true, "cam.zeta.up": true,
+      "cam.maxSpeed": true, "cam.aheadVel": true, "cam.aheadMax": true,
+      "cam.fovSlide": true, "cam.driftTilt": true, "cam.driftLean": true,
+      "cam.landing.fall": true, "cam.landing.zetaUp": true, "cam.landing.hold": true, "cam.landing.wobble": true, "cam.landing.wobbleHz": true,
+    };
+    assert.equal(CHASE_KNOBS.map((k) => k.id).sort().join(" "), Object.keys(ids).sort().join(" "), "the rows are exactly the ChaseKnobId union");
   });
 
   it("when a stroke is written to the stroke slider and read back (stroke → squash → stroke), then it reads back what was written", () => {
