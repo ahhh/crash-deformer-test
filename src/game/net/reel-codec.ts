@@ -112,10 +112,12 @@ import { makeSnapshot, MAX_NET_CARS, MSG, NET_VERSION, readEjection, readSnapsho
  * window is open, so a replayed pile settles and steps differently; 70: a car taken out of the world leaves no roof behind (a resting
  * loose part was woken by the roof of a car the step's list had dropped); 71: a fleet car's spawn keeps its whole straight path clear of the lamp
  * posts, past the centre to the far side of their ring (`layoutFleet` rejects more bearings, the lone car spawns between two posts and the last-resort
- * ring steps off the post lines), so the spawns of a seed differ.
+ * ring steps off the post lines), so the spawns of a seed differ; 72: a pair's contact axis lying within 17° of square to its centre
+ * line (wrecks interlocked past the outline's reach) is the centre line pointing apart, where it took its sign from a few mm of centre offset
+ * (a pile's pairs flipped it every slice and were pushed 6 mm to and fro), so a replayed pile's push-out goes along the centre line.
  * A saved clip also records `NET_VERSION` (its snapshots' layout).
  */
-const REPLAY_VERSION = 71;
+const REPLAY_VERSION = 72;
 /** Bounds a decoder enforces (a clip is ≤ 13 s at ≤ 300 steps/s, ≤ 15 keyframes). */
 const MAX_STEPS = 8192;
 const MAX_KEYS = 64;

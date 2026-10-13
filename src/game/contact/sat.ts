@@ -15,6 +15,8 @@ const _bRight = new THREE.Vector3();
 const _bFwd = new THREE.Vector3();
 /** `deepestIn`'s band of the other cage around a node: lowest and highest height. */
 const _band = new Float64Array(2);
+/** A pair's contact normal this near square to its centre line (cosine, 0.3 = 17° off square) is turned to it (`satCars`). */
+const PERPENDICULAR = 0.3;
 
 /** Max displacement per physics slice so a 30 m/s car cannot skip a 0.76 m wall; never shorter than `floor` (s, 1/240 unless the pacer is shedding load). */
 export function physicsSlice(dt: number, vmax: number, floor = 1 / 240): number {
@@ -243,7 +245,12 @@ export function satCars(a: DeformableCar, b: DeformableCar, normalOut: THREE.Vec
     nz = 0;
   }
   const apart = nx * -dx + nz * -dz;
-  if (apart < 0) {
+  const centres = hypot2(dx, dz);
+  if (Math.abs(apart) < PERPENDICULAR * centres) {
+    // A normal within 17° of square to the centre line has no side to turn to: two wrecks interlocked past the outline's reach (gradients in the deep overlap point either way) flipped it with a few mm of centre offset, and their push-out moved them 6 mm a slice, to and fro, for as long as the pile lay. The centre line is the one direction that parts them.
+    nx = -dx / centres;
+    nz = -dz / centres;
+  } else if (apart < 0) {
     nx = -nx;
     nz = -nz;
   }

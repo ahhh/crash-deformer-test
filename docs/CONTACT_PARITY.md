@@ -243,6 +243,15 @@ stayed inside the follower's nose for seconds (the owner's "hooked cops"; any cl
 
 A clip saved before this rule replays its pairs' pushes the other way round: `REPLAY_VERSION` 13.
 
+### A pair's axis that lies square to its centre line keeps its side (`REPLAY_VERSION` 72)
+
+Owner, live c5e5cba (seed 5449605, 12 cars): wrecks twitch through the slow-mo crash until they rest. Wrecks interlocked past the outline's reach (two sedans 3 m apart in one lane) have a mean outline normal square to the centre line, so `apart = n·(centre offset)` was the sign of a few mm of lateral offset: ±2 mm turned the axis 180° (`pair-hook.test.ts`, cos −0.99 before) and the push-out moved the pair 6 mm to and fro every slice. `satCars` now takes the centre line, pointing apart, for any axis within 17° of square to it (`PERPENDICULAR` 0.3).
+
+- Fleet, 12 cars, 40 s at 60 Hz, 3 runs a seed (the engine is not deterministic run to run): axis flips (a `satCars` call opposite the pair's previous one) 462 / 186 / 67 / 789 over 5449605 / 14214617 / 1897520 / 8753367 before, 19 / 29 / 19 / 29 after; drawn back-and-forth steps of the flipping cars (> 1 mm both ways, within 3 frames of a flip, car under 0.5 m/s) 158 / 33 / 8 / 70 before, 1 / 2 / 1 / 0 after, 5-16 mm each (26 at most). Other drawn reversals in the capture (about 35-170 a run) do not change with it: they are crush and slide motion, not this pair axis.
+- Honest side rubs are not touched: sedans side by side, 1 to 2.5 m apart along the lane, 5 cm lateral overlap, keep the axis within 20° of lateral either side (passes before and after), and 2494 overlapping side poses over all 25 class pairs (offsets 0.5-5.8 m, yaw ±0.1, overlap 5 and 15 cm) give the same axis with and without the snap: the snap needs the centre line more than 72° off lateral, which two cars that still overlap sideways never reach inside the 6 m centre cutoff.
+
+A clip saved before this rule replays a pile's push-out with the sign of the offset: `REPLAY_VERSION` 72.
+
 ## Fixed solids: race walls, props and ramp flanks meet the car as the jersey slab does
 
 Owner, 2026-10-04: a fixed, very hard object does what the range's jersey slab does, on every map. Race walls
