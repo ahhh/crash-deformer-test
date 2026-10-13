@@ -171,6 +171,26 @@ describe("given a driver using the keyboard pedals (brake, reverse, handbrake)",
     drive(["KeyW", "KeyA"], 0.3);
   });
 
+  it("when a stick-steered (analog wheel) driver at full lock at speed presses the brake for 0.15 s and lets go, then there is no handbrake pulse: the tap is a keyboard-steering request", () => {
+    const intent = blankIntent();
+    intent.analogWheel = true;
+    intent.analogGas = true;
+    intent.wheel = 1;
+    const feel = { wheel: 0, gas: 0, brake: 0, brakeHeld: 0, pulse: 0 };
+    const out = idleDrive();
+    const run = (gas: number, brake: number, s: number) => {
+      intent.gas = gas;
+      intent.brake = brake;
+      for (let t = 0; t < s - 1e-9; t += 1 / 120) {
+        shapeDrive(intent, feel, 15, 1 / 120, out);
+        assert.equal(out.ebrake, false, `handbrake pulsed with the wheel at ${feel.wheel.toFixed(2)}`);
+      }
+    };
+    run(1, 0, 0.4);
+    run(0, 1, 0.15);
+    run(1, 0, 0.3);
+  });
+
   it("when S is held from 10 m/s for 3 s, then the car stops after 0.3–0.7 s, never speeds up on the way, and backs up past 5 m/s without S being released", () => {
     const r = rigAt("third", 10);
     r.car.spawnFacing(0, 0, 0, 10);

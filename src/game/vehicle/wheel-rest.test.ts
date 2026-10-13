@@ -245,6 +245,19 @@ describe("given a sedan hit once so it is a wreck, on level ground", () => {
     }
   });
 
+  it("when a wreck slides into another at 12 m/s and the two come to rest crushed together (their pair contact answers every slice), then both sleep within 10 s and stay asleep for 2 s", () => {
+    // A pair contact between two still wrecks wakes neither (`wakePair`): waking both on every contact kept this pair awake (restS 0/0).
+    const cars = [struck("sedan", 0), struck("sedan", 0, 2.05, 6)];
+    const w = newWorld(cars);
+    cars[1]!.velocity.z = -12;
+    const both = (): boolean => cars[0]!.asleep && cars[1]!.asleep;
+    assert.ok(frames(w, cars, 10 * 60, both) > 0, `asleep ${cars.map((c) => c.asleep).join("/")} after 10 s (restS ${cars.map((c) => c.restS.toFixed(2)).join("/")})`);
+    for (let f = 0; f < 2 * 60; f++) {
+      tick(w, cars);
+      assert.ok(both(), `a wreck woke ${f} frames after both slept`);
+    }
+  });
+
   it("when a wreck slides into a sleeping one, then the sleeper wakes and is shoved along", () => {
     const cars = [struck("sedan", 0), struck("sedan", 0, 2.05, 6)];
     const w = newWorld(cars);
