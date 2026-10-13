@@ -456,7 +456,7 @@ export class DriverSeat {
   boost = 1;
   /** This frame's merged keyboard + pad intent. */
   readonly intent = blankIntent();
-  private readonly feel: DriveFeel = { wheel: 0, gas: 0, brake: 0 };
+  private readonly feel: DriveFeel = { wheel: 0, gas: 0, brake: 0, brakeHeld: 0, pulse: 0 };
   private readonly out = idleDrive();
   private wasActive = false;
   private readonly flip = new FlipClock();

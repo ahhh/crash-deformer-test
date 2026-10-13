@@ -12,7 +12,7 @@ const PAINT = { body: 0xc5c8ce, accent: 0x9aa0a8, name: "Titanium" };
 /** Shaped output after holding `keys` for `seconds` at a fixed forward speed. */
 function shaped(keys: string[], along: number, seconds: number) {
   const intent = readIntent(new Set(keys), null, blankIntent());
-  const feel = { wheel: 0, gas: 0, brake: 0 };
+  const feel = { wheel: 0, gas: 0, brake: 0, brakeHeld: 0, pulse: 0 };
   const out = idleDrive();
   for (let t = 0; t < seconds - 1e-9; t += 1 / 120) shapeDrive(intent, feel, along, 1 / 120, out);
   return { out, feel, intent };
@@ -117,6 +117,42 @@ describe("given a driver using the keyboard pedals (brake, reverse, handbrake)",
     assert.equal(out.throttle, 0);
     assert.equal(out.brake, FEEL.handbrakeBrake);
     assert.equal(shaped(["KeyW"], 10, 0.3).out.ebrake, false);
+  });
+
+  it("when the brake is tapped for 0.15 s with the wheel at lock at speed, then the handbrake pulses for 0.1 s after the release and not 0.15 s later", () => {
+    const keys = (k: string[]) => readIntent(new Set(k), null, blankIntent());
+    const feel = { wheel: 0, gas: 0, brake: 0, brakeHeld: 0, pulse: 0 };
+    const out = idleDrive();
+    const run = (k: string[], s: number) => {
+      const intent = keys(k);
+      for (let t = 0; t < s - 1e-9; t += 1 / 120) shapeDrive(intent, feel, 15, 1 / 120, out);
+    };
+    run(["KeyW", "KeyA"], 0.4);
+    run(["KeyW", "KeyA", "KeyS"], 0.15);
+    assert.equal(out.ebrake, false);
+    run(["KeyW", "KeyA"], 1 / 120);
+    assert.equal(out.ebrake, true);
+    run(["KeyW", "KeyA"], 0.15);
+    assert.equal(out.ebrake, false);
+  });
+
+  it("when the brake is tapped with the wheel centred, or held for 0.5 s with the wheel at lock, then there is no handbrake pulse", () => {
+    const centred = idleDrive();
+    const feel = { wheel: 0, gas: 0, brake: 0, brakeHeld: 0, pulse: 0 };
+    const drive = (k: string[], s: number, out = centred) => {
+      const intent = readIntent(new Set(k), null, blankIntent());
+      for (let t = 0; t < s - 1e-9; t += 1 / 120) {
+        shapeDrive(intent, feel, 15, 1 / 120, out);
+        assert.equal(out.ebrake, false);
+      }
+    };
+    drive(["KeyW"], 0.4);
+    drive(["KeyW", "KeyS"], 0.15);
+    drive(["KeyW"], 0.3);
+    feel.wheel = 0;
+    drive(["KeyW", "KeyA"], 0.4);
+    drive(["KeyW", "KeyA", "KeyS"], 0.5);
+    drive(["KeyW", "KeyA"], 0.3);
   });
 
   it("when S is held from 10 m/s for 3 s, then the car stops after 0.3–0.7 s, never speeds up on the way, and backs up past 5 m/s without S being released", () => {

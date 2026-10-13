@@ -1,4 +1,4 @@
-import type { DriveInput } from "./car-drive.ts";
+import { DRIVE, type DriveInput } from "./car-drive.ts";
 import { PAD_BUTTON, type PadState } from "./gamepad.ts";
 
 /** One frame of player intent, keyboard and pad merged, in player-visible signs. */
@@ -32,8 +32,8 @@ export function blankIntent(): DriveIntent {
   };
 }
 
-/** Ramped wheel and pedals carried between physics slices. */
-export type DriveFeel = { wheel: number; gas: number; brake: number };
+/** Ramped wheel and pedals carried between physics slices, plus the brake-tap drift pulse (`brakeHeld` s down, `pulse` s left). */
+export type DriveFeel = { wheel: number; gas: number; brake: number; brakeHeld: number; pulse: number };
 
 export const FEEL = {
   /** Keyboard wheel slew (1/s): full lock in ~0.24 s, back to centre in ~0.14 s. */
@@ -52,6 +52,10 @@ export const FEEL = {
   stopSpeed: 0.6,
   /** Service-brake share applied with the handbrake. */
   handbrakeBrake: 0.55,
+  /** A brake held no longer than this (s) and released with the wheel past `tapWheel` at speed is a drift request: the handbrake pulses for `tapPulse` s. */
+  tapBrake: 0.25,
+  tapWheel: 0.6,
+  tapPulse: 0.1,
 };
 
 /**
@@ -119,9 +123,18 @@ export function shapeDrive(intent: DriveIntent, feel: DriveFeel, along: number, 
   const roll = Math.max(-1, Math.min(1, along / FEEL.rollSpeed));
   out.steer = feel.wheel * lock * roll;
 
+  if (intent.brake > 0.5) feel.brakeHeld += dt;
+  else {
+    if (feel.brakeHeld > 0 && feel.brakeHeld <= FEEL.tapBrake && Math.abs(feel.wheel) > FEEL.tapWheel && along > DRIVE.slideSpeed) {
+      feel.pulse = FEEL.tapPulse;
+    }
+    feel.brakeHeld = 0;
+  }
+  feel.pulse = Math.max(0, feel.pulse - dt);
+
   out.throttle = 0;
   out.brake = 0;
-  out.ebrake = intent.handbrake;
+  out.ebrake = intent.handbrake || feel.pulse > 0;
   if (intent.handbrake) {
     out.brake = FEEL.handbrakeBrake;
   } else if (feel.gas >= feel.brake) {

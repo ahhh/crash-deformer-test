@@ -87,7 +87,7 @@ describe("given a gamepad driving a car", () => {
     const intent = readIntent(new Set(), s, blankIntent());
     assert.ok(intent.wheel > 0.99 && intent.analogWheel);
     assert.equal(intent.gas, 1);
-    const feel = { wheel: 0, gas: 0, brake: 0 };
+    const feel = { wheel: 0, gas: 0, brake: 0, brakeHeld: 0, pulse: 0 };
     const out = idleDrive();
     for (let i = 0; i < 30; i++) shapeDrive(intent, feel, 6, 1 / 60, out);
     assert.ok(out.steer > 0.5, `steer ${out.steer}`);
@@ -102,7 +102,7 @@ describe("given a gamepad driving a car", () => {
     const s = blankPad();
     readPad(pad([0, 0, 0, 0], [], 0.6, 0), s);
     const intent = readIntent(new Set(), s, blankIntent());
-    const feel = { wheel: 0, gas: 0, brake: 0 };
+    const feel = { wheel: 0, gas: 0, brake: 0, brakeHeld: 0, pulse: 0 };
     const out = idleDrive();
     shapeDrive(intent, feel, 8, 1 / 60, out);
     assert.ok(Math.abs(out.brake - triggerValue(0.6)) < 1e-9 && out.throttle === 0, "partial pull = partial brake, no ramp");
