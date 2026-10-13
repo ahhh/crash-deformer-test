@@ -1,8 +1,8 @@
 import type { DeformableCar } from "../vehicle/car.ts";
 import type { Ejection } from "../vehicle/ejection.ts";
-import type { DriverSeat } from "../vehicle/car-drive.ts";
+import type { DriveInput, DriverSeat } from "../vehicle/car-drive.ts";
 import type { CarStyleId } from "../vehicle/car-variants.ts";
-import type { RaceDirector } from "../engine/engine-race.ts";
+import type { RaceCommand, RaceOptions, RacePhase, RaceSnapshot } from "../match/types.ts";
 import type { CrashPhase } from "../match/phase.ts";
 import type { VehicleClassId } from "../vehicle/vehicle-classes.ts";
 import type { DerbyNetState, LobbyGate } from "./codec.ts";
@@ -10,23 +10,24 @@ import type { Reel } from "../match/highlights.ts";
 import type { NetPeer } from "./transport.ts";
 import type { LookData } from "./look-codec.ts";
 
-/** The race director as netplay sees it (`CrashEngine.race`, while race mode is on). */
-export type NetRace = Pick<
-  RaceDirector,
-  | "options"
-  | "look"
-  | "phase"
-  | "survival"
-  | "setRemoteInput"
-  | "requestRespawn"
-  | "holdReset"
-  | "snapshot"
-  | "applySnapshot"
-  | "showLobby"
-  | "courseId"
-  | "seatLobby"
-  | "command"
->;
+/** The race director as netplay sees it (`CrashEngine.race`, while race mode is on; the engine's `RaceDirector` fits it structurally). */
+export interface NetRace {
+  options: RaceOptions;
+  look: number;
+  survival: boolean;
+  /** The rules phase, null outside a race. */
+  readonly phase: RacePhase | null;
+  /** The course the director shows. */
+  readonly courseId: string;
+  setRemoteInput(carId: number, input: DriveInput): void;
+  requestRespawn(id?: number): void;
+  holdReset(id?: number): void;
+  snapshot(): RaceSnapshot | null;
+  applySnapshot(snap: RaceSnapshot, self: number): void;
+  showLobby(trackId: string): void;
+  seatLobby(self: number): void;
+  command(cmd: RaceCommand): void;
+}
 
 /** Which public match a room runs; the room name says (`pub-race-…`, `pub-derby-…`). */
 export type PublicKind = "race" | "derby";
