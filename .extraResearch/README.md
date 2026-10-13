@@ -35,6 +35,10 @@ Treat model-written prose as leads, not facts; cite the listed sources.
 | `perplexity/24-racing-ai.md` | Opponent AI on a spline: pure-pursuit lookahead, curvature/grip speed planning, overtaking offsets, aggression-scaled blocking/ramming, recovery (RaceLead lane) |
 | `perplexity/25-stunt-track-design.md` | Stunt circuit layout: figure-8 crossovers, tunnels, kicker/tabletop jumps, wall-ride banks, readability at speed, fairness for AI, cheap browser rendering (RaceLead lane) |
 | `perplexity/26-race-traffic.md` | Ambient NPC traffic: spawn/despawn bubbles out of view, lane graphs, cross traffic at junctions for T-bones, density, crash reactions, multiplayer cost (RaceLead lane) |
+| `perplexity/2026-10-13-arcade-draft-zone-values.md` | Drafting zones in arcade racers (Burnout, NFS, Mario Kart, Ridge Racer, GRID…): no published geometry; Ridge Racer distance-weighted, blink-then-decay on exit (DraftCone lane) |
+| `perplexity/2026-10-13-slipstream-zone-around-corners.md` | Slipstream detection around corners: rear cone 1.5–3 car lengths, 10–20° half-angle; breadcrumb trail with widening radius; ~45° alignment; NASCAR/F1 wake strength by car length (DraftCone lane) |
+| `perplexity/2026-10-13-ai-difficulty-believable-mistakes.md` | Racing AI difficulty tiers that err believably: braking-point, line, reaction and look-ahead errors, mistake rates, rubber-banding, per-tier values (AI difficulty lane) |
+| `perplexity/2026-10-13-ai-error-models-formulas.md` | Formulas for AI driver error: smoothed line-offset noise, corner-speed overcook factor, reaction delay buffers, steering gain, per-corner mistake odds, seeded determinism (AI difficulty lane) |
 
 ## Papers (`papers/`)
 
