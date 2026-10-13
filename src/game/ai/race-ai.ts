@@ -473,7 +473,7 @@ export class RaceBrain {
     a[ARG_SPEED_IDX] = speed;
     a[ARG_TOP_IDX] = top;
     let target = this.plan(i, path, route);
-    if (clear && this.slipP[i]! > 0 && this.slipCheck(i, target < SLIP_CORNER * top, dt)) target = this.plan(i, path, route);
+    if (this.slipP[i]! > 0 && this.slipCheck(i, target < SLIP_CORNER * top, clear, dt)) target = this.plan(i, path, route);
     // Boxed in, passing or keeping a gap sets `follow`; otherwise a clear run (or a hunted rival to
     // catch) boosts while the plan at the boosted top wants more speed than the car has.
     if (!Number.isNaN(this.follow)) target = Math.min(target, Math.max(0, this.follow - 0.5));
@@ -609,15 +609,16 @@ export class RaceBrain {
   }
 
   /**
-   * Seeded mistake: ages car `i`'s timers by `dt` and, on the step a corner comes into the plan (`corner`) with the last mistake's cooldown over,
-   * rolls its `slipP` (roll count and car id seed the hash: the same field slips at the same corners every run). True when one starts.
+   * Seeded mistake: ages car `i`'s timers by `dt` every think and tracks when a corner comes into the plan (`corner`). On that edge, with the
+   * last mistake's cooldown over and an open road (`roll`), rolls its `slipP` (roll count and car id seed the hash: the same field slips at the
+   * same corners every run). True when one starts.
    */
-  private slipCheck(i: number, corner: boolean, dt: number): boolean {
+  private slipCheck(i: number, corner: boolean, roll: boolean, dt: number): boolean {
     this.slip[i] = Math.max(0, this.slip[i]! - dt);
     this.cool[i] = Math.max(0, this.cool[i]! - dt);
     const edge = corner && this.wasCorner[i] === 0;
     this.wasCorner[i] = corner ? 1 : 0;
-    if (!edge || this.cool[i]! > 0 || hash01(i + 64 * this.rolls[i]!++, SKILL_SALT.slipRoll) >= this.slipP[i]!) return false;
+    if (!roll || !edge || this.cool[i]! > 0 || hash01(i + 64 * this.rolls[i]!++, SKILL_SALT.slipRoll) >= this.slipP[i]!) return false;
     this.slip[i] = SLIP_WINDOW + SLIP_RECOVER;
     this.cool[i] = SLIP_COOL;
     this.mistakes[i]!++;
