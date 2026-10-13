@@ -2,7 +2,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { REV_IDLE, VEHICLE_CLASS_IDS, type VehicleClassId } from "../vehicle/vehicle-classes.ts";
-import { accelLoad, channelGains, damageTone, motorLoad, motorRev, motorRpm, TONE_COUNT, toneMessage, toneMessages, toneOptions } from "./motor-tone.ts";
+import { accelLoad, channelGains, damageTone, MOTOR_OUTPUT_GAIN, motorLoad, motorRev, motorRpm, TONE_COUNT, toneMessage, toneMessages, toneOptions } from "./motor-tone.ts";
 
 const EPS = 1e-9;
 const SAMPLE_RATE = 48000;
@@ -74,29 +74,26 @@ describe("given the engine load", () => {
   }
 });
 
-describe("given the channel levels", () => {
+describe("given the channel levels ahead of the clamp (the demo's 100% each, tilted per class)", () => {
   const out = new Float64Array(3);
-  it("when the sedan idles with no load, then the intake is quietest and the outlet is loudest", () => {
-    channelGains(out, SEDAN, 0, REV_IDLE);
-    assert.ok(out[0]! < out[1]! && out[1]! < out[2]!);
+  for (const cls of VEHICLE_CLASS_IDS) {
+    it(`when ${cls} is tuned, then every channel is audible and no louder than 1.5 (the clamp does the rest)`, () => {
+      channelGains(out, cls);
+      for (const level of out) assert.ok(level > 0 && level <= 1.5);
+    });
+  }
+  it("when the sedan is tuned, then it is lighter than the demo: the block and the outlet sit under the demo's 100%", () => {
+    channelGains(out, SEDAN);
+    assert.ok(out[1]! < 1 && out[2]! < 1 && out[0]! > 1);
   });
-  it("when the load rises to full, then every channel gets louder", () => {
-    channelGains(out, SEDAN, 0, 0.5);
-    const idle = [out[0]!, out[1]!, out[2]!];
-    channelGains(out, SEDAN, 1, 0.5);
-    assert.ok(out[0]! > idle[0]! && out[1]! === idle[1]! && out[2]! > idle[2]!);
+  it("when the monster is tuned, then its outlet is louder than the sedan's", () => {
+    channelGains(out, SEDAN);
+    const sedan = out[2]!;
+    channelGains(out, "monster");
+    assert.ok(out[2]! > sedan);
   });
-  it("when the revs rise, then the engine block gets louder", () => {
-    channelGains(out, SEDAN, 0.5, 0.2);
-    const low = out[1]!;
-    channelGains(out, SEDAN, 0.5, 1);
-    assert.ok(out[1]! > low);
-  });
-  it("when full load and full revs, then the raw generator is scaled down (never above 0.2 per channel)", () => {
-    for (const cls of VEHICLE_CLASS_IDS) {
-      channelGains(out, cls, 1, 1);
-      assert.ok(out[0]! <= 0.2 && out[1]! <= 0.2 && out[2]! <= 0.2);
-    }
+  it("when the output is set after the clamp, then it is in the 40-60% range the demo's own slider sits at, not its 10% default", () => {
+    assert.ok(MOTOR_OUTPUT_GAIN >= 0.4 && MOTOR_OUTPUT_GAIN <= 0.6);
   });
 });
 
@@ -113,6 +110,41 @@ describe("given the class tweaks", () => {
         options.straightPipeWaveguideLength !== sedan.straightPipeWaveguideLength,
       ];
       assert.ok(differs.filter(Boolean).length >= 2);
+    });
+  }
+});
+
+describe("given the class table against the demo's defaults (4 cylinders, waveguides 100, straight pipe 128, outlet 5, ignition 0.016, action 0.1)", () => {
+  const testCases = [
+    { cls: "sedan", cylinders: 4, intake: 90, exhaust: 90, straightPipe: 109, outlet: 4, ignition: 0.0144, action: 0.09 },
+    { cls: "police", cylinders: 4, intake: 95, exhaust: 100, straightPipe: 134, outlet: 5, ignition: 0.0152, action: 0.1 },
+    { cls: "muscle", cylinders: 4, intake: 105, exhaust: 110, straightPipe: 154, outlet: 6, ignition: 0.0176, action: 0.11 },
+    { cls: "truck", cylinders: 4, intake: 120, exhaust: 125, straightPipe: 192, outlet: 8, ignition: 0.02, action: 0.085 },
+    { cls: "monster", cylinders: 6, intake: 130, exhaust: 140, straightPipe: 230, outlet: 10, ignition: 0.0224, action: 0.12 },
+  ] as const;
+  for (const c of testCases) {
+    const o = toneOptions(c.cls, 44100);
+    it(`when ${c.cls} is built at 44.1 kHz, then each part is the demo's value times its class factor`, () => {
+      assert.equal(o.cylinders, c.cylinders);
+      assert.equal(o.intakeWaveguideLength, c.intake);
+      assert.equal(o.exhaustWaveguideLength, c.exhaust);
+      assert.equal(o.straightPipeWaveguideLength, c.straightPipe);
+      assert.equal(o.outletWaveguideLength, c.outlet);
+      assert.ok(Math.abs(o.ignitionTime - c.ignition) < EPS);
+      assert.ok(Math.abs(o.action - c.action) < EPS);
+    });
+  }
+});
+
+describe("given the classes ordered light to deep", () => {
+  const order = ["sedan", "police", "muscle", "truck", "monster"] as const;
+  for (let i = 1; i < order.length; i++) {
+    const lighter = toneOptions(order[i - 1]!, 44100);
+    const deeper = toneOptions(order[i]!, 44100);
+    it(`when ${order[i]} is compared with ${order[i - 1]}, then its exhaust, straight pipe and ignition are no shorter`, () => {
+      assert.ok(deeper.exhaustWaveguideLength >= lighter.exhaustWaveguideLength);
+      assert.ok(deeper.straightPipeWaveguideLength >= lighter.straightPipeWaveguideLength);
+      assert.ok(deeper.ignitionTime >= lighter.ignitionTime);
     });
   }
 });
@@ -135,8 +167,8 @@ describe("given the generator options of each class at 48 kHz", () => {
       for (const f of factors) assert.ok(f >= 0 && f <= 1);
     });
   }
-  it("when the sedan is built at 48 kHz, then its 100-sample waveguide scales by 48000/44100 and rounds", () => {
-    assert.equal(toneOptions(SEDAN, 48000).intakeWaveguideLength, Math.round((100 * 48000) / 44100));
+  it("when the sedan is built at 48 kHz, then its 90-sample waveguide (0.9 x the demo's 100) scales by 48000/44100 and rounds", () => {
+    assert.equal(toneOptions(SEDAN, 48000).intakeWaveguideLength, Math.round((90 * 48000) / 44100));
   });
   it("when a length would round to zero, then it stays at least one sample", () => {
     assert.equal(toneOptions(SEDAN, 1000).outletWaveguideLength, 1);
@@ -167,6 +199,11 @@ describe("given the damage stages", () => {
     it(`when ${cls} limps, then the message ignition time stays inside the generator's range`, () => {
       const ignition = toneMessage(cls, "limping", SAMPLE_RATE).ignition_time;
       assert.ok(ignition >= 0.01 && ignition <= 0.5);
+    });
+    it(`when ${cls} wears, then its muffler action is 0.8 x (damaged) and 0.6 x (limping) the healthy one`, () => {
+      const healthy = toneMessage(cls, "healthy", SAMPLE_RATE).action;
+      assert.ok(Math.abs(toneMessage(cls, "damaged", SAMPLE_RATE).action - 0.8 * healthy) < EPS);
+      assert.ok(Math.abs(toneMessage(cls, "limping", SAMPLE_RATE).action - 0.6 * healthy) < EPS);
     });
   }
   it("when a message is built, then its keys are the processor's port.onmessage keys", () => {

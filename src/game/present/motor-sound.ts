@@ -3,7 +3,7 @@ import { MAX_CARS } from "../scenes/fleet.ts";
 import type { DeformableCar } from "../vehicle/car.ts";
 import { carClass, carRpm, damageStage, VEHICLE_CLASS_IDS } from "../vehicle/vehicle-classes.ts";
 import { approach } from "./audio-mix.ts";
-import { accelLoad, channelGains, damageTone, DIE_DOWN_S, motorLoad, motorRev, motorRpm, TONE_COUNT, toneMessages, toneOptions, type ToneMessage, type ToneOptions } from "./motor-tone.ts";
+import { accelLoad, channelGains, damageTone, DIE_DOWN_S, MOTOR_OUTPUT_GAIN, motorLoad, motorRev, motorRpm, TONE_COUNT, toneMessages, toneOptions, type ToneMessage, type ToneOptions } from "./motor-tone.ts";
 import { VoicePool } from "./motor-voices.ts";
 
 const WORKLET_URL = `${import.meta.env?.BASE_URL ?? "/"}audio/motor-worklet.js`;
@@ -23,10 +23,12 @@ const ROLLOFF_FACTOR = 1.3;
 const SWAP_FADE_S = 0.12;
 /** Time constant (s) of every voice parameter ramp. */
 const PARAM_TAU_S = 0.05;
-/** A misfire dips the voice gain to this level, for `MISFIRE_DIP_S`, then lets it back with `MISFIRE_RECOVER_TAU_S`. */
-const MISFIRE_DIP = 0.1;
+/** A misfire dips the voice gain to this share of `MOTOR_OUTPUT_GAIN`, for `MISFIRE_DIP_S`, then lets it back with `MISFIRE_RECOVER_TAU_S`. */
+const MISFIRE_DIP = 0.1 * MOTOR_OUTPUT_GAIN;
 const MISFIRE_DIP_S = 0.04;
 const MISFIRE_RECOVER_TAU_S = 0.02;
+/** The hard clip of the demo's `clamp: true`: a WaveShaper curve through -1, 0, 1. */
+const CLAMP_CURVE = new Float32Array([-1, 0, 1]);
 /** A dead or stalled voice's gain and rpm ramp with this time constant: DIE_DOWN_S / 5 leaves 0.7% (-43 dB) when the rpm is cut to 0. */
 const DIE_TAU_S = DIE_DOWN_S / 5;
 /** Smoothing (s) of the acceleration-derived load, and of the player's engine level that ducks the music. */
@@ -145,7 +147,7 @@ export class MotorSound {
       node.connect(block, 1);
       node.connect(outlet, 2);
     } else {
-      // The oscillator's raw level is about a third of the generator's outlet channel, so it feeds the loudest channel gain.
+      // A unit-amplitude saw into the outlet channel: the clamp passes it whole.
       const oscillator = context.createOscillator();
       oscillator.type = FALLBACK_WAVE;
       oscillator.frequency.value = 0;
@@ -153,9 +155,13 @@ export class MotorSound {
       oscillator.start();
       rpm = oscillator.frequency;
     }
-    intake.connect(gain);
-    block.connect(gain);
-    outlet.connect(gain);
+    // As the upstream demo's `clamp: true`: the three channels summed and hard-clipped at +-1, then the volume.
+    const clamp = context.createWaveShaper();
+    clamp.curve = CLAMP_CURVE;
+    intake.connect(clamp);
+    block.connect(clamp);
+    outlet.connect(clamp);
+    clamp.connect(gain);
     gain.connect(filter);
     const positional = new THREE.PositionalAudio(listener);
     positional.setDistanceModel(DISTANCE_MODEL);
@@ -241,9 +247,9 @@ export class MotorSound {
   }
 
   /**
-   * Retunes one voice to its car at a tick: class and damage tuning (a re-tune rebuilds the generator, so it happens under
-   * a fade or a misfire dip), rpm from the gauge's revs lifted by the load, the channel levels, misfires. A dead, stalled or
-   * parked engine winds down to silence.
+   * Retunes one voice to its car at a tick: class and damage tuning and the class's channel levels (a re-tune rebuilds the
+   * generator, so it happens under a fade or a misfire dip), rpm from the gauge's revs lifted by the load, misfires. A dead,
+   * stalled or parked engine winds down to silence.
    */
   private driveVoice(slot: number, car: DeformableCar, isPriority: boolean, tick: number, rate: number, parked: boolean, now: number): void {
     const voice = this.voices[slot]!;
@@ -278,14 +284,18 @@ export class MotorSound {
       if (!fresh) voice.gain.gain.setValueAtTime(MISFIRE_DIP, now);
       voice.port?.postMessage(this.messages[classIndex * TONE_COUNT + damage.toneIndex]);
       voice.filter.frequency.setTargetAtTime(damage.cutoffHz, now, PARAM_TAU_S);
-      if (!fresh) voice.gain.gain.setTargetAtTime(1, now + MISFIRE_DIP_S, MISFIRE_RECOVER_TAU_S);
+      channelGains(this.gains, cls);
+      voice.intake.gain.setValueAtTime(this.gains[0]!, now);
+      voice.block.gain.setValueAtTime(this.gains[1]!, now);
+      voice.outlet.gain.setValueAtTime(this.gains[2]!, now);
+      if (!fresh) voice.gain.gain.setTargetAtTime(MOTOR_OUTPUT_GAIN, now + MISFIRE_DIP_S, MISFIRE_RECOVER_TAU_S);
     }
     if (!this.gainOn[slot]) {
-      voice.gain.gain.setTargetAtTime(1, now, PARAM_TAU_S);
+      voice.gain.gain.setTargetAtTime(MOTOR_OUTPUT_GAIN, now, PARAM_TAU_S);
       this.gainOn[slot] = 1;
     } else if (damage.misfirePerS > 0 && Math.random() < damage.misfirePerS * tick) {
       voice.gain.gain.setValueAtTime(MISFIRE_DIP, now);
-      voice.gain.gain.setTargetAtTime(1, now + MISFIRE_DIP_S, MISFIRE_RECOVER_TAU_S);
+      voice.gain.gain.setTargetAtTime(MOTOR_OUTPUT_GAIN, now + MISFIRE_DIP_S, MISFIRE_RECOVER_TAU_S);
     }
     const along = car.velocity.x * car.fwdFlat.x + car.velocity.z * car.fwdFlat.z;
     const accel = approach(this.accel[slot]!, accelLoad(along, this.prevAlong[slot]!, tick), tick, ACCEL_TAU_S);
@@ -296,10 +306,6 @@ export class MotorSound {
     let rpm = motorRpm(cls, rev, rate);
     if (damage.rpmJitter > 0) rpm *= 1 + damage.rpmJitter * (2 * Math.random() - 1);
     voice.rpm.setTargetAtTime(rpm * this.hzPerRpm[classIndex]!, now, PARAM_TAU_S);
-    channelGains(this.gains, cls, load, rev);
-    voice.intake.gain.setTargetAtTime(this.gains[0]!, now, PARAM_TAU_S);
-    voice.block.gain.setTargetAtTime(this.gains[1]!, now, PARAM_TAU_S);
-    voice.outlet.gain.setTargetAtTime(this.gains[2]!, now, PARAM_TAU_S);
     if (isPriority) this.levelTarget = load * rev;
   }
 

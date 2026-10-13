@@ -6,8 +6,8 @@ const FREE_REV_SHARE = 0.35;
 const LOAD_ACCEL = 4;
 /** Slow-mo pitches the engines down by the presented-time rate, but no lower than this share of their pitch. */
 const SLOWMO_PITCH_FLOOR = 0.25;
-/** The generator's raw output is loud; this is the upstream demo's master gain. The calibration knob for engine loudness. */
-const MOTOR_OUTPUT_GAIN = 0.1;
+/** After the clamp: 50%. The upstream demo's 10% default is very low; 40-60% (its slider sat at 56) is where the engine reads clearly over the music. The calibration knob for engine loudness. */
+export const MOTOR_OUTPUT_GAIN = 0.5;
 /** Seconds a dead or stalled engine takes to wind down to rpm 0. */
 export const DIE_DOWN_S = 0.8;
 
@@ -34,34 +34,93 @@ interface ClassTone {
   gains: readonly [number, number, number];
 }
 
-/** Starting values, tuned by ear. Every field stays inside the generator's ranges (a test pins them). */
+/** The upstream demo's defaults (sounds_worklet_wasm.htm, its "muscle-y, beefy" setup; lengths in samples): what every class is a factor of. */
+const BASELINE = {
+  cylinders: 4,
+  intake: 100,
+  exhaust: 100,
+  extractor: 100,
+  ignition: 0.016,
+  straightPipe: 128,
+  mufflers: [10, 15, 20, 25],
+  action: 0.1,
+  outlet: 5,
+  channelGain: 1,
+} as const;
+
+/** One class as factors on `BASELINE` (1 = the demo's value) and the rpm range, which the demo leaves to a slider. */
+interface ClassFactors {
+  idleRpm: number;
+  redlineRpm: number;
+  cylinders: number;
+  intake: number;
+  exhaust: number;
+  extractor: number;
+  ignition: number;
+  straightPipe: number;
+  mufflers: number;
+  action: number;
+  outlet: number;
+  gains: readonly [number, number, number];
+}
+
+/** The class table: sedan a bit lighter, police near the demo, muscle a bit beefier, truck and monster deeper (longer pipes, slower ignition). */
+const CLASS_FACTORS: Readonly<Record<VehicleClassId, ClassFactors>> = {
+  sedan: { idleRpm: 850, redlineRpm: 6800, cylinders: 1, intake: 0.9, exhaust: 0.9, extractor: 0.9, ignition: 0.9, straightPipe: 0.85, mufflers: 0.9, action: 0.9, outlet: 0.8, gains: [1.1, 0.8, 0.9] },
+  police: { idleRpm: 800, redlineRpm: 7000, cylinders: 1, intake: 0.95, exhaust: 1, extractor: 1.05, ignition: 0.95, straightPipe: 1.05, mufflers: 1, action: 1, outlet: 1, gains: [1.05, 1, 1] },
+  muscle: { idleRpm: 700, redlineRpm: 6200, cylinders: 1, intake: 1.05, exhaust: 1.1, extractor: 1.1, ignition: 1.1, straightPipe: 1.2, mufflers: 1.1, action: 1.1, outlet: 1.2, gains: [0.9, 1.1, 1.1] },
+  truck: { idleRpm: 650, redlineRpm: 5000, cylinders: 1, intake: 1.2, exhaust: 1.25, extractor: 1.2, ignition: 1.25, straightPipe: 1.5, mufflers: 1.3, action: 0.85, outlet: 1.6, gains: [0.8, 1.2, 1] },
+  monster: { idleRpm: 600, redlineRpm: 5500, cylinders: 1.5, intake: 1.3, exhaust: 1.4, extractor: 1.3, ignition: 1.4, straightPipe: 1.8, mufflers: 1.5, action: 1.2, outlet: 2, gains: [0.8, 1.3, 1.1] },
+};
+
+/** A class's generator parameters: the baseline times its factors. Cylinders round to a whole engine. */
+function tone(f: ClassFactors): ClassTone {
+  const b = BASELINE;
+  return {
+    cylinders: Math.round(b.cylinders * f.cylinders),
+    idleRpm: f.idleRpm,
+    redlineRpm: f.redlineRpm,
+    intake: b.intake * f.intake,
+    exhaust: b.exhaust * f.exhaust,
+    extractor: b.extractor * f.extractor,
+    ignition: b.ignition * f.ignition,
+    straightPipe: b.straightPipe * f.straightPipe,
+    mufflers: b.mufflers.map((m) => m * f.mufflers),
+    action: b.action * f.action,
+    outlet: b.outlet * f.outlet,
+    gains: [b.channelGain * f.gains[0], b.channelGain * f.gains[1], b.channelGain * f.gains[2]],
+  };
+}
+
 const CLASS_TONE: Readonly<Record<VehicleClassId, ClassTone>> = {
-  sedan: { cylinders: 4, idleRpm: 850, redlineRpm: 6800, intake: 100, exhaust: 100, extractor: 100, ignition: 0.016, straightPipe: 128, mufflers: [10, 15, 20, 25], action: 0.1, outlet: 5, gains: [0.6, 0.4, 1.0] },
-  police: { cylinders: 6, idleRpm: 800, redlineRpm: 7000, intake: 90, exhaust: 90, extractor: 110, ignition: 0.014, straightPipe: 140, mufflers: [10, 15, 20, 25], action: 0.1, outlet: 5, gains: [0.7, 0.4, 1.1] },
-  muscle: { cylinders: 8, idleRpm: 700, redlineRpm: 6200, intake: 110, exhaust: 130, extractor: 120, ignition: 0.02, straightPipe: 170, mufflers: [12, 18, 24, 30], action: 0.12, outlet: 8, gains: [0.5, 0.5, 1.3] },
-  truck: { cylinders: 6, idleRpm: 650, redlineRpm: 5000, intake: 130, exhaust: 150, extractor: 140, ignition: 0.022, straightPipe: 220, mufflers: [14, 20, 26, 32], action: 0.08, outlet: 10, gains: [0.4, 0.7, 1.0] },
-  monster: { cylinders: 8, idleRpm: 600, redlineRpm: 5500, intake: 140, exhaust: 170, extractor: 160, ignition: 0.025, straightPipe: 260, mufflers: [16, 24, 32, 40], action: 0.14, outlet: 12, gains: [0.4, 0.8, 1.4] },
+  sedan: tone(CLASS_FACTORS.sedan),
+  police: tone(CLASS_FACTORS.police),
+  muscle: tone(CLASS_FACTORS.muscle),
+  truck: tone(CLASS_FACTORS.truck),
+  monster: tone(CLASS_FACTORS.monster),
 };
 
 /**
- * What a damage stage does to the sound: misfires per second, rpm jitter (share), the muffling lowpass (Hz), the ignition-time
- * multiplier, and which of the `TONE_STAGES` generator tunings it plays (a dented engine sounds like a healthy one: no re-tune, no click).
+ * What a damage stage does to the sound, as offsets on top of the class: misfires per second, rpm jitter (share), the muffling
+ * lowpass (Hz), the ignition-time and muffler-action multipliers, and which of the `TONE_STAGES` generator tunings it plays (a dented
+ * engine sounds like a healthy one: no re-tune, no click).
  */
 interface DamageTone {
   misfirePerS: number;
   rpmJitter: number;
   cutoffHz: number;
   ignitionScale: number;
+  actionScale: number;
   toneIndex: number;
 }
 
 /** A healthy engine is clean; a dead one is never heard (it winds down to silence), its row only keeps the table total. */
 const DAMAGE_TONE: Readonly<Record<DamageStage, DamageTone>> = {
-  healthy: { misfirePerS: 0, rpmJitter: 0, cutoffHz: 20000, ignitionScale: 1, toneIndex: 0 },
-  dented: { misfirePerS: 0, rpmJitter: 0, cutoffHz: 20000, ignitionScale: 1, toneIndex: 0 },
-  damaged: { misfirePerS: 0.6, rpmJitter: 0.02, cutoffHz: 9000, ignitionScale: 1.25, toneIndex: 1 },
-  limping: { misfirePerS: 3, rpmJitter: 0.06, cutoffHz: 3500, ignitionScale: 1.6, toneIndex: 2 },
-  dead: { misfirePerS: 0, rpmJitter: 0, cutoffHz: 3500, ignitionScale: 1.6, toneIndex: 2 },
+  healthy: { misfirePerS: 0, rpmJitter: 0, cutoffHz: 20000, ignitionScale: 1, actionScale: 1, toneIndex: 0 },
+  dented: { misfirePerS: 0, rpmJitter: 0, cutoffHz: 20000, ignitionScale: 1, actionScale: 1, toneIndex: 0 },
+  damaged: { misfirePerS: 0.6, rpmJitter: 0.02, cutoffHz: 9000, ignitionScale: 1.25, actionScale: 0.8, toneIndex: 1 },
+  limping: { misfirePerS: 3, rpmJitter: 0.06, cutoffHz: 3500, ignitionScale: 1.6, actionScale: 0.6, toneIndex: 2 },
+  dead: { misfirePerS: 0, rpmJitter: 0, cutoffHz: 3500, ignitionScale: 1.6, actionScale: 0.6, toneIndex: 2 },
 };
 
 /** The stage each generator tuning (`DamageTone.toneIndex`) is built from. */
@@ -133,12 +192,12 @@ export function motorRpm(cls: VehicleClassId, rev: number, rate: number): number
   return rpm * Math.max(SLOWMO_PITCH_FLOOR, rate);
 }
 
-/** Writes the intake, engine-block and outlet levels (already scaled by `MOTOR_OUTPUT_GAIN`) into `out[0..2]`. */
-export function channelGains(out: Float64Array, cls: VehicleClassId, load: number, rev: number): void {
+/** Writes the class's intake, engine-block and outlet levels into `out[0..2]`: the demo's 100% each, tilted per class. Set once per tuning, ahead of the clamp. */
+export function channelGains(out: Float64Array, cls: VehicleClassId): void {
   const gains = CLASS_TONE[cls].gains;
-  out[0] = gains[0] * (0.25 + 0.75 * load) * MOTOR_OUTPUT_GAIN;
-  out[1] = gains[1] * (0.6 + 0.4 * rev) * MOTOR_OUTPUT_GAIN;
-  out[2] = gains[2] * (0.4 + 0.6 * load) * MOTOR_OUTPUT_GAIN;
+  out[0] = gains[0];
+  out[1] = gains[1];
+  out[2] = gains[2];
 }
 
 function samples(length: number, sampleRate: number): number {
@@ -183,7 +242,7 @@ export function toneMessage(cls: VehicleClassId, stage: DamageStage, sampleRate:
     straight_pipe_waveguide_length: samples(t.straightPipe, sampleRate),
     straight_pipe_reflection_factor: OPEN_REFLECTION,
     muffler_elements_length: t.mufflers.map((m) => samples(m, sampleRate)),
-    action: t.action,
+    action: t.action * DAMAGE_TONE[stage].actionScale,
     outlet_waveguide_length: samples(t.outlet, sampleRate),
     outlet_reflection_factor: OPEN_REFLECTION,
   };
