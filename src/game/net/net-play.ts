@@ -1,48 +1,37 @@
 import type { DeformableCar } from "../vehicle/car.ts";
 import { applyDrive, idleDrive, type DriveInput } from "../vehicle/car-drive.ts";
-import { CAR_STYLE_IDS } from "../vehicle/car-variants.ts";
-import { HANDLING, VEHICLE_CLASS_IDS } from "../vehicle/vehicle-classes.ts";
+import { HANDLING } from "../vehicle/vehicle-classes.ts";
 import type { Ejection } from "../vehicle/ejection.ts";
-import { EjectQueue } from "./eject-queue.ts";
 import {
   ensureFrames,
   makeSnapshot,
-  MAX_NET_CARS,
   MSG,
   NET_VERSION,
   INPUT_HOLD,
   INPUT_RESPAWN,
   INPUT_RESET,
   readInput,
-  Reader,
-  readRace,
-  readSnapshot,
   writeInput,
   writeRace,
   writeSnapshot,
   writeWreck,
   Writer,
-  type NetLayout,
-  type Snapshot,
-  type DerbyNetState, readDerby, writeDerby, packEject, type GameKind, type LobbyGate,
+  writeDerby, packEject, type GameKind, type LobbyGate,
 } from "./codec.ts";
 import { NET_TX, PHASES, type NetGame, type NetRace, type NetRole, type NetStatus, type NetTx, type PublicKind } from "./net-ports.ts";
 import { cleanName } from "../match/types.ts";
-import { drawSnapshots } from "./net-view.ts";
 import { packLook, readLook } from "./look-codec.ts";
 import { RtcTransport } from "./rtc-transport.ts";
 import { BroadcastTransport, type NetTransport } from "./transport.ts";
-import { playHostReel } from "./reel-codec.ts";
-import { ReelParts } from "./reel-wire.ts";
-import { carLayout, readCarPose } from "./car-pose.ts";
-import { packRoster, readRoster } from "./roster-codec.ts";
-import { Voice } from "./voice.ts";
+import { NetPlayClient } from "./net-play-client.ts";
+import { readCarPose } from "./car-pose.ts";
+import { packRoster } from "./roster-codec.ts";
 import { ROOM_MAX } from "../../lib/multiplayer/rooms.ts";
 import { fetchRooms, findMatch, matchStage, publicMeta, publicRoomName, WEAK_AI, WEAK_DERBY_FIELD, type MatchDeps } from "./matchmaking.ts";
 import {
   DEFAULT_MIN_PLAYERS,
-  HELLO_EVERY, HOLD_EVERY_MS, HOST_LOST_MS, HOST_WAIT_MS, INPUT_STALE_MS, INTERP_DELAY, KEYFRAME_EVERY, LOBBY_S, MAX_DEAD_ROOMS,
-  PUBLIC_DERBY_FIELD, RACE_EVERY, RACE_GONE_MS, REDUNDANT, REFUSED, RESULTS_HOLD, RING, SEND_HZ, SLOT_GRACE_MS,
+  HELLO_EVERY, HOLD_EVERY_MS, INPUT_STALE_MS, KEYFRAME_EVERY, LOBBY_S,
+  PUBLIC_DERBY_FIELD, RACE_EVERY, REDUNDANT, REFUSED, RESULTS_HOLD, SEND_HZ, SLOT_GRACE_MS,
 } from "./net-constants.ts";
 
 /** The name a player who typed none carries (`RaceDirector.playerName`): the roster shows such a player as "Host" or "Player N" instead. */
@@ -68,39 +57,20 @@ interface NetPlayOptions {
 }
 
 /**
- * Host-authoritative netplay (docs/MULTIPLAYER.md). The host simulates and broadcasts snapshots; each
- * client drives one car by sending its seat's shaped `DriveInput`, and draws every car from the
- * snapshots: poses interpolated, deform and parts applied as the host last skinned them.
+ * Host-authoritative netplay. The host simulates and broadcasts snapshots; each client drives one car
+ * by sending its seat's shaped `DriveInput` (the client half is `NetPlayClient`).
  */
-export class NetPlay {
+export class NetPlay extends NetPlayClient {
   role: NetRole = "off";
-  private readonly game: NetGame;
-  /** Opt-in proximity voice over this room's WebRTC mesh (docs/MULTIPLAYER.md "Voice"). */
-  readonly voice: Voice;
-  private transport: NetTransport | null = null;
   private readonly connect: Connect;
-  private readonly now: () => number;
-  /** The room this peer is in and the link it runs over; meaningful while `role` is not "off" (the page's `#` shows them). */
-  room = "";
   tx: NetTx = NET_TX.bc;
-  private publicKind: PublicKind | null = null;
-  /** The running public search's token (a newer search, or `leave`, cancels it) and whether it still looks. */
+  /** The running public search's token: a newer search, or `leave`, cancels it. */
   private finder = 0;
-  private finding = false;
-  /** Public rooms this session gave up on (no search joins them again) and how many in a row never answered; `leave` and `publicMatch` forget both. */
-  private dead: { rooms: string[]; unanswered: number } = { rooms: [], unanswered: 0 };
   private derbyField = PUBLIC_DERBY_FIELD;
   private readonly sleep: (ms: number) => Promise<void>;
   private readonly random: () => number;
-  private car = -1;
-  private layout: NetLayout | null = null;
-  private readonly w = new Writer();
   private readonly scratch = new Writer(4096);
-  private readonly r = new Reader();
-  private sendAcc = 0;
   private statAcc = 0;
-  private statSnaps = 0;
-  private statBytes = 0;
   private snapHz = 0;
   private bytesPerSec = 0;
 
@@ -123,8 +93,6 @@ export class NetPlay {
   private readonly hasInput: boolean[] = [];
   /** Per car: `now()` its input last arrived. */
   private readonly inputAt: number[] = [];
-  /** Per car: its boost meter as netplay heard it (host: a peer's own, from its input; client: the host's, from the newest snapshot); -1 none. */
-  private readonly meters = new Float64Array(MAX_NET_CARS).fill(-1);
   /** `readInput`'s meter out-slot. */
   private readonly inMeter = new Float64Array(1);
   /** Hidden host: the heartbeat timer telling guests it is only paused. */
@@ -134,69 +102,21 @@ export class NetPlay {
   private readonly lastWreckLen: number[] = [];
   private readonly wreckChangedAt: number[] = [];
 
-  // Client
-  private readonly ring: Snapshot[] = [];
-  /** Receive order of each ring slot (0 = empty). */
-  private readonly ringOrder = new Array<number>(RING).fill(0);
-  private order = 0;
-  private lastSeq = -1;
-  private readonly ejects = new EjectQueue();
-  private readonly reelIn = new ReelParts();
-  /** Smallest seen (local clock − host clock), s: the host time "now" is local − offset. */
-  private offset = Infinity;
-  /** Per car: receive order of the wreck section last applied. */
-  private readonly applied: number[] = [];
-  /** `clearGen` of the snapshot drawn last (-1: none since joining this host); a change clears this scene (`drawSnapshots`). */
-  private drawnGen = -1;
-  private readonly idle = idleDrive();
-  private helloAcc = HELLO_EVERY;
-  /** Client: frame time (s, `wallDt` summed, each capped by the engine) since joining or the host's last message. */
-  private silentFor = 0;
-  /** Whether this peer has heard any host since it joined. */
-  private heardHost = false;
-  /** The host this client follows: the sender of the first assign; every host message from anyone else is dropped. */
-  private hostId: string | null = null;
-  /** `now()` of the followed host's last message, and whether that was a hidden tab's heartbeat. */
-  private hostAt = 0;
-  private hostHeld = false;
-  /** The followed host went silent: this client is asking for a car again. */
-  private hostLost = false;
-  /** The host refused this build; no more hellos. */
-  private refused = false;
-  /** Seconds left in the public-race lobby (host counts down, clients mirror it); null outside one. */
-  private lobbyLeft: number | null = null;
   /** Host: seconds the finished public race has been showing its results. */
   private finishedFor = 0;
-  /** Client: R was tapped or held (`INPUT_RESPAWN`, `INPUT_HOLD`); rides on the next input packet. */
-  private resetWanted = 0;
   /** Host: the Havana lobby is up (no game running yet). */
   private lobbyOn = false;
   /** Host: players the Go switch needs (`setMinPlayers`), and the game it starts in a private room (`setLobbyKind`; a public room's is its kind). */
   private minPlayers = DEFAULT_MIN_PLAYERS;
   private lobbyKind: GameKind = "race";
-  /** Client: the host's lobby gate as its last race message said; null while a game runs. */
-  private heardGate: LobbyGate | null = null;
-  /**
-   * Client: frame time (s) since the host's last race message, counted only while this client could hear
-   * (frames ran, the host not merely paused), so a hidden tab or a throttled host never ends the race.
-   */
-  private raceSilentFor = 0;
-  /** The same for the host's derby messages; null: not in derby mode. */
-  private derbySilentFor: number | null = null;
   /** A closed tab never runs the engine's dispose: leave the room so the relay drops us at once. */
   private readonly onPageHide = (): void => this.leave();
   /** A hidden tab draws no frames: a guest idles its car, a host tells its guests it is paused. */
   private readonly onVisibility = (): void => this.setHidden(document.hidden);
 
   constructor(game: NetGame, opts: NetPlayOptions = {}) {
-    this.game = game;
+    super(game, opts.now ?? (() => performance.now()));
     this.connect = opts.connect ?? connectDefault;
-    this.voice = new Voice({
-      selfId: () => this.transport?.selfId ?? "",
-      localCar: () => this.car,
-      carPosition: (car) => this.game.cars()[car]?.group.position ?? null,
-    });
-    this.now = opts.now ?? (() => performance.now());
     // Executor form: the tsconfig lib predates `Promise.withResolvers`.
     this.sleep = opts.sleep ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
     this.random = opts.random ?? Math.random;
@@ -227,7 +147,7 @@ export class NetPlay {
   }
 
   /**
-   * Play online (docs/MULTIPLAYER.md "Matchmaking"): join the best open public room of `kind`, else host one
+   * Play online: join the best open public room of `kind`, else host one
    * (`findMatch` decides, with this device's `hostFit`). Resolves when the search is over; `status().finding`
    * is true until it joins or hosts. A newer search or `leave` cancels this one. The player starts it, so the
    * session's dead rooms are forgotten.
@@ -238,7 +158,7 @@ export class NetPlay {
   }
 
   /** One `findMatch` that never joins a dead room: the player's search, or the one a dead room sends its guest on. */
-  private async search(kind: PublicKind): Promise<void> {
+  protected async search(kind: PublicKind): Promise<void> {
     const id = ++this.finder;
     // `start` leaves first, which cancels searches: the one deciding takes its token back.
     const claim = (): void => {
@@ -346,16 +266,6 @@ export class NetPlay {
     return this.heardGate && { ...this.heardGate, players: (this.transport?.peers().length ?? 0) + 1 };
   }
 
-  /** Client: ask the host to put this peer's car back on the track (race R / D-pad down), or at a lobby spawn. */
-  requestRespawn(): void {
-    this.resetWanted |= this.heardGate ? INPUT_RESET : INPUT_RESPAWN;
-  }
-
-  /** Client: ask the host to put this peer's car back on the track now with its damage kept (race R held); in the lobby the same as a tap. */
-  requestHoldReset(): void {
-    this.resetWanted |= this.heardGate ? INPUT_RESET : INPUT_HOLD;
-  }
-
   /** The player leaves, or the page closes: the session is over, so its dead rooms are forgotten. */
   leave(): void {
     this.dead = { rooms: [], unanswered: 0 };
@@ -449,11 +359,6 @@ export class NetPlay {
     };
   }
 
-  /** Joined a private room and heard no host in `HOST_WAIT_MS` of frames: a closed room, or a link to nobody. */
-  private noHost(): boolean {
-    return !this.heardHost && !this.publicKind && this.silentFor * 1000 > HOST_WAIT_MS;
-  }
-
   /** Host, each fixed step after the local seat: every remote peer's car takes its latest input (race mode drives them itself). */
   drive(cars: DeformableCar[], dt: number, driven: number): void {
     for (const car of this.slots.values()) if (car < cars.length && this.drives(car, driven)) applyDrive(cars[car]!, this.inputs[car]!, dt);
@@ -499,11 +404,6 @@ export class NetPlay {
     this.publicKind = null;
     if (typeof window !== "undefined") window.addEventListener("pagehide", this.onPageHide);
     if (typeof document !== "undefined") document.addEventListener("visibilitychange", this.onVisibility);
-  }
-
-  private layoutOf(car: DeformableCar): NetLayout {
-    this.layout ??= carLayout(car);
-    return this.layout;
   }
 
   private receive(from: string, data: Uint8Array): void {
@@ -737,64 +637,6 @@ export class NetPlay {
   sendEject(e: Ejection): void {
     this.sendReliable(packEject(e, this.now() / 1000));
   }
-  // ── client ────────────────────────────────────────────────────────────────
-  private clientReceive(from: string, data: Uint8Array): void {
-    const type = data[0];
-    if (type === MSG.assign) {
-      this.takeAssign(from, data);
-      return;
-    }
-    // Only the host this client follows speaks for the room.
-    if (from !== this.hostId) return;
-    this.hostAt = this.now();
-    this.silentFor = 0;
-    this.hostHeld = type === MSG.hold;
-    if (type === MSG.snapshot) this.takeSnapshot(data);
-    else if (type === MSG.race) this.takeRace(data);
-    else if (type === MSG.derby) this.takeDerby();
-    else if (type === MSG.reelPart) this.takeReel(this.reelIn.take(data));
-    else if (type === MSG.eject) this.ejects.take(this.r);
-    else if (type === MSG.look) {
-      const heard = readLook(data);
-      if (heard && heard.car !== this.car) this.game.wearLook(heard.car, heard.look);
-    } else if (type === MSG.roster) {
-      const entries = readRoster(data);
-      if (entries) this.voice.setRoster(entries);
-    }
-  }
-
-  /** The host's highlight reel (`playHostReel`) once its last part is in, its start moved onto this browser's clock by the snapshot offset. */
-  private takeReel(data: Uint8Array | null): void {
-    const car = this.game.cars()[0];
-    const t = this.transport;
-    if (data && car && Number.isFinite(this.offset)) playHostReel(data, this.layoutOf(car), this.offset, (reel, at) => this.game.playReel(reel, at), () => this.transport === t);
-  }
-
-  /**
-   * The host's answer to a hello: this peer's car, or a refusal (another build). The first assign
-   * pins its sender as the host; with a relay roster that sender must be the peer it lists as host.
-   */
-  private takeAssign(from: string, data: Uint8Array): void {
-    if (this.hostId !== null ? from !== this.hostId : this.transport?.peers().find((p) => p.id === from)?.host === false) return;
-    if (data.length < 3 || data[2] !== NET_VERSION || data[1] === REFUSED) {
-      this.refused = true;
-      return;
-    }
-    const car = data[1]!;
-    this.hostId = from;
-    this.hostAt = this.now();
-    this.silentFor = 0;
-    this.heardHost = true;
-    this.hostLost = false;
-    if (car === this.car) return;
-    this.car = car;
-    // Once seated, this player's look goes to the host, which shows it and hands it to everyone else; here the seat drops any
-    // other player's look it wore and wears this player's own.
-    this.transport?.send(packLook(car, this.game.playerLook()), from, true);
-    this.game.wearLook(car, null);
-    if (!this.game.race() && !this.game.derbyPhase()) this.game.seat.focus(car);
-    else this.game.race()?.seatLobby(car);
-  }
 
   /**
    * Host: guest `from`'s look (`MSG.look`) for its seat: worn here and relayed to every guest. Its first one is also when the
@@ -813,159 +655,5 @@ export class NetPlay {
     if (!first) return;
     this.transport!.send(packLook(0, this.game.playerLook()), from, true);
     for (const [other, look] of this.looks) if (other !== car) this.transport!.send(look, from, true);
-  }
-
-  /** Drop the followed host and everything heard from it: the next host starts its own clock and sequence. */
-  private forgetHost(): void {
-    this.hostId = null;
-    this.hostHeld = false;
-    this.ringOrder.fill(0);
-    this.lastSeq = -1;
-    this.offset = Infinity;
-    this.applied.length = 0;
-    this.drawnGen = -1;
-    this.ejects.clear();
-  }
-
-  /** The host's race state: race mode on, then its session (or its lobby) adopted. Never stepped here. */
-  private takeRace(data: Uint8Array): void {
-    const s = readRace(data);
-    if (!s) return;
-    this.lobbyLeft = s.lobby;
-    this.heardGate = s.gate;
-    this.raceSilentFor = 0;
-    this.game.enterRace(s.snap?.survival != null, s.gate !== null);
-    const race = this.game.race();
-    if (!race) return;
-    race.look = s.look;
-    try {
-      if (s.snap) race.applySnapshot(s.snap, this.car);
-      else {
-        race.showLobby(s.trackId);
-        if (this.car >= 0) race.seatLobby(this.car);
-      }
-    } catch {
-      // Malformed race state from the host: keep the last good one.
-    }
-  }
-
-  /** The host's derby: derby mode on, the board, clock and result shown as is. Never stepped here. */
-  private takeDerby(): void {
-    let state: DerbyNetState;
-    try {
-      state = readDerby(this.r);
-    } catch {
-      // Truncated or malformed: keep the last good state.
-      return;
-    }
-    this.lobbyLeft = state.lobby;
-    this.heardGate = null;
-    this.derbySilentFor = 0;
-    this.game.applyDerby(state, this.car);
-  }
-
-  private takeSnapshot(data: Uint8Array): void {
-    const cars = this.game.cars();
-    if (cars.length === 0) return;
-    const seq = data[2]! | (data[3]! << 8);
-    if (this.lastSeq >= 0 && ((seq - this.lastSeq) & 0xffff) >= 0x8000) return;
-    if (seq === this.lastSeq) return;
-    let slot = 0;
-    for (let k = 1; k < RING; k++) if (this.ringOrder[k]! < this.ringOrder[slot]!) slot = k;
-    const s = (this.ring[slot] ??= makeSnapshot());
-    // Decode into a slot marked empty: one that fails (throws, or names a body this build lacks) leaves no half-written frame and `lastSeq` as it was.
-    this.ringOrder[slot] = 0;
-    readSnapshot(this.r, s, this.layoutOf(cars[0]!));
-    for (let i = 0; i < s.count; i++) if (s.cars[i]!.style >= CAR_STYLE_IDS.length || s.cars[i]!.cls >= VEHICLE_CLASS_IDS.length) return;
-    for (let i = 0; i < s.count; i++) this.meters[i] = s.cars[i]!.meter;
-    this.lastSeq = seq;
-    this.ringOrder[slot] = ++this.order;
-    this.offset = Math.min(this.now() / 1000 - s.time, this.offset + 0.001);
-    this.statSnaps++;
-    this.statBytes += data.byteLength;
-  }
-
-  private clientFrame(wallDt: number, t: NetTransport): void {
-    // The host went quiet. A hidden host still on the link only paused; otherwise it is gone (closed, lost, restarted).
-    this.silentFor += wallDt;
-    const quiet = this.now() - this.hostAt;
-    const paused = this.hostHeld && t.peers().some((p) => p.id === this.hostId);
-    if (this.publicKind && !paused && !this.finding && this.silentFor * 1000 > HOST_WAIT_MS) {
-      // A dead public room (its relay row outlives the host by up to 30 s) is no use to anyone: look for another, else host one.
-      // A room that answered before and then went quiet (its host left) is a normal end, not a streak of dead ones.
-      this.dead = { rooms: [...this.dead.rooms, this.room], unanswered: this.heardHost ? 0 : this.dead.unanswered + 1 };
-      if (this.dead.unanswered < MAX_DEAD_ROOMS) void this.search(this.publicKind);
-      else this.publicHost(this.publicKind);
-      return;
-    }
-    if (this.hostId !== null && !paused && quiet > HOST_LOST_MS) {
-      // Ask for a car again, keeping this one meanwhile (camera, and a pedal held through the outage, stay
-      // on it): the same host, back after a blip, seats this peer where it was; a new host may move it.
-      this.forgetHost();
-      this.hostLost = true;
-    }
-    // The host left race or derby mode (its messages stop): so does this client. Only frames this client ran
-    // while the host wasn't merely paused count: a hidden tab or a throttled host sends no race messages.
-    if (!paused) {
-      this.raceSilentFor += wallDt;
-      if (this.derbySilentFor !== null) this.derbySilentFor += wallDt;
-    }
-    if (this.game.race() && this.heardHost && this.raceSilentFor * 1000 > RACE_GONE_MS) {
-      this.game.exitRace();
-      this.lobbyLeft = null;
-      this.heardGate = null;
-    }
-    if (this.derbySilentFor !== null && this.derbySilentFor * 1000 > RACE_GONE_MS) {
-      this.game.applyDerby(null, this.car);
-      this.derbySilentFor = null;
-      this.lobbyLeft = null;
-    }
-    if (this.hostId === null && !this.refused) {
-      this.helloAcc += wallDt;
-      if (this.helloAcc >= HELLO_EVERY) {
-        this.helloAcc = 0;
-        this.w.off = 0;
-        this.w.u8(MSG.hello);
-        this.w.u8(NET_VERSION);
-        this.w.str(this.game.playerName());
-        t.send(this.w.done());
-      }
-    }
-    let newest = -1;
-    for (let k = 0; k < RING; k++) if (this.ringOrder[k]! > 0 && (newest < 0 || this.ringOrder[k]! > this.ringOrder[newest]!)) newest = k;
-    if (newest < 0) return;
-    const count = this.ring[newest]!.count;
-    if (count !== this.game.cars().length) {
-      this.game.setCarCount(count);
-      this.applied.length = 0;
-      // In race mode the race director seats this peer (applySnapshot); in Fleet it follows its car.
-      if (this.car >= 0 && !this.game.race() && this.derbySilentFor === null) this.game.seat.focus(this.car);
-    }
-    const latest = this.ring[newest]!;
-    if (Math.abs(latest.realism - HANDLING.realism) > 0.5 / 255) this.game.setRealism(latest.realism);
-    this.game.mirrorClock(PHASES[latest.phase] ?? "approach", latest.timeScale);
-    for (let i = 0; i < count; i++) {
-      const was = this.game.cars()[i];
-      const f = latest.cars[i]!;
-      this.game.matchCar(i, CAR_STYLE_IDS[f.style]!, VEHICLE_CLASS_IDS[f.cls]!);
-      if (this.game.cars()[i] !== was) this.applied[i] = 0;
-    }
-    const cars = this.game.cars();
-    // A playing reel owns the cars; snapshots keep arriving for when it ends.
-    // The host's world `INTERP_DELAY` behind this client's estimate of the host clock.
-    const rt = this.now() / 1000 - this.offset - INTERP_DELAY;
-    if (!this.game.reelPlaying()) this.drawnGen = drawSnapshots(this.ring, this.ringOrder, this.applied, cars, rt, wallDt, this.game, this.drawnGen);
-    this.ejects.due(rt, this.game);
-
-    if (this.car < 0 || this.car >= cars.length || this.hostId === null) return;
-    const seat = this.game.seat;
-    const input = seat.mode === "drive" && seat.carIndex === this.car ? seat.input(cars[this.car]!, wallDt) : this.idle;
-    this.sendAcc += wallDt;
-    if (this.sendAcc < 1 / SEND_HZ) return;
-    this.sendAcc = 0;
-    this.w.off = 0;
-    writeInput(this.w, input, this.resetWanted, input === this.idle ? 0 : seat.boost);
-    this.resetWanted = 0;
-    t.send(this.w.done(), this.hostId);
   }
 }
