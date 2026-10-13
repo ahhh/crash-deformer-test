@@ -16,10 +16,28 @@ export async function loadHdrEnv(renderer: THREE.WebGLRenderer, url: string = ST
     equirect.dispose();
     return null;
   }
+  flipRows(equirect);
   equirect.mapping = THREE.EquirectangularReflectionMapping;
   const gen = new THREE.PMREMGenerator(renderer);
   const env = gen.fromEquirectangular(equirect).texture;
   equirect.dispose();
   gen.dispose();
   return env;
+}
+
+/**
+ * HDRLoader asks for `flipY` on its typed-array texture; Firefox deprecates y-flip on a non-DOM upload, so the RGBA
+ * rows are reversed in place here and the flag cleared: the same picture, no flip left for the upload.
+ */
+function flipRows(tex: THREE.DataTexture): void {
+  const { width, height } = tex.image;
+  const data = tex.image.data!; // HDRLoader always decodes into a pixel array
+  const stride = width * 4;
+  const row = data.slice(0, stride);
+  for (let top = 0, bottom = height - 1; top < bottom; top++, bottom--) {
+    row.set(data.subarray(top * stride, (top + 1) * stride));
+    data.copyWithin(top * stride, bottom * stride, (bottom + 1) * stride);
+    data.set(row, bottom * stride);
+  }
+  tex.flipY = false;
 }
