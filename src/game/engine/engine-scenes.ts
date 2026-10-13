@@ -648,6 +648,7 @@ export abstract class EngineScenes extends EngineDerby {
 
   private finishResetCommon(): void {
     this.restartCrash();
+    this.audio.releaseVoices();
     this.elapsedWall = 0;
     this.elapsedSim = 0;
     this.impactLightLife = 0;

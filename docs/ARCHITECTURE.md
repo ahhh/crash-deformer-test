@@ -172,12 +172,20 @@ if playing:  simDt = wallDt × timeScale × cine.timeWarp
              stepEdge → scheduleSkins (Witness: off-camera cars defer, small ones stride) → updateSkin
              updatePhase → rigs → FX, ragdolls, smoke, trace → stepDerby → seat.step → cine.update
 always:      net.frame → PoseBlend.present (bodies, loose parts and the crush skin drawn at the frame's time between
-             the last two sim states) → race.frame → updateCamera → flushVisibleSkins → detail / lamps
-             → cine.render → PoseBlend.restore (the sim's own poses and skin back) → emitHud every 0.05–0.12 s
+             the last two sim states) → race.frame → updateCamera → flushVisibleSkins → detail / lamps → audio frame
+             (audio on) → cine.render → PoseBlend.restore (the sim's own poses and skin back) → emitHud every 0.05–0.12 s
 ```
 
 `Witness` (`present/witness.ts`) is the one "could the camera see this?" test behind every cosmetic skip (skins, sparks,
 debris, smoke). It never gates the sim, audio or marks.
+
+**Audio** (`present/game-audio.ts`, one `AudioContext`). `GameAudio.frame` is the only per-frame seam; it runs after the lamps, when
+the camera (which carries the three `AudioListener`) has its matrix for the frame, and only with audio on. Engine voices are a
+fixed pool built at unlock (6 on a desktop, 3 on a phone, `?voices=N` overrides): `VoicePool` seats the priority car (the reel's
+focus car, else the followed one) and then the nearest cars within 70 m, and a held car is displaced only by one at least 30%
+closer once its slot has held it 0.75 s, so slots never swap as ranks cross. A slot that changes car fades out, re-tunes
+the generator, and fades in; it never cuts. The music bus is the slider (at most 0.6) ducked under the player's engine and a
+crash. Audio reads cars and never writes them.
 
 **Scenes** (`scenes/scene-id.ts` `SCENE_IDS`, one at a time via `setScene`): fleet (default, with the barrier, ramp balls
 and jump ramps as props), press, pistons, doors, corkscrew, stack, derby, race, range, survival. A pick fades through the

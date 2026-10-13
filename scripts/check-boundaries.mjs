@@ -77,6 +77,10 @@ const HOT = {
   "src/game/ai/cop-brain.ts": ["think", "attackTarget", "pursuitSteer"],
   "src/game/ai/hunter.ts": ["drive", "update"],
   "src/game/present/pose-blend.ts": ["end", "present", "restore"],
+  "src/game/present/motor-sound.ts": ["update", "driveVoice"],
+  "src/game/present/motor-voices.ts": ["assign"],
+  "src/game/present/motor-tone.ts": ["motorRev", "accelLoad", "motorLoad", "motorRpm", "channelGains"],
+  "src/game/present/game-audio.ts": ["frame"],
 };
 const KNOB_CONTEXTS = new Set(["kernel", "world", "deform", "vehicle", "contact", "scenes", "ai"]);
 const MAX_FILE_LINES = 800;

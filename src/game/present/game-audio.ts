@@ -1,19 +1,39 @@
 import * as THREE from "three";
-import { musicGain } from "./audio-mix.ts";
+import type { DeformableCar } from "../vehicle/car.ts";
+import { crashDuck, engineDuck, musicGain, slowmoCutoff } from "./audio-mix.ts";
+import { lowpass, MotorSound } from "./motor-sound.ts";
 
 const LATENCY_HINT = "interactive";
 /** Time constant of the master gain ramp when audio is toggled. */
 const MASTER_TAU_S = 0.05;
+/** Time constant (s) of the engine bus's pause fade and of the slow-mo lowpass following the time rate. */
+const BUS_TAU_S = 0.08;
+/** The music's duck follows the engine fast enough to feel the throttle and a crash at once. */
+const DUCK_TAU_S = 0.1;
+const CRASH_DUCK_TAU_S = 0.02;
 const THUMP_GAIN_PER_IMPULSE = 0.012;
+/** `?voices=N` (0-8) overrides the engine voice count: the bench knob; 0 is no engine audio. */
+const VOICES_PARAM = "voices";
+const MAX_VOICES = 8;
+/** Engine voices without the override: each is up to 38 waveguides of simple per-sample maths. The phone figure is calibrated (docs/TOOLCHAIN.md). */
+const DESKTOP_VOICES = 6;
+const PHONE_VOICES = 3;
 
 type WebkitWindow = Window & { webkitAudioContext?: typeof AudioContext };
+
+/** The engine voice count: the `?voices=` override, else by device (the same desktop flag as the lamp pool). */
+function voiceSlots(desktop: boolean): number {
+  const asked = Number.parseInt(new URLSearchParams(window.location.search).get(VOICES_PARAM) ?? "", 10);
+  if (Number.isNaN(asked)) return desktop ? DESKTOP_VOICES : PHONE_VOICES;
+  return Math.min(MAX_VOICES, Math.max(0, asked));
+}
 
 /**
  * The one audio façade: a single AudioContext, the three listener on the camera, and the busses
  *
- *   listener.gain -> engineBus ----> master -> compressor -> destination
- *   impact one-shots -> impactBus -/
- *   music -> musicBus ------------/
+ *   listener.gain -> engineBus -> slowmoFilter -> master -> compressor -> destination
+ *   impact one-shots -> impactBus ------------/
+ *   music -> musicBus ------------------------/
  *
  * Nothing is built until `unlock()` runs inside a user gesture. Audio is presentation: it reads the game, never writes it.
  */
@@ -24,12 +44,18 @@ export class GameAudio {
   private listener: THREE.AudioListener | null = null;
   private master: GainNode | null = null;
   private engineBus: GainNode | null = null;
+  private slowmoFilter: BiquadFilterNode | null = null;
   private impactBus: GainNode | null = null;
   private musicBus: GainNode | null = null;
+  private motor: MotorSound | null = null;
   private on = false;
+  /** Whether the game is running (not paused or held): a pause fades the engines out, the music plays on. */
+  private live = true;
   /** Slider levels; the engine pushes the real ones with `setVolumes` right after construction. */
   private musicLevel = 0;
   private engineLevel = 0;
+  /** Seconds since the last crash (the music's crash duck); Infinity before the first. */
+  private sinceImpactS = Infinity;
   private readonly onVisibility = (): void => {
     const context = this.context;
     if (!context) return;
@@ -71,9 +97,11 @@ export class GameAudio {
     master.gain.value = this.on ? 1 : 0;
     master.connect(compressor);
 
+    const slowmoFilter = lowpass(context, slowmoCutoff(1));
+    slowmoFilter.connect(master);
     const engineBus = context.createGain();
-    engineBus.gain.value = this.engineLevel;
-    engineBus.connect(master);
+    engineBus.gain.value = this.live ? this.engineLevel : 0;
+    engineBus.connect(slowmoFilter);
     listener.gain.disconnect();
     listener.gain.connect(engineBus);
     const impactBus = context.createGain();
@@ -86,8 +114,12 @@ export class GameAudio {
     this.listener = listener;
     this.master = master;
     this.engineBus = engineBus;
+    this.slowmoFilter = slowmoFilter;
     this.impactBus = impactBus;
     this.musicBus = musicBus;
+    const motor = new MotorSound(voiceSlots(this.desktop));
+    this.motor = motor;
+    motor.load(context, listener).catch((reason: Error) => console.warn("motor sound: unavailable", reason));
     void context.resume();
   }
 
@@ -108,13 +140,38 @@ export class GameAudio {
     const context = this.context;
     if (!context || !this.musicBus || !this.engineBus) return;
     this.musicBus.gain.setTargetAtTime(musicGain(music, 1, 1), context.currentTime, MASTER_TAU_S);
-    this.engineBus.gain.setTargetAtTime(engine, context.currentTime, MASTER_TAU_S);
+    this.engineBus.gain.setTargetAtTime(this.live ? engine : 0, context.currentTime, MASTER_TAU_S);
+  }
+
+  /**
+   * The per-frame seam (the engine calls it with audio on): moves the engine voices, and on each voice tick sets the engine
+   * bus (silent while `live` is false), the slow-mo lowpass from `rate`, and the music's duck under the player's engine and a crash.
+   * `cars` are the ones drawn (the reel's, while it plays); `priority` is the car that always has a voice.
+   */
+  frame(dt: number, cars: readonly DeformableCar[], priority: DeformableCar | null, rate: number, live: boolean): void {
+    const context = this.context;
+    const motor = this.motor;
+    if (!context || !motor || !this.engineBus || !this.slowmoFilter || !this.musicBus) return;
+    this.sinceImpactS += dt;
+    this.live = live;
+    if (!motor.update(dt, cars, this.camera, priority, rate, this.engineLevel === 0)) return;
+    const now = context.currentTime;
+    this.engineBus.gain.setTargetAtTime(live ? this.engineLevel : 0, now, BUS_TAU_S);
+    this.slowmoFilter.frequency.setTargetAtTime(slowmoCutoff(rate), now, BUS_TAU_S);
+    this.musicBus.gain.setTargetAtTime(musicGain(this.musicLevel, engineDuck(motor.playerLevel), crashDuck(this.sinceImpactS)), now, DUCK_TAU_S);
+  }
+
+  /** A scene reset: every engine voice fades out and frees its slot. */
+  releaseVoices(): void {
+    this.motor?.releaseVoices();
   }
 
   impact(impulse: number): void {
     const context = this.context;
     if (!context || !this.impactBus) return;
     const t = context.currentTime;
+    this.sinceImpactS = 0;
+    this.musicBus?.gain.setTargetAtTime(musicGain(this.musicLevel, engineDuck(this.motor?.playerLevel ?? 0), crashDuck(0)), t, CRASH_DUCK_TAU_S);
     const dur = 0.35 + Math.min(0.4, impulse * 0.01);
 
     const thump = context.createOscillator();
@@ -147,13 +204,17 @@ export class GameAudio {
   dispose(): void {
     document.removeEventListener("visibilitychange", this.onVisibility);
     if (this.listener) this.camera.remove(this.listener);
+    this.motor?.dispose();
     void this.context?.close();
     this.context = null;
     this.listener = null;
     this.master = null;
     this.engineBus = null;
+    this.slowmoFilter = null;
     this.impactBus = null;
     this.musicBus = null;
+    this.motor = null;
     this.on = false;
+    this.sinceImpactS = Infinity;
   }
 }

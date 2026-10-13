@@ -204,7 +204,7 @@ export function carGear(car: { style: { id: CarStyleId }; velocity: { x: number;
 /** Revs (0-1 of the dial) at the foot of a gear bucket; a shift drops back to it. */
 const REV_FLOOR = 0.3;
 /** Revs at a stopped or reversing car. */
-const REV_IDLE = 0.18;
+export const REV_IDLE = 0.18;
 
 /**
  * The gauge's fake revs 0-1: there is no engine model, so they climb with forward speed through the current gear bucket
@@ -300,7 +300,7 @@ export function assists(realism: number, out: Assists): Assists {
 
 // --- damage → drivability ---------------------------------------------------
 
-type DamageStage = "healthy" | "dented" | "damaged" | "limping" | "dead";
+export type DamageStage = "healthy" | "dented" | "damaged" | "limping" | "dead";
 
 /** Top speed never drops below this share of the class's until the drivetrain dies. */
 export const LIMP_FLOOR = 0.6;
