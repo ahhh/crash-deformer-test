@@ -234,7 +234,7 @@ const _crushBack = new THREE.Vector3();
 const CAR_CENTRE = new THREE.Vector3(0, COM_Y, 0);
 
 /**
- * The body the rigid step moves, set by `useBody`. Every body takes the same step (`moveBody`, `placeBody`, `readPoints`, `openRows`,
+ * The body the rigid step moves, set by `bindBody`. Every body takes the same step (`moveBody`, `placeBody`, `readPoints`, `openRows`,
  * `solveRows`): `stepFree` adds a car's tyres, springs, belly and face budgets between them, `stepLoose` a part's sleep and its gating
  * of the point reads. `q`, `pos`, `v`, `w` are the body's own pose and its velocity and spin (unit mass), `centre` its centre of mass in
  * its own frame, `invI` its inverse inertia per unit mass about its own axes, `skip` its slot asked of the world, `surf` the faces it
@@ -266,7 +266,7 @@ const body = {
  * popped wheel) meets a prism's side face through rows of its own, takes a car's top for the world (no face budget, no weight on that
  * car) and rubs at its face's grip (`CRASH.muSlide`); a car's tyres, belly and `sideContact` do all that.
  */
-export function useBody(object: THREE.Object3D, v: THREE.Vector3, w: THREE.Vector3, centre: THREE.Vector3, invI: THREE.Vector3, skip: number, part: boolean, dt: number): void {
+export function bindBody(object: THREE.Object3D, v: THREE.Vector3, w: THREE.Vector3, centre: THREE.Vector3, invI: THREE.Vector3, skip: number, part: boolean, dt: number): void {
   body.q = object.quaternion;
   body.pos = object.position;
   body.v = v;
@@ -886,7 +886,7 @@ function landing(hit: Float64Array, down: number, v: THREE.Vector3): boolean {
 }
 
 /**
- * The rows' start of a solve, for the body `useBody` set: each row's impulse, dynamic impulse, rest impulse and held friction cleared,
+ * The rows' start of a solve, for the body `bindBody` set: each row's impulse, dynamic impulse, rest impulse and held friction cleared,
  * the closing speed it rests at (the weight its gravity and `takeBorne` bring), and the face budget (`ROOM`) of each face slot's first row.
  * `n` rows from `readPoints` (and a car's tyres before them).
  */
@@ -1406,7 +1406,7 @@ export function stepFree(car: DeformableCar, dt: number): boolean {
   const v = car.velocity;
   const w = car.angular;
   const wreck = car.deform.massActive;
-  useBody(car.group, v, w, wreck ? wreckCentre(car) : CAR_CENTRE, wreck ? wreckInvI : INV_I, car.slot, false, dt);
+  bindBody(car.group, v, w, wreck ? wreckCentre(car) : CAR_CENTRE, wreck ? wreckInvI : INV_I, car.slot, false, dt);
   body.wreck = car.deform.massActive;
   moveBody();
   if (!car.crashed && !car.falling && car.wheelsDown !== 0) {

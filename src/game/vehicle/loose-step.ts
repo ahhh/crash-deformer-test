@@ -4,7 +4,7 @@ import { GRAVITY } from "../kernel/constants.ts";
 import { detCos, detSin } from "../kernel/physics-core.js";
 import { NO_FLOOR } from "../world/ground.ts";
 import { C_DEPTH, C_GRIP, C_H, C_NX, C_NZ, clearOf, HIT_SIZE, holdTops, pointContact, PQ_SIZE, PQ_VX, PQ_VY, PQ_VZ, PQ_X, PQ_Y, PQ_Z, stirNear } from "../world/surfaces.ts";
-import { centreOfMass, loadShape, moveBody, openRows, placeBody, readPoints, solveRows, standAtCentre, useBody } from "./car-air.ts";
+import { centreOfMass, loadShape, moveBody, openRows, placeBody, readPoints, solveRows, standAtCentre, bindBody } from "./car-air.ts";
 import { DENT_MIN_DV, recordDent, type DentState } from "./loose-dent.ts";
 import type { LooseBody, LooseShape } from "./car-core.ts";
 
@@ -84,7 +84,7 @@ const _size = new THREE.Vector3();
 function growBox(o: THREE.Object3D, m: THREE.Matrix4): void {
   if (o instanceof THREE.Mesh) {
     const geo = o.geometry as THREE.BufferGeometry;
-    geo.boundingBox ?? geo.computeBoundingBox();
+    if (geo.boundingBox === null) geo.computeBoundingBox();
     _box.union(_geoBox.copy(geo.boundingBox!).applyMatrix4(m));
   }
   for (const child of o.children) growBox(child, new THREE.Matrix4().multiplyMatrices(m, child.matrix));
@@ -158,7 +158,7 @@ export function stepLoose(p: LooseBody, dt: number, skip: number, dent?: DentSta
     if (v.x * v.x + v.y * v.y + v.z * v.z + w.x * w.x + w.y * w.y + w.z * w.z === 0 && !stirNear(shape.sleepX, shape.sleepZ, shape.reach, skip)) return;
     shape.asleep = false;
   }
-  useBody(object, v, w, shape.centre, shape.invI, skip, true, dt);
+  bindBody(object, v, w, shape.centre, shape.invI, skip, true, dt);
   moveBody();
   // Its spin dies in the air as it always did.
   w.multiplyScalar(Math.pow(SPIN_KEPT_PER_S, dt));

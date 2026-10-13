@@ -145,7 +145,7 @@ export class DerbyGround extends Ground {
       outside: { surface: FLOOR, hills: new Float64Array(0) },
       unbounded: true,
     });
-    DERBY_BOXES.forEach((b, id) => this.addPrism({ x: b.x, z: b.z, yaw: b.yaw, hx: b.hx, hz: b.hz, base: 0, top: b.height, id }));
+    for (const [id, b] of DERBY_BOXES.entries()) this.addPrism({ x: b.x, z: b.z, yaw: b.yaw, hx: b.hx, hz: b.hz, base: 0, top: b.height, id });
     this.seal();
   }
 

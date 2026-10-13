@@ -107,7 +107,7 @@ for (let n = 0; n * FRAME < SECONDS; n++) {
   // Who owns what: a collider's parent body is one of the car bodies (proxy), a doll's, a prop's, or none (the world's statics).
   const owner = new Map();
   const carOf = new Map();
-  rd.carBodies.forEach((b, i) => carOf.set(b.handle, i));
+  for (const [i, b] of rd.carBodies.entries()) carOf.set(b.handle, i);
   const dollOf = new Set(rd.dolls.flatMap((d) => d.bodies.map((b) => b.handle)));
   let all = 0;
   let enabled = 0;
@@ -116,7 +116,7 @@ for (let n = 0; n * FRAME < SECONDS; n++) {
   let panes = 0;
   let dollC = 0;
   let other = 0;
-  world.colliders.forEach((c) => {
+  for (const c of world.colliders.getAll()) {
     all++;
     const p = c.parent();
     const on = c.isEnabled() && (!p || p.isEnabled());
@@ -124,19 +124,19 @@ for (let n = 0; n * FRAME < SECONDS; n++) {
     const g = c.collisionGroups();
     if (on && (g >>> 16) !== 0 && (g & 0xffff) !== 0) active++;
     if (p && carOf.has(p.handle)) {
-      if (!on) return;
+      if (!on) continue;
       if (c.shape.halfExtents !== undefined && c.halfExtents().z < 0.035 && c.halfExtents().z > 0.025) panes++;
       else leaves++;
     } else if (p && dollOf.has(p.handle)) dollC++;
     else other++;
-  });
+  }
   let dyn = 0;
   let awake = 0;
-  world.bodies.forEach((b) => {
-    if (!b.isDynamic() || !b.isEnabled()) return;
+  for (const b of world.bodies.getAll()) {
+    if (!b.isDynamic() || !b.isEnabled()) continue;
     dyn++;
     if (!b.isSleeping()) awake++;
-  });
+  }
   // Contact pairs and manifold points the narrow phase holds for the dummies' colliders (a dummy-dummy pair counts twice).
   let pairs = 0;
   let points = 0;

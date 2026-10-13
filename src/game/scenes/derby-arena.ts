@@ -254,14 +254,14 @@ function makeBoxInstances(kind: DerbyPropKind, material: THREE.MeshStandardMater
   mesh.name = kind;
   const placement = new THREE.Object3D();
   const colour = new THREE.Color();
-  boxes.forEach((box, index) => {
+  for (const [index, box] of boxes.entries()) {
     placement.position.set(box.x, box.height / 2, box.z);
     placement.rotation.y = box.yaw;
     placement.scale.set(box.hx / first.hx, box.height / first.height, box.hz / first.hz);
     placement.updateMatrix();
     mesh.setMatrixAt(index, placement.matrix);
     mesh.setColorAt(index, colour.setHex(colours[index % colours.length]!));
-  });
+  }
   mesh.castShadow = true;
   mesh.receiveShadow = true;
   mesh.computeBoundingSphere();

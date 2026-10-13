@@ -1,4 +1,3 @@
-// @ts-nocheck
 "use strict";
 // Hand-kept JS kernel (Müller 2005 shape matching). No TS transform.
 /** physics-core's hypot3: Math.hypot bit for bit, minus the boxed builtin call (kernels import nothing, C3). */

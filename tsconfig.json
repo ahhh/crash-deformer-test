@@ -33,5 +33,6 @@
   },
   "include": [
     "src"
-  ]
+  ],
+  "exclude": ["src/game/kernel/physics-core.js", "src/game/kernel/shape-match-core.js"]
 }
