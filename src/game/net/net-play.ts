@@ -456,11 +456,12 @@ export class NetPlay {
 
   /** Host, each fixed step after the local seat: every remote peer's car takes its latest input (race mode drives them itself). */
   drive(cars: DeformableCar[], dt: number, driven: number): void {
-    if (this.role !== "host" || this.game.race()) return;
-    for (const car of this.slots.values()) {
-      if (car === driven || car >= cars.length || !this.hasInput[car] || !this.game.remoteDrivable(car)) continue;
-      applyDrive(cars[car]!, this.inputs[car]!, dt);
-    }
+    for (const car of this.slots.values()) if (car < cars.length && this.drives(car, driven)) applyDrive(cars[car]!, this.inputs[car]!, dt);
+  }
+
+  /** Host: a peer's input drives car `i` this step (not in a race, not the local seat's car, its input heard and its car drivable). Only a car a peer's slot holds ever has input heard. */
+  drives(i: number, driven: number): boolean {
+    return this.role === "host" && !this.game.race() && i !== driven && this.hasInput[i] === true && this.game.remoteDrivable(i);
   }
 
   /** Host: a network peer drives car `i` (its car comes back after it vaporizes, like the host's own). */

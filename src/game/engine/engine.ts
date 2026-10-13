@@ -34,7 +34,7 @@ import { Corkscrew } from "../scenes/corkscrew.ts";
 import { TraceRecorder } from "./engine-trace.ts";
 import { snapshotAiCar } from "../match/derby.ts";
 import { FULL_POOL, LampLights, PHONE_POOL } from "../vehicle/lamp-lights.ts";
-import { applyDrive } from "../vehicle/car-drive.ts";
+import { applyDrive, idleDrive } from "../vehicle/car-drive.ts";
 import { makeDerbyArena, WinnerSpot } from "../scenes/derby-arena.ts";
 import { NetPlay } from "../net/net-play.ts";
 import { RaceDirector } from "./engine-race.ts";
@@ -158,6 +158,8 @@ export class CrashEngine extends EngineGarage {
   /** The sim's steps against the frames (`SimPacer`), and the cars drawn between the last two (`PoseBlend`). */
   readonly pace = new SimPacer(true);
   private readonly blend = new PoseBlend();
+  /** What a crashed car nobody drives rolls on: its drive's idle pedals (engine braking, the test world's IDLE). */
+  private readonly wreckCoast = idleDrive();
   /** One sim step of the frame (`SimPacer.run`): the cars' poses either side of it kept for the blend. */
   private readonly slice = (h: number): void => {
     const cars = this.live();
@@ -595,6 +597,15 @@ export class CrashEngine extends EngineGarage {
         if (i === driven || this.derbySeated.has(i)) continue;
         applyDrive(cars[i]!, this.derby.think(snaps[i]!, snaps, dt), dt);
         if (this.derby.recoverDue(i, cars[i]!, dt)) this.recoverCar(cars[i]!);
+      }
+    }
+    // A crashed car nobody drives still rolls on its drive's law (car-air `driven` skips tyre friction for it): the race, the derby
+    // before its winner and the net host drive theirs; the rest take the idle pedals here.
+    if (!this.race.active && !(this.derbyMode && this.derby.winnerId == null)) {
+      for (let i = 0; i < cars.length; i++) {
+        const car = cars[i]!;
+        if (i === driven || car.parked || !car.crashed || !car.deform.massActive || this.net.drives(i, driven)) continue;
+        applyDrive(car, this.wreckCoast, dt);
       }
     }
     const w = this.world;
