@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import type { DeformableCar } from "../vehicle/car.ts";
 import { DRIVE, type DriverSeat, type SeatView } from "../vehicle/car-drive.ts";
+import { LOAD_FEEL } from "../vehicle/car-load.ts";
 import type { PadState } from "../vehicle/gamepad.ts";
 import { DISC_RADIUS } from "../world/ground.ts";
 import { hypot2, hypot3 } from "../kernel/physics-core.js";
@@ -161,6 +162,7 @@ export const CHASE_KNOBS: readonly ChaseKnob[] = [
   knob("Look-ahead", "aheadMax", "Max (m)", 0, 12, 0.1, () => CHASE.aheadMax, (v) => void (CHASE.aheadMax = v)),
   knob("Slide", "fovSlide", "FOV (deg)", 0, 10, 0.1, () => CHASE.fovSlide, (v) => void (CHASE.fovSlide = v)),
   knob("Slide", "driftTilt", "Tilt (deg)", 0, 4, 0.1, () => CHASE.driftTilt, (v) => void (CHASE.driftTilt = v)),
+  knob("Slide", "driftLean", "Drift lean", 0, 1.2, 0.01, () => LOAD_FEEL.driftLean, (v) => void (LOAD_FEEL.driftLean = v)),
   knob("Landing", "landing.fall", "Fall (m/s)", 2, 12, 0.1, () => CHASE.landing.fall, (v) => void (CHASE.landing.fall = v)),
   knob("Landing", "landing.zetaUp", "Bounce", 0.2, 1, 0.01, () => CHASE.landing.zetaUp, (v) => void (CHASE.landing.zetaUp = v)),
   knob("Landing", "landing.hold", "Window (s)", 0.1, 1.5, 0.05, () => CHASE.landing.hold, (v) => void (CHASE.landing.hold = v)),
