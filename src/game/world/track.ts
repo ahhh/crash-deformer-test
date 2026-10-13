@@ -39,6 +39,8 @@ const WALL_REACH = 1.5;
 export const OPEN_REACH = 12;
 /** A gate counts a wall as open on a side when the wall is down anywhere within this many samples (m) of it: a car leaving through an opening is outside the wall at the gate. */
 const OPEN_SPAN = 12;
+/** The most (m) the road's height may bend across the start line's three samples, 1 m apart (a 50 m crest radius); every course's own is under 5 mm. */
+const START_BEND = 0.02;
 
 /** A gate segment a→b; crossing it along (nx, nz) counts. */
 type Gate = { ax: number; az: number; bx: number; bz: number; nx: number; nz: number; s: number };
@@ -464,6 +466,7 @@ export class Track {
       lanes: r.lanes,
     }));
     this.checkCrossings();
+    this.checkStartLine();
     checkPlateaus(this.id, this.json.environment.plateaus, this.paths());
     let minX = Infinity;
     let maxX = -Infinity;
@@ -521,6 +524,21 @@ export class Track {
           }
         }
       }
+    }
+  }
+
+  /**
+   * The road's height at the start/finish line, centre and both edges, must not bend across it: the loop's closing seam is
+   * where a bank, a width or a height authored on node 0 alone shows (four-count's 8° at the line over 0° beside it creased
+   * the road 1.4 m across at the chequers).
+   */
+  private checkStartLine(): void {
+    const p = this.path;
+    const n = p.count;
+    const h = (k: number, side: number) => p.y[k]! - side * p.half[k]! * Math.tan(p.bank[k]!);
+    for (const side of [-1, 0, 1]) {
+      const bend = Math.abs(h(n - 1, side) - 2 * h(0, side) + h(1, side));
+      if (bend > START_BEND) throw new Error(`${this.id}: the road bends ${bend.toFixed(2)} m across the start line (side ${side}): its height, bank or width at node 0 breaks from the nodes beside it`);
     }
   }
 
