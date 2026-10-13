@@ -107,10 +107,12 @@ import { makeSnapshot, MAX_NET_CARS, MSG, NET_VERSION, readEjection, readSnapsho
  * their debris moved at twice sim time), so a replayed wreck's debris falls and slides at half the rate it did; 68: a crashed car nobody
  * drives rolls on its drive's idle pedals (it rolled with no tyre friction), the wreck gate and the tyre footprint count props, walls and
  * rigs under a point, a car's roof grid follows every refit of its cage (an opened lid or risen roof reaches the tops gate), and a popped
- * wheel launches from a once-per-slice spin.
+ * wheel launches from a once-per-slice spin; 69: a wreck at rest sleeps (its rigid step skipped until a moving car, an applied pedal, a
+ * written velocity or a moved solid wakes it; a keyframe carries its rest timer) and a quiet step takes the 1/120 slice unless a crush
+ * window is open, so a replayed pile settles and steps differently.
  * A saved clip also records `NET_VERSION` (its snapshots' layout).
  */
-const REPLAY_VERSION = 68;
+const REPLAY_VERSION = 69;
 /** Bounds a decoder enforces (a clip is ≤ 13 s at ≤ 300 steps/s, ≤ 15 keyframes). */
 const MAX_STEPS = 8192;
 const MAX_KEYS = 64;
