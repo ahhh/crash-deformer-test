@@ -74,10 +74,10 @@ describe("given the engine load", () => {
   }
 });
 
-describe("given the channel levels ahead of the clamp (the demo's 100% each, tilted per class)", () => {
+describe("given the channel levels ahead of the output gain (the demo's 100% each, tilted per class)", () => {
   const out = new Float64Array(3);
   for (const cls of VEHICLE_CLASS_IDS) {
-    it(`when ${cls} is tuned, then every channel is audible and no louder than 1.5 (the clamp does the rest)`, () => {
+    it(`when ${cls} is tuned, then every channel is audible and no louder than 1.5 (the output gain scales the sum)`, () => {
       channelGains(out, cls);
       for (const level of out) assert.ok(level > 0 && level <= 1.5);
     });
@@ -92,8 +92,8 @@ describe("given the channel levels ahead of the clamp (the demo's 100% each, til
     channelGains(out, "monster");
     assert.ok(out[2]! > sedan);
   });
-  it("when the output is set after the clamp, then it is in the 40-60% range the demo's own slider sits at, not its 10% default", () => {
-    assert.ok(MOTOR_OUTPUT_GAIN >= 0.4 && MOTOR_OUTPUT_GAIN <= 0.6);
+  it("when the output gain is set, then it is at most the demo's own 10% default (the summed channels swing to +-7: nothing clips them)", () => {
+    assert.ok(MOTOR_OUTPUT_GAIN > 0 && MOTOR_OUTPUT_GAIN <= 0.1);
   });
 });
 

@@ -66,7 +66,7 @@ describe("given the settings menu, where each setting is a group of HUD fields w
       buckle: 0.9,
       fxDensity: 0.3,
       musicVolume: 0.2,
-      engineVolume: 0.5,
+      engineVolume: 0.8,
       deformMode: "lattice",
       showRig: true,
       showParticles: true,

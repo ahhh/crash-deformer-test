@@ -6,8 +6,13 @@ const FREE_REV_SHARE = 0.35;
 const LOAD_ACCEL = 4;
 /** Slow-mo pitches the engines down by the presented-time rate, but no lower than this share of their pitch. */
 const SLOWMO_PITCH_FLOOR = 0.25;
-/** After the clamp: 50%. The upstream demo's 10% default is very low; 40-60% (its slider sat at 56) is where the engine reads clearly over the music. The calibration knob for engine loudness. */
-export const MOTOR_OUTPUT_GAIN = 0.5;
+/**
+ * The three generator channels summed (class tilt applied) swing up to +-9 (the noise in them varies run to run) and sit at an RMS
+ * of 0.7-2.1; full scale is 1, and the demo's own master slider is 10%. This scales the sum so the loudest moment of any class,
+ * stage or rev stays under -6 dBFS (10 x 0.05) and a redline peaks near -12 dBFS (`motor-level.test.ts` measures both through the
+ * real worklet). The sum is never clipped.
+ */
+export const MOTOR_OUTPUT_GAIN = 0.05;
 /** Seconds a dead or stalled engine takes to wind down to rpm 0. */
 export const DIE_DOWN_S = 0.8;
 
@@ -202,7 +207,7 @@ export function motorRpm(cls: VehicleClassId, rev: number, rate: number): number
   return rpm * Math.max(SLOWMO_PITCH_FLOOR, rate);
 }
 
-/** Writes the class's intake, engine-block and outlet levels into `out[0..2]`: the demo's 100% each, tilted per class. Set once per tuning, ahead of the clamp. */
+/** Writes the class's intake, engine-block and outlet levels into `out[0..2]`: the demo's 100% each, tilted per class. Set once per tuning, ahead of `MOTOR_OUTPUT_GAIN`. */
 export function channelGains(out: Float64Array, cls: VehicleClassId): void {
   const gains = CLASS_TONE[cls].gains;
   out[0] = gains[0];

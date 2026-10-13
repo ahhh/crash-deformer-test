@@ -10,6 +10,26 @@ const CRASH_RECOVER_TAU_S = 0.5;
 const SLOWMO_FLOOR_HZ = 700;
 const SLOWMO_SPAN_HZ = 19300;
 
+/**
+ * The engine bus gain at a full slider. The 0.5 default is x1.25 (+1.9 dB): a voice's redline then peaks near -11 dBFS and the
+ * player's engine rides about 1 dB over the music ducked under full throttle (measured RMS, `MOTOR_OUTPUT_GAIN`). A full slider is
+ * +8 dB over unity, which only the master limiter keeps in bounds.
+ */
+const ENGINE_FULL_GAIN = 2.5;
+
+/** The engine bus gain: the slider (0..1), linear to `ENGINE_FULL_GAIN`. */
+export function engineBusGain(volume: number): number {
+  return Math.min(1, Math.max(0, volume)) * ENGINE_FULL_GAIN;
+}
+
+/**
+ * The master limiter (a DynamicsCompressor, which keeps a look-ahead): a high ratio at a threshold near the peaks, so it only
+ * catches the sum of several close engines at a high slider. Browsers add make-up gain to a compressor: measured, a lone redline
+ * at the default comes out +1.8 dB, and six voices at a full slider top out near -1.4 dBFS (the old -10 dB / 4:1 setting
+ * ran every mix 2.7 dB hot and was squeezing it constantly).
+ */
+export const MASTER_LIMITER = { threshold: -6, knee: 6, ratio: 12, attack: 0.003, release: 0.25 } as const;
+
 /** The music bus gain: the slider, capped, under the engine duck and the crash duck (each 0..1). */
 export function musicGain(volume: number, engineDuck: number, crashDuck: number): number {
   return Math.min(MUSIC_MAX_GAIN, volume) * engineDuck * crashDuck;

@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import type { DeformableCar } from "../vehicle/car.ts";
-import { crashDuck, engineDuck, musicGain, slowmoCutoff } from "./audio-mix.ts";
+import { crashDuck, engineBusGain, engineDuck, MASTER_LIMITER, musicGain, slowmoCutoff } from "./audio-mix.ts";
 import { lowpass, MotorSound } from "./motor-sound.ts";
 import { MusicPlayer } from "./music.ts";
 import { musicBase } from "./music-manifest.ts";
@@ -14,6 +14,8 @@ const BUS_TAU_S = 0.08;
 const DUCK_TAU_S = 0.1;
 const CRASH_DUCK_TAU_S = 0.02;
 const THUMP_GAIN_PER_IMPULSE = 0.012;
+/** A crash's thump and noise burst sum to 1.15 at their loudest: the bus keeps that near -4 dBFS beside the engines (-11) and the music (-9). */
+const IMPACT_BUS_GAIN = 0.6;
 /** `?voices=N` (0-8) overrides the engine voice count: the bench knob; 0 is no engine audio. */
 const VOICES_PARAM = "voices";
 const MAX_VOICES = 8;
@@ -33,7 +35,7 @@ function voiceSlots(desktop: boolean): number {
 /**
  * The one audio façade: a single AudioContext, the three listener on the camera, and the busses
  *
- *   listener.gain -> engineBus -> slowmoFilter -> master -> compressor -> destination
+ *   listener.gain -> engineBus -> slowmoFilter -> master -> limiter -> destination
  *   impact one-shots -> impactBus ------------/
  *   music -> musicBus ------------------------/
  *
@@ -103,25 +105,26 @@ export class GameAudio {
     const listener = new THREE.AudioListener();
     this.camera.add(listener);
 
-    const compressor = context.createDynamicsCompressor();
-    compressor.threshold.value = -10;
-    compressor.knee.value = 8;
-    compressor.ratio.value = 4;
-    compressor.attack.value = 0.005;
-    compressor.release.value = 0.2;
-    compressor.connect(context.destination);
+    const limiter = context.createDynamicsCompressor();
+    limiter.threshold.value = MASTER_LIMITER.threshold;
+    limiter.knee.value = MASTER_LIMITER.knee;
+    limiter.ratio.value = MASTER_LIMITER.ratio;
+    limiter.attack.value = MASTER_LIMITER.attack;
+    limiter.release.value = MASTER_LIMITER.release;
+    limiter.connect(context.destination);
     const master = context.createGain();
     master.gain.value = this.on ? 1 : 0;
-    master.connect(compressor);
+    master.connect(limiter);
 
     const slowmoFilter = lowpass(context, slowmoCutoff(1));
     slowmoFilter.connect(master);
     const engineBus = context.createGain();
-    engineBus.gain.value = this.live ? this.engineLevel : 0;
+    engineBus.gain.value = this.live ? engineBusGain(this.engineLevel) : 0;
     engineBus.connect(slowmoFilter);
     listener.gain.disconnect();
     listener.gain.connect(engineBus);
     const impactBus = context.createGain();
+    impactBus.gain.value = IMPACT_BUS_GAIN;
     impactBus.connect(master);
     const musicBus = context.createGain();
     musicBus.gain.value = musicGain(this.musicLevel, 1, 1);
@@ -164,7 +167,7 @@ export class GameAudio {
     const context = this.context;
     if (!context || !this.musicBus || !this.engineBus) return;
     this.musicBus.gain.setTargetAtTime(musicGain(music, 1, 1), context.currentTime, MASTER_TAU_S);
-    this.engineBus.gain.setTargetAtTime(this.live ? engine : 0, context.currentTime, MASTER_TAU_S);
+    this.engineBus.gain.setTargetAtTime(this.live ? engineBusGain(engine) : 0, context.currentTime, MASTER_TAU_S);
   }
 
   /**
@@ -180,7 +183,7 @@ export class GameAudio {
     this.live = live;
     if (!motor.update(dt, cars, this.camera, priority, rate, this.engineLevel === 0)) return;
     const now = context.currentTime;
-    this.engineBus.gain.setTargetAtTime(live ? this.engineLevel : 0, now, BUS_TAU_S);
+    this.engineBus.gain.setTargetAtTime(live ? engineBusGain(this.engineLevel) : 0, now, BUS_TAU_S);
     this.slowmoFilter.frequency.setTargetAtTime(slowmoCutoff(rate), now, BUS_TAU_S);
     this.musicBus.gain.setTargetAtTime(musicGain(this.musicLevel, engineDuck(motor.playerLevel), crashDuck(this.sinceImpactS)), now, DUCK_TAU_S);
   }

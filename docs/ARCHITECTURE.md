@@ -190,6 +190,12 @@ closer once its slot has held it 0.75 s, so slots never swap as ranks cross. A s
 the generator, and fades in; it never cuts. The music bus is the slider (at most 0.6) ducked under the player's engine and a
 crash. The soundtrack (`present/music.ts`) is one streaming `<audio>` element fed by the music folder's `manifest.json`
 (`present/music-manifest.ts`, zod-validated; docs/DEPLOY.md, "Music"); no manifest means silence. Audio reads cars and never writes them.
+Gain staging (`audio-mix.ts`, `motor-tone.ts`): a voice is the generator's three channels summed and scaled by
+`MOTOR_OUTPUT_GAIN`, never clipped (the sum swings to +-9, so the scale keeps every class, stage and rev under -6 dBFS and a redline near
+-12 dBFS; `motor-level.test.ts` renders the real worklet to prove it). The panner is `inverse`, refDistance 6 (the chase camera's
+distance, so the player's car is at unity), rolloff 2. The engine bus is the slider x2.5 (the 0.5 default is x1.25) into a master
+limiter (`MASTER_LIMITER`, a high-ratio compressor with look-ahead); the music bus (at most 0.6) shares the master. The race menus
+(setup, pause) carry the Sound, Music and Engines rows, since their modal covers the settings panel.
 
 **Scenes** (`scenes/scene-id.ts` `SCENE_IDS`, one at a time via `setScene`): fleet (default, with the barrier, ramp balls
 and jump ramps as props), press, pistons, doors, corkscrew, stack, derby, race, range, survival. A pick fades through the

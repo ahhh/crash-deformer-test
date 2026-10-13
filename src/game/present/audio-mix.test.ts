@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { approach, crashDuck, engineDuck, musicGain, slowmoCutoff } from "./audio-mix.ts";
+import { approach, crashDuck, engineBusGain, engineDuck, MASTER_LIMITER, musicGain, slowmoCutoff } from "./audio-mix.ts";
 
 const EPS = 1e-9;
 
@@ -17,6 +17,30 @@ describe("given the music bus gain (the slider, capped at 0.6, under the engine 
       assert.ok(Math.abs(musicGain(c.volume, c.engineDuck, c.crash) - c.expected) < EPS);
     });
   }
+});
+
+describe("given the engine bus gain (the slider, linear to 2.5: the 0.5 default is x1.25)", () => {
+  const testCases = [
+    { name: "the default slider", volume: 0.5, expected: 1.25 },
+    { name: "a full slider", volume: 1, expected: 2.5 },
+    { name: "a muted slider", volume: 0, expected: 0 },
+    { name: "a wild slider is capped", volume: 5, expected: 2.5 },
+    { name: "a negative slider is floored", volume: -1, expected: 0 },
+  ];
+  for (const c of testCases) {
+    it(`when the engines are ${c.name}, then the bus gain is ${c.expected}`, () => {
+      assert.equal(engineBusGain(c.volume), c.expected);
+    });
+  }
+});
+
+describe("given the master limiter", () => {
+  it("when its ratio is read, then it limits (at least 10:1) instead of the old 4:1 squeeze", () => {
+    assert.ok(MASTER_LIMITER.ratio >= 10);
+  });
+  it("when its attack and release are read, then it grabs a peak within 5 ms and lets go within a quarter second", () => {
+    assert.ok(MASTER_LIMITER.attack <= 0.005 && MASTER_LIMITER.release <= 0.25);
+  });
 });
 
 describe("given the engine duck of the music", () => {

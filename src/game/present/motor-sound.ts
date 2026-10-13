@@ -16,9 +16,9 @@ const FILTER_TYPE = "lowpass";
 const AUDIO_TICK_S = 1 / 30;
 /** A car farther than this (m) from the camera is never voiced, unless it is the priority car. */
 const VOICE_MAX_DISTANCE = 70;
-/** Panner: full level inside 6 m, `inverse` rolloff 1.3 beyond, silent past `VOICE_MAX_DISTANCE`. HRTF costs too much on phones. */
+/** Panner: full level inside 6 m (the chase camera sits about that far behind the player's car), `inverse` rolloff 2 beyond (a car 12 m out is -9.5 dB, 20 m -15 dB), silent past `VOICE_MAX_DISTANCE`. HRTF costs too much on phones. */
 const REF_DISTANCE = 6;
-const ROLLOFF_FACTOR = 1.3;
+const ROLLOFF_FACTOR = 2;
 /** A slot that changes car fades its voice out this long (s) before the new car's tuning is posted. */
 const SWAP_FADE_S = 0.12;
 /** Time constant (s) of every voice parameter ramp. */
@@ -27,8 +27,8 @@ const PARAM_TAU_S = 0.05;
 const MISFIRE_DIP = 0.1 * MOTOR_OUTPUT_GAIN;
 const MISFIRE_DIP_S = 0.04;
 const MISFIRE_RECOVER_TAU_S = 0.02;
-/** The hard clip of the demo's `clamp: true`: a WaveShaper curve through -1, 0, 1. */
-const CLAMP_CURVE = new Float32Array([-1, 0, 1]);
+/** The fallback sawtooth's gain: a unit saw has an RMS of 0.58, the generator's three channels sum to about 1.1, so the fallback is as loud as the real engine. */
+const FALLBACK_LEVEL = 2;
 /** A dead or stalled voice's gain and rpm ramp with this time constant: DIE_DOWN_S / 5 leaves 0.7% (-43 dB) when the rpm is cut to 0. */
 const DIE_TAU_S = DIE_DOWN_S / 5;
 /** Smoothing (s) of the acceleration-derived load, and of the player's engine level that ducks the music. */
@@ -147,21 +147,21 @@ export class MotorSound {
       node.connect(block, 1);
       node.connect(outlet, 2);
     } else {
-      // A unit-amplitude saw into the outlet channel: the clamp passes it whole.
+      // A saw into the outlet channel; `FALLBACK_LEVEL` lifts its RMS to the worklet's (about 1.1 summed).
       const oscillator = context.createOscillator();
       oscillator.type = FALLBACK_WAVE;
       oscillator.frequency.value = 0;
-      oscillator.connect(outlet);
+      const level = context.createGain();
+      level.gain.value = FALLBACK_LEVEL;
+      oscillator.connect(level);
+      level.connect(outlet);
       oscillator.start();
       rpm = oscillator.frequency;
     }
-    // As the upstream demo's `clamp: true`: the three channels summed and hard-clipped at +-1, then the volume.
-    const clamp = context.createWaveShaper();
-    clamp.curve = CLAMP_CURVE;
-    intake.connect(clamp);
-    block.connect(clamp);
-    outlet.connect(clamp);
-    clamp.connect(gain);
+    // The three channels sum into the voice gain (`MOTOR_OUTPUT_GAIN`): the sum is scaled, never clipped.
+    intake.connect(gain);
+    block.connect(gain);
+    outlet.connect(gain);
     gain.connect(filter);
     const positional = new THREE.PositionalAudio(listener);
     positional.setDistanceModel(DISTANCE_MODEL);

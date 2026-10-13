@@ -44,7 +44,7 @@ describe("given a share state with every kind of field set", () => {
       loop: false,
       slomo: false,
       mvol: 0.2,
-      evol: 0.5,
+      evol: 0.8,
       ts: 0.25,
       deform: "lattice",
       car: "monster",
@@ -153,9 +153,9 @@ describe("given the music and engine volumes in a share link (mvol, evol)", () =
   });
 
   it("when evol is written and read back, then it round-trips", () => {
-    const s: ShareState = { ...DEFAULTS, evol: 0.5 };
-    assert.equal(encodeShare(s), "evol=0.5");
-    assert.equal(decodeShare(`#${encodeShare(s)}`).evol, 0.5);
+    const s: ShareState = { ...DEFAULTS, evol: 0.8 };
+    assert.equal(encodeShare(s), "evol=0.8");
+    assert.equal(decodeShare(`#${encodeShare(s)}`).evol, 0.8);
   });
 
   it("when both volumes are at their defaults, then neither is written, even when set explicitly", () => {

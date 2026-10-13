@@ -231,7 +231,7 @@ export const INITIAL_HUD: CrashHudState = {
   autoSlomo: true,
   audioOn: false,
   musicVolume: 0.35,
-  engineVolume: 0.8,
+  engineVolume: 0.5,
   trackSerial: 0,
   nowPlaying: "",
   fxTier: "minimal",
