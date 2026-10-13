@@ -199,16 +199,18 @@ export class SkidMarks {
     this.on = size > 0;
     if (this.on) {
       if (!this.rt) {
+        // No mipmaps until `wipe` has cleared level 0: three allocates the target and calls `generateMipmap` in one step, on an empty level 0 (a WebGL lazy-initialisation warning).
         this.rt = new THREE.WebGLRenderTarget(size, size, {
           depthBuffer: false,
           stencilBuffer: false,
-          generateMipmaps: true,
+          generateMipmaps: false,
           minFilter: THREE.LinearMipmapLinearFilter,
           magFilter: THREE.LinearFilter,
         });
         this.rt.texture.anisotropy = 8;
       }
       this.rt.setSize(size, size);
+      this.rt.texture.generateMipmaps = false;
     }
     markMapUniforms.uMarkMap.value = this.on ? this.rt!.texture : blank;
     this.clear();
@@ -327,14 +329,7 @@ export class SkidMarks {
     const ac = renderer.autoClear;
     renderer.autoClear = false;
     renderer.setRenderTarget(rt);
-    if (this.needsClear) {
-      renderer.getClearColor(_clear);
-      const alpha = renderer.getClearAlpha();
-      renderer.setClearColor(0x000000, 0);
-      renderer.clear(true, false, false);
-      renderer.setClearColor(_clear, alpha);
-      this.needsClear = false;
-    }
+    if (this.needsClear) this.wipe(renderer);
     this.stamp.visible = this.quads > 0;
     this.fade.visible = fade;
     if (fade) this.fadeAcc = 0;
@@ -360,13 +355,26 @@ export class SkidMarks {
     if (!rt) return;
     this.stamp.visible = true;
     this.fade.visible = true;
+    renderer.setRenderTarget(rt);
+    // A fresh target's level 0 is empty: clear it (which also turns mipmapping on) before the render below ends in `generateMipmap`.
+    if (this.needsClear) this.wipe(renderer);
     rt.scissorTest = true;
     rt.scissor.set(0, 0, 0, 0);
-    renderer.setRenderTarget(rt);
     renderer.render(this.scene, this.camera);
     rt.scissorTest = false;
     this.stamp.visible = false;
     this.fade.visible = false;
+  }
+
+  /** Clear the bound map to transparent black (the clear colour is restored after). */
+  private wipe(renderer: THREE.WebGLRenderer): void {
+    renderer.getClearColor(_clear);
+    const alpha = renderer.getClearAlpha();
+    renderer.setClearColor(0x000000, 0);
+    renderer.clear(true, false, false);
+    renderer.setClearColor(_clear, alpha);
+    this.needsClear = false;
+    this.rt!.texture.generateMipmaps = true;
   }
 
   dispose(): void {
