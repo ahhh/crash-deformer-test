@@ -1,5 +1,5 @@
 {
-  "name": "app-builder-workspace",
+  "name": "crash-deformer-test",
   "private": true,
   "sideEffects": ["./src/game/kernel/three-trig.ts"],
   "type": "module",

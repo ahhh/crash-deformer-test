@@ -1,10 +1,7 @@
 node_modules/
-.project_id
-.github_repo
 .env
 .env.*
 dist/
-.vercel/
 .output/
 .nitro/
 .tanstack/
