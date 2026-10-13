@@ -56,7 +56,7 @@ export const FEEL = {
   stopSpeed: 0.6,
   /** Service-brake share applied with the handbrake. */
   handbrakeBrake: 0.55,
-  /** A brake held no longer than this (s) and released with the wheel past `tapWheel` at speed is a drift request: the handbrake pulses for `tapPulse` s. */
+  /** With keyboard steering, a brake held no longer than this (s) and released with the wheel past `tapWheel` at speed is a drift request: the handbrake pulses for `tapPulse` s. An analog wheel (pad stick, a scripted driver) brakes into corners on purpose and keeps the handbrake button. */
   tapBrake: 0.25,
   tapWheel: 0.6,
   tapPulse: 0.1,
@@ -133,7 +133,7 @@ export function shapeDrive(intent: DriveIntent, feel: DriveFeel, along: number, 
 
   if (intent.brake > 0.5) feel.brakeHeld += dt;
   else {
-    if (feel.brakeHeld > 0 && feel.brakeHeld <= FEEL.tapBrake && Math.abs(feel.wheel) > FEEL.tapWheel && along > SLIDE_SPEED) {
+    if (!intent.analogWheel && feel.brakeHeld > 0 && feel.brakeHeld <= FEEL.tapBrake && Math.abs(feel.wheel) > FEEL.tapWheel && along > SLIDE_SPEED) {
       feel.pulse = FEEL.tapPulse;
     }
     feel.brakeHeld = 0;
