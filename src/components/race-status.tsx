@@ -1,4 +1,5 @@
 import { Siren } from "lucide-react";
+import { copCount } from "@/components/cop-count";
 import { useSpeedUnit } from "@/components/use-speed-unit";
 import type { RaceHud, RaceView } from "@/game/match/types";
 import type { SpeedUnit } from "@/game/hud/speed-units";
@@ -7,9 +8,6 @@ import { cn } from "@/lib/utils";
 /** Distance to the line (in the viewer's unit: yards with mph, metres with km/h) at which the last lap's countdown banner comes up. */
 const NEAR_GOAL = 500;
 const YARDS_PER_M = 1.0936;
-
-/** `1 cop`, `3 cops`: the police headcount as the pursuit strip and the survival readout word it. */
-export const copCount = (n: number): string => `${n} ${n === 1 ? "cop" : "cops"}`;
 
 /** The pursuit strip: police are chasing the viewed car. Cop count and, while the cops hold it slow beside one (the bust rule counting), the bust hold running out with the seconds left. */
 function PursuitStrip({ chase }: { chase: NonNullable<RaceView["chase"]> }) {

@@ -1,6 +1,7 @@
 import { memo, type ReactNode } from "react";
 import { Wrench } from "lucide-react";
 import { useEngine } from "@/components/engine-context";
+import { nitroGlowClass } from "@/components/nitro-glow";
 import { RESET_GLOW } from "@/components/reset-prompt";
 import { usePadHold } from "@/components/use-pad-hold";
 import { useSpeedUnit } from "@/components/use-speed-unit";
@@ -25,20 +26,6 @@ const DMG_TO = -30;
 /** Damage at which the arc turns amber / red: the drivetrain's `DENT` and `LIMP` health bands (vehicle-classes.ts). */
 const DMG_AMBER = 0.6;
 const DMG_RED = 0.25;
-/** Boost level above which the bottle glows: a burst of more than a quarter second is in it. */
-const NITRO_USABLE = 0.15;
-
-const NITRO_GLOW_CLASSES = {
-  bottle: { soft: "shadow-[0_0_0.9em_0_var(--color-scene-race)]", bright: "shadow-[0_0_1.4em_0.25em_var(--color-scene-race)]" },
-  bar: { soft: "drop-shadow-[0_0_4px_var(--color-accent)]", bright: "drop-shadow-[0_0_8px_var(--color-accent)]" },
-};
-
-/** How a boost meter glows, for the bottle and the compact bar alike: softly while a burst is in it, bright while burning, not at all for a car with no nitrous. */
-export function nitroGlowClass(shape: keyof typeof NITRO_GLOW_CLASSES, boost: number | null, boosting: boolean): string | undefined {
-  if (boost === null) return undefined;
-  if (boosting) return NITRO_GLOW_CLASSES[shape].bright;
-  return boost > NITRO_USABLE ? NITRO_GLOW_CLASSES[shape].soft : undefined;
-}
 
 const rad = (deg: number) => (deg * Math.PI) / 180;
 const px = (r: number, deg: number) => (C + r * Math.sin(rad(deg))).toFixed(1);

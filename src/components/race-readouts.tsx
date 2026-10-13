@@ -1,5 +1,7 @@
 import { useState } from "react";
-import { DriveCluster, nitroGlowClass } from "@/components/race-gauge";
+import { showsDriveReadouts } from "@/components/drive-readouts";
+import { nitroGlowClass } from "@/components/nitro-glow";
+import { DriveCluster } from "@/components/race-gauge";
 import { fmtGap, fmtTime } from "@/game/hud/race-clock";
 import { useSpeedUnit } from "@/components/use-speed-unit";
 import { SurvivalReadout } from "@/components/survival-hud";
@@ -42,11 +44,6 @@ export function RaceReadouts({ race, corner }: { race: RaceHud; corner: boolean 
   if (!view || !showsDriveReadouts(race)) return null;
   // Keyed by car: switching the watched car doesn't flash the new car's standing split.
   return <Cluster key={view.id} race={race} view={view} corner={corner} />;
-}
-
-/** The race's readouts are up: a car to read, the race begun, and no results reel (its cameras ride replayed wrecks). */
-export function showsDriveReadouts(race: RaceHud): boolean {
-  return race.view !== null && race.phase !== null && race.reel === null;
 }
 
 function Cluster({ race, view, corner }: { race: RaceHud; view: RaceView; corner: boolean }) {

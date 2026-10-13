@@ -2,7 +2,7 @@ import { useEffect, useRef, useSyncExternalStore, type PointerEvent as ReactPoin
 import { ChevronLeft, ChevronRight, CircleParking, LockOpen, LogOut, Maximize, Minimize, Mouse, Pause, SwitchCamera, Video, Wrench, Zap } from "lucide-react";
 import type { HudProps } from "@/components/hud";
 import { RESET_GLOW } from "@/components/reset-prompt";
-import { showsDriveReadouts } from "@/components/race-readouts";
+import { showsDriveReadouts } from "@/components/drive-readouts";
 import { Button } from "@/components/ui/button";
 import { usePadHold } from "@/components/use-pad-hold";
 import { PAD_BUTTON } from "@/game/vehicle/gamepad";

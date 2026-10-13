@@ -1,6 +1,6 @@
 import { RotateCcw, Trophy } from "lucide-react";
 import { MenuShell, NavButton } from "@/components/race-menu-shell";
-import { copCount } from "@/components/race-status";
+import { copCount } from "@/components/cop-count";
 import { ReelList } from "@/components/race-reel";
 import { fmtTime } from "@/game/hud/race-clock";
 import type { RaceCommand, RaceHud, SurvivalCause, SurvivalHud } from "@/game/match/types";
