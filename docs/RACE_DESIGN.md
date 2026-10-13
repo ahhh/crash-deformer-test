@@ -170,8 +170,10 @@ scales how far the line leans toward the inside of a bend, and the sway (`WOBBLE
 (8 s): for `SLIP_WINDOW` (1.5 s) it plans corners and braking past the grip reserve (the car arrives too fast and runs wide or
 late), then for `SLIP_RECOVER` (4 s) it is shaken and holds back. Every tier's corner factor is at most 1: the lower tiers are
 slower because they err, never because they corner faster. In traffic (a car it follows, swerves for or is nudged by, and for medium any
-car within `calm` = 20 m) a rival drives as hard does: medium errs only on an open road, so a gentle medium field never touches, while
-easy errs in packs too and may bump. The finish bounds in `race-ai.test.ts` scale by tier (`BOUND_SCALE`: easy 1.2, medium 1.1).
+car within `calm` = 40 m) a rival drives as hard does: medium errs only on an open road, so a gentle medium field never touches (at 20 m a
+city pack still met at 18 m/s once the draft cone bunched it), while easy errs in packs too and may bump. On short busy courses medium
+therefore drives almost as hard does (0–1 mistakes a race on oval and city). The finish bounds in `race-ai.test.ts` scale by tier
+(`BOUND_SCALE`: easy 1.2, medium 1.1).
 
 ## Campaign
 
