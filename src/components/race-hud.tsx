@@ -61,14 +61,14 @@ export function RaceStandings({ race, onCommand }: { race: RaceHud; onCommand: S
   const watched = race.standings.find((r) => r.watched)?.place;
   const focusPlace = (race.spectating !== null ? watched : race.you?.place) ?? watched ?? 1;
   return (
-    <ol ref={ref} aria-label="Standings" className="pointer-events-auto max-h-full w-44 space-y-px overflow-y-auto sm:w-48 idle:opacity-60">
+    <ol ref={ref} aria-label="Standings" className="pointer-events-auto max-h-full w-36 space-y-px overflow-y-auto sm:w-48 idle:opacity-60">
       {race.spectating !== null ? (
         <li>
           <AutoRow on={race.auto} onWatch={() => onCommand({ type: "watch", id: -1 })} />
         </li>
       ) : null}
       {race.standings.map((row) => (
-        <li key={row.id} className={cn(row.place !== 1 && !row.you && Math.abs(row.place - focusPlace) > 1 && "max-sm:hidden", row.place !== 1 && row.place !== focusPlace && "phone-landscape:hidden")}>
+        <li key={row.id} className={cn(row.place !== 1 && !row.you && row.place !== focusPlace && "max-sm:hidden", row.place !== 1 && row.place !== focusPlace && "phone-landscape:hidden")}>
           <StandingRow row={row} lead={race.standings[0]!.lap} onWatch={() => onCommand({ type: "watch", id: row.id })} />
         </li>
       ))}
@@ -86,7 +86,7 @@ function AutoRow({ on, onWatch }: { on: boolean; onWatch: () => void }) {
       aria-pressed={on}
       aria-label="Watch Auto"
       className={cn(
-        "flex h-11 w-full items-center gap-2 rounded-md px-1.5 text-left font-display text-sm transition-colors duration-[var(--motion-quick)] sm:h-6 pointer-coarse:h-11",
+        "flex h-9 w-full items-center gap-2 rounded-md px-1.5 text-left font-display text-sm transition-colors duration-[var(--motion-quick)] sm:h-6 pointer-coarse:h-9",
         on ? "bg-surface/80 text-fg" : "hud-ink text-fg hover:bg-surface/60",
       )}
     >
@@ -115,7 +115,7 @@ function StandingRow({ row, lead, onWatch }: { row: RaceHudRow; lead: number; on
       aria-pressed={row.watched}
       aria-label={`Watch ${row.name}`}
       className={cn(
-        "flex h-11 w-full items-center gap-2 rounded-md px-1.5 text-left font-display text-sm transition-colors duration-[var(--motion-quick)] sm:h-6 pointer-coarse:h-11",
+        "flex h-9 w-full items-center gap-2 rounded-md px-1.5 text-left font-display text-sm transition-colors duration-[var(--motion-quick)] sm:h-6 pointer-coarse:h-9",
         row.you ? "bg-accent text-accent-fg" : row.watched ? "bg-surface/80 text-fg" : "hud-ink text-fg hover:bg-surface/60",
       )}
     >
