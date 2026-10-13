@@ -473,25 +473,42 @@ function Choice({ label, off, on, value, onSet }: { label: string; off: string; 
 function SetupMenu({ race, pad, onCommand, onSurvival }: { race: RaceHud; pad: boolean; onCommand: Send; onSurvival: (() => void) | null }) {
   const o = race.options;
   const options = (patch: Partial<RaceOptions>) => onCommand({ type: "options", options: patch });
+  const [campaign, setCampaign] = useState(false);
+  const all = race.courses.map((c) => c.id);
+  const allOn = all.every((id) => o.campaign.includes(id));
+  // A tap ticks a course at the end of the campaign's order (so tap order is play order) or unticks it, closing the gap.
+  const tick = (id: string) => options({ campaign: o.campaign.includes(id) ? o.campaign.filter((x) => x !== id) : [...o.campaign, id] });
   return (
-    <MenuShell id="setup" eyebrow="Race" title="Pick a course" pad={pad} wide adjust onBack={() => onCommand({ type: "quit" })} onStart={null}>
+    <MenuShell id="setup" eyebrow="Race" title={campaign ? "Pick the campaign" : "Pick a course"} pad={pad} wide adjust onBack={() => onCommand({ type: "quit" })} onStart={null}>
+      <div className="mb-2 grid gap-1.5">
+        <Choice label="Mode" off="Single race" on="Campaign" value={campaign} onSet={setCampaign} />
+        {campaign ? (
+          <NavButton variant="secondary" onClick={() => options({ campaign: allOn ? [] : all })}>
+            {allOn ? "Unselect all" : "Select all"}
+          </NavButton>
+        ) : null}
+      </div>
       <div className="grid gap-2 sm:grid-cols-3">
         {race.courses.map((c) => {
-          const on = c.id === o.trackId;
+          const place = o.campaign.indexOf(c.id) + 1;
+          const on = campaign ? place > 0 : c.id === o.trackId;
           return (
             <button
               key={c.id}
               type="button"
               data-nav
               aria-pressed={on}
-              onClick={() => options({ trackId: c.id })}
+              onClick={() => (campaign ? tick(c.id) : options({ trackId: c.id }))}
               className={cn(
                 "flex min-h-11 flex-col items-start rounded-md px-2 py-1.5 text-left shadow-[var(--shadow-border)] transition-colors duration-[var(--motion-quick)]",
                 on ? "bg-accent text-accent-fg" : "bg-surface-2 text-fg hover:bg-surface",
                 FOCUS,
               )}
             >
-              <span className="font-display text-lg font-semibold leading-tight">{c.name}</span>
+              <span className="font-display text-lg font-semibold leading-tight">
+                {campaign && on ? <span data-round={place}>{place}. </span> : null}
+                {c.name}
+              </span>
               <span className={cn("mt-1 text-xs leading-snug", on ? "text-accent-fg" : "text-muted")}>{c.blurb}</span>
             </button>
           );
@@ -527,13 +544,9 @@ function SetupMenu({ race, pad, onCommand, onSurvival }: { race: RaceHud; pad: b
         <Choice label="Police" off="Off" on="Chase" value={o.police} onSet={(police) => options({ police })} />
       </div>
       <div className="mt-3 grid grid-cols-2 gap-1.5">
-        <NavButton className="col-span-2" onClick={() => onCommand({ type: "start" })}>
-          <Flag />
-          Start race
-        </NavButton>
-        <NavButton variant="secondary" onClick={() => onCommand({ type: "campaign" })}>
-          <Trophy />
-          Campaign
+        <NavButton className="col-span-2" disabled={campaign && o.campaign.length === 0} onClick={() => onCommand({ type: campaign ? "campaign" : "start" })}>
+          {campaign ? <Trophy /> : <Flag />}
+          {campaign ? `Start campaign (${o.campaign.length})` : "Start race"}
         </NavButton>
         {onSurvival ? (
           <NavButton variant="secondary" onClick={onSurvival}>

@@ -55,6 +55,7 @@ describe("given a share state with every kind of field set", () => {
       dkg: 800,
       dside: "left",
       track: "figure8",
+      camp: ["rally", "oval", "city"],
       laps: 5,
       ai: 11,
       aggr: 0.9,
@@ -68,6 +69,27 @@ describe("given a share state with every kind of field set", () => {
       seed: 0xffffffff,
     };
     assert.equal(json(decodeShare(`#${encodeShare(s)}`)), json({ ...s, squash: Math.round(s.squash * 1e4) / 1e4 }));
+  });
+});
+
+describe("given the campaign's picked courses in a share link", () => {
+  it("when it is the default list, then nothing is written, and a changed order or subset writes in order and reads back", () => {
+    assert.equal(encodeShare(DEFAULTS), "");
+    const s: ShareState = { ...DEFAULTS, camp: ["city", "oval"] };
+    assert.equal(encodeShare(s), "camp=city,oval");
+    assert.deepEqual(decodeShare(`#${encodeShare(s)}`).camp, ["city", "oval"]);
+    const reversed: ShareState = { ...DEFAULTS, camp: [...DEFAULTS.camp].reverse() };
+    assert.equal(decodeShare(`#${encodeShare(reversed)}`).camp.join(), reversed.camp.join());
+  });
+
+  it("when none is ticked, then it writes an empty list and reads back as none, not as the default", () => {
+    const s: ShareState = { ...DEFAULTS, camp: [] };
+    assert.equal(encodeShare(s), "camp=");
+    assert.deepEqual(decodeShare("#camp=").camp, []);
+  });
+
+  it("when the list has repeats and malformed ids, then repeats and malformed ids drop and the rest keep their order", () => {
+    assert.deepEqual(decodeShare("#camp=rally,oval,rally,..%2Fx,city").camp, ["rally", "oval", "city"]);
   });
 });
 

@@ -408,7 +408,8 @@ two agree. With one human there is no team (`RaceHud.team` is null) and every ru
 - **Campaign:** the host owns the one `Campaign`; its table rides the race snapshot (`campaign`, `standings`: a guest follows the
   host's standings screen). The round counts, and the table moves on, when the event's team result is a win; otherwise Next
   replays the round with nothing scored. The field is the peers seated when the campaign starts: a later peer spectates, and
-  joins with the next campaign. Progress is in the host's memory only, as before.
+  joins with the next campaign. Progress is in the host's memory only, as before. The playlist is the host's pick (`RaceOptions.campaign`,
+  the setup menu's ticked courses in tap order); guests follow it through `campaign.tracks` in the same snapshot, so no new wire.
 - **Wire:** no new message and no new type byte. `MSG.race`'s JSON snapshot gained `survival` (`{ bustTime }`, null in a race), `pack`
   (`{ cops, wrecked }`, Survival, host-filled), `campaign` (the table or null) and `standings`. `codec.ts` validates them (`RACE_SNAP`,
   `CAMPAIGN_SNAP`: bounded arrays, every campaign entry has its row); a guest enters Survival when the snapshot says so

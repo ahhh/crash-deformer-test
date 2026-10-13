@@ -31,6 +31,12 @@ const flag = (def: boolean): Field<boolean> => ({ def, parse: (raw) => (raw === 
 const pick = <T extends string>(of: readonly T[], def: T): Field<T> => ({ def, parse: (raw) => of.find((x) => x === raw), fmt: (v) => v });
 /** Race course ids come from the course list, which the engine checks; here only a plain id shape passes. */
 const slug = (def: string): Field<string> => ({ def, parse: (raw) => (/^[a-z0-9_-]{1,32}$/i.test(raw) ? raw : undefined), fmt: (v) => v });
+/** The campaign's courses, comma-separated in order (`""` = none ticked): plain ids only, repeats dropped; the engine drops unknown ones. */
+const slugs = (def: readonly string[]): Field<readonly string[]> => ({
+  def,
+  parse: (raw) => [...new Set(raw.split(",").filter((id) => /^[a-z0-9_-]{1,32}$/i.test(id)))],
+  fmt: (v) => v.join(","),
+});
 /** A run's seed: up to 8 hex digits. */
 const hex: Field<number | null> = {
   def: null,
@@ -118,6 +124,7 @@ const BASE_FIELDS = {
   dkg: num(5, 5000, D.doors.kg),
   dside: pick(["left", "right"] as const, D.doors.side < 0 ? "left" : "right"),
   track: slug(O.trackId),
+  camp: slugs(O.campaign),
   laps: num(1, 9, O.laps, true),
   ai: num(1, MAX_CARS - 1, O.aiCount, true),
   aggr: num(0, 1, O.aggression),

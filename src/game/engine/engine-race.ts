@@ -18,7 +18,6 @@ import { brakeCueAt } from "../ai/brake-cue.ts";
 import { projectPath, type TrackPath } from "../world/track.ts";
 import { carClass, classStats } from "../vehicle/vehicle-classes.ts";
 import { DRAFT, RaceSession } from "../match/session.ts";
-import { CAMPAIGN } from "../world/tracks/index.ts";
 import {
   cleanName,
   type Entrant,
@@ -185,6 +184,8 @@ export class RaceDirector extends RaceWatch {
         o.aggression = clamp(o.aggression, 0, 1);
         if (!AI_DIFFICULTIES.includes(o.aiDifficulty)) o.aiDifficulty = this.options.aiDifficulty;
         if (!this.courses.some((c) => c.id === o.trackId)) o.trackId = this.options.trackId;
+        // The campaign's pick keeps the caller's order; unknown and repeated ids drop. Empty stays: the menu has nothing ticked yet.
+        if (cmd.options.campaign) o.campaign = cmd.options.campaign.filter((id, i, all) => this.courses.some((c) => c.id === id) && all.indexOf(id) === i);
         const moved = o.trackId !== this.options.trackId || o.aiCount !== this.options.aiCount || o.spectate !== this.options.spectate;
         this.options = o;
         this.syncRules();
@@ -200,8 +201,9 @@ export class RaceDirector extends RaceWatch {
         this.start(this.rules.trackId, this.defaultGrid());
         return;
       case "campaign":
+        if (this.rules.campaign.length === 0) return;
         this.entrants = this.field();
-        this.campaign = new Campaign(CAMPAIGN, this.defaultGrid().map((id) => this.entrants[id]!));
+        this.campaign = new Campaign(this.rules.campaign, this.defaultGrid().map((id) => this.entrants[id]!));
         this.start(this.campaign.trackId!, this.campaign.grid());
         return;
       case "retry":

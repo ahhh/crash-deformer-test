@@ -164,6 +164,13 @@ replay stores inputs, so neither the wire nor replays change.
 entry order (player last); later grids are the standings, leader on pole. Retry re-runs a round without scoring it. A
 Watch campaign runs every round in spectate mode. Nothing is saved: a campaign lives only in the running page.
 
+The courses are the player's pick (`RaceOptions.campaign`, share key `camp`), defaulting to all eight in `CAMPAIGN` order. The
+setup menu's **Mode** row switches the course cards to Campaign: a tap ticks a card at the end of the order (a number shows its
+round) or unticks it, **Select all** / **Unselect all** is one toggle, and tap order is play order (after Unselect all, the order
+tapped is the campaign). **Start campaign** is disabled with nothing ticked, and the `campaign` command ignores an empty list.
+The `options` command drops unknown and repeated ids and keeps the rest in order. The pick survives a campaign and other option
+changes; picking a single-race course (`trackId`) never touches it, and the reverse.
+
 ## Controller slots and multiplayer
 
 Slots `player | ai | remote`. `RaceDirector.drive` picks each car's `DriveInput`: player → this browser's `DriverSeat`,
@@ -380,8 +387,8 @@ at ~8 Hz (`engine.ts` `hudAcc`), never per frame.
 
 Standings (names are spectate buttons), start lights with 3·2·1·GO, WRONG WAY, respawn countdown, finish card, spectate
 bar, and one "Full menu" button (H). Full view adds the sandbox title, settings panel, drive card and dock. Modal menus:
-setup (course cards, Name, Car, You: Drive / Watch, laps 1–5, AI cars 1–15, max aggression, respawn / no reset, Police Off
-/ Chase, Start race, Campaign, Back), pause (Resume, Restart, End race, Full menu / Race view, Quit to menu), dead, results
+setup (Mode: Single race / Campaign, with Select all / Unselect all under Campaign, course cards, Name, Car, You: Drive / Watch,
+laps 1–5, AI cars 1–15, max aggression, respawn / no reset, Police Off / Chase, Start race or Start campaign, Back), pause (Resume, Restart, End race, Full menu / Race view, Quit to menu), dead, results
 (Next course / Standings, Retry, Menu), campaign standings (Next round / champion, Menu). D-pad / left stick move focus
 spatially (350 ms then 120 ms repeat), ←/→ adjust, A confirms, B backs out, Start resumes. When the focused item unmounts (a
 deleted saved replay, a stepper that disables at its bound) focus moves to the item now nearest where it was (`nearestNav`),
@@ -392,6 +399,9 @@ without scrolling, so a long menu keeps its scroll offset; it never falls back t
 - `track.test.ts`: every course compiles; gates, grid, walls, ground, bridge layers, crossing rules.
 - `session.test.ts`: countdown, laps, cuts and the `missed` flag, line farming, shortcuts, wrong way, positions, respawn
   placement, no-reset survival, snapshots, DNF, the chequered flag and finish deadlines, campaign, drafting.
+- `race-menu-options.test.ts`: a course pick through the `options` command changes only `trackId` (from watch / police / no reset /
+  laps / AI count / aggression / difficulty, before a race and after one); the campaign pick (default order, tap order, unknown and
+  repeated ids dropped, empty never starts, a two-round Watch campaign plays only those courses in that order).
 - `vehicle-classes.test.ts` (a draft's `topScale`), `race-ai.test.ts` (8 clean AI cars finish 3 laps on every course on
   the road ≥ 95 %; ram / block / follow, boost, the aggression model), `traffic.test.ts`, `placements.test.ts`,
   `menu-nav.test.ts`, `checkpoint-sweep.test.ts`.

@@ -68,9 +68,12 @@ export type RaceOptions = {
   spectate: boolean;
   /** Police chase: packs of police cars park beside the course from a third of the first lap on and hunt the racers. */
   police: boolean;
+  /** The campaign's courses, raced in this order (the menu's tap order). Course ids; empty is "not startable yet". */
+  campaign: readonly string[];
 };
 
-export const DEFAULT_RACE_OPTIONS: RaceOptions = { trackId: TRACK_ID.oval, laps: 3, noReset: false, aiCount: 7, aggression: 0.35, aiDifficulty: AI_EVERY_SLICE, spectate: false, police: false };
+/** The campaign defaults to every course in `TRACK_ID` order, which is `CAMPAIGN`'s (pinned by test: `tracks/index.ts` is not imported here, it carries the course JSON). */
+export const DEFAULT_RACE_OPTIONS: RaceOptions = { trackId: TRACK_ID.oval, laps: 3, noReset: false, aiCount: 7, aggression: 0.35, aiDifficulty: AI_EVERY_SLICE, spectate: false, police: false, campaign: Object.values(TRACK_ID) };
 
 /** Per-step input to the rules for one car (same order as the entrants). */
 export type CarPose = {
