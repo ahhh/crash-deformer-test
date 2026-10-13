@@ -65,7 +65,8 @@ describe("given the player's car crashed in a race with a mirror torn off and ly
     for (let k = 1; k <= 3; k++) {
       w.race.holdReset();
       frame(w, state);
-      assert.deepEqual(car["parts"].filter((p) => p.detached), torn, `hold ${k}: the torn parts stay torn`);
+      assert.equal(car["parts"].filter((p) => p.detached).length, torn.length, `hold ${k}: the torn part count changed`);
+      for (const p of torn) assert.ok(p.detached, `hold ${k}: ${p.name} is attached again`);
       for (const [i, p] of torn.entries()) assert.ok(p.object.position.distanceTo(lies[i]!) < 0.02, `hold ${k}: ${p.name} was moved ${p.object.position.distanceTo(lies[i]!).toFixed(2)} m from where it lies`);
     }
   });
