@@ -1,0 +1,38 @@
+{
+  "tracks": [
+    {
+      "file": "aspyer-overdrive.mp3",
+      "artist": "Aspyer",
+      "title": "Overdrive",
+      "attribution": ["Song: Aspyer - Overdrive [NCS Release]", "Music provided by NoCopyrightSounds"],
+      "links": [
+        { "label": "Free Download/Stream", "url": "http://ncs.io/A_Overdrive" },
+        { "label": "Watch", "url": "http://ncs.lnk.to/A_OverdriveAT/youtube" }
+      ]
+    },
+    {
+      "file": "luke-alexander-ride-with-me.mp3",
+      "artist": "Luke Alexander",
+      "title": "RIDE WITH ME",
+      "attribution": ["Song: Luke Alexander - RIDE WITH ME [NCS Release]", "Music provided by NoCopyrightSounds"],
+      "links": [
+        { "label": "Free Download/Stream", "url": "http://ncs.io/RWM" },
+        { "label": "Watch", "url": "http://ncs.lnk.to/RWMAT/youtube" }
+      ]
+    },
+    {
+      "file": "syntact-ego.mp3",
+      "artist": "Syntact",
+      "title": "Ego",
+      "attribution": ["Song: Syntact - Ego [NCS Release]", "Music provided by NoCopyrightSounds"],
+      "links": [{ "label": "Free Download/Stream", "url": "http://ncs.io/Ego" }]
+    },
+    {
+      "file": "manshn-code.mp3",
+      "artist": "MANSHN",
+      "title": "Code",
+      "attribution": ["Song: MANSHN - Code [NCS Release]", "Music provided by NoCopyrightSounds"],
+      "links": [{ "label": "Free Download/Stream", "url": "http://ncs.io/Code" }]
+    }
+  ]
+}

@@ -18,3 +18,7 @@ screenshots/*
 
 # Rust kernel build output (the committed skin-kernel.wasm is what ships). No trailing slash: under mbx it is a symlink.
 kernels/skin/target
+
+# The soundtrack's mp3s are NCS music: licensed for use in the game, not for redistribution, so they never enter this public repo
+# (docs/DEPLOY.md, "Music"). The manifest beside them is committed as the reference copy.
+public/music/*.mp3

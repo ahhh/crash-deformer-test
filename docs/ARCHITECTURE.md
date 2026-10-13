@@ -185,7 +185,8 @@ fixed pool built at unlock (6 on a desktop, 3 on a phone, `?voices=N` overrides)
 focus car, else the followed one) and then the nearest cars within 70 m, and a held car is displaced only by one at least 30%
 closer once its slot has held it 0.75 s, so slots never swap as ranks cross. A slot that changes car fades out, re-tunes
 the generator, and fades in; it never cuts. The music bus is the slider (at most 0.6) ducked under the player's engine and a
-crash. Audio reads cars and never writes them.
+crash. The soundtrack (`present/music.ts`) is one streaming `<audio>` element fed by the music folder's `manifest.json`
+(`present/music-manifest.ts`, zod-validated; docs/DEPLOY.md, "Music"); no manifest means silence. Audio reads cars and never writes them.
 
 **Scenes** (`scenes/scene-id.ts` `SCENE_IDS`, one at a time via `setScene`): fleet (default, with the barrier, ramp balls
 and jump ramps as props), press, pistons, doors, corkscrew, stack, derby, race, range, survival. A pick fades through the

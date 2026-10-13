@@ -2,6 +2,8 @@ import * as THREE from "three";
 import type { DeformableCar } from "../vehicle/car.ts";
 import { crashDuck, engineDuck, musicGain, slowmoCutoff } from "./audio-mix.ts";
 import { lowpass, MotorSound } from "./motor-sound.ts";
+import { MusicPlayer } from "./music.ts";
+import { musicBase } from "./music-manifest.ts";
 
 const LATENCY_HINT = "interactive";
 /** Time constant of the master gain ramp when audio is toggled. */
@@ -48,6 +50,7 @@ export class GameAudio {
   private impactBus: GainNode | null = null;
   private musicBus: GainNode | null = null;
   private motor: MotorSound | null = null;
+  private music: MusicPlayer | null = null;
   private on = false;
   /** Whether the game is running (not paused or held): a pause fades the engines out, the music plays on. */
   private live = true;
@@ -59,8 +62,13 @@ export class GameAudio {
   private readonly onVisibility = (): void => {
     const context = this.context;
     if (!context) return;
-    if (document.visibilityState === "hidden") void context.suspend();
-    else if (this.on) void context.resume();
+    if (document.visibilityState === "hidden") {
+      void context.suspend();
+      this.music?.pause();
+    } else if (this.on) {
+      void context.resume();
+      this.music?.play();
+    }
   };
 
   constructor(camera: THREE.PerspectiveCamera, desktop: boolean) {
@@ -120,6 +128,8 @@ export class GameAudio {
     const motor = new MotorSound(voiceSlots(this.desktop));
     this.motor = motor;
     motor.load(context, listener).catch((reason: Error) => console.warn("motor sound: unavailable", reason));
+    this.music = new MusicPlayer(context, musicBus, musicBase(import.meta.env));
+    if (this.on) this.music.play();
     void context.resume();
   }
 
@@ -129,8 +139,13 @@ export class GameAudio {
     const context = this.context;
     if (!context || !this.master) return;
     this.master.gain.setTargetAtTime(on ? 1 : 0, context.currentTime, MASTER_TAU_S);
-    if (on) void context.resume();
-    else void context.suspend();
+    if (on) {
+      void context.resume();
+      this.music?.play();
+    } else {
+      void context.suspend();
+      this.music?.pause();
+    }
   }
 
   /** The slider levels: the music bus (capped by `musicGain`) and the engine bus. The engine pushes them at construction and on every change. */
@@ -205,6 +220,7 @@ export class GameAudio {
     document.removeEventListener("visibilitychange", this.onVisibility);
     if (this.listener) this.camera.remove(this.listener);
     this.motor?.dispose();
+    this.music?.dispose();
     void this.context?.close();
     this.context = null;
     this.listener = null;
@@ -214,6 +230,7 @@ export class GameAudio {
     this.impactBus = null;
     this.musicBus = null;
     this.motor = null;
+    this.music = null;
     this.on = false;
     this.sinceImpactS = Infinity;
   }
