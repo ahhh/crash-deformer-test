@@ -542,12 +542,13 @@ export class Cinematics {
 
   /**
    * After the physics and FX steps: hits from each car's velocity jump, tyre marks / smoke / scrape sparks
-   * from wheel slip, boost blur for the driven car, and the decay of every punch value.
+   * from wheel slip, boost blur for the driven car, and the decay of every punch value. `velocityHits`: the world's own
+   * contacts are not running here (a netplay client mirrors the host's cars), so the followed car's velocity jump also shakes its view.
    */
-  update(wallDt: number, simDt: number, cars: readonly DeformableCar[], followed: DeformableCar | null, driving: boolean, fxDensity: number): void {
+  update(wallDt: number, simDt: number, cars: readonly DeformableCar[], followed: DeformableCar | null, driving: boolean, fxDensity: number, velocityHits: boolean): void {
     if (this.tierNow === "off") return;
     this.hitStop = Math.max(0, this.hitStop - wallDt);
-    if (simDt > MIN_SIM_DT) this.detectHits(cars, followed, driving, wallDt);
+    if (simDt > MIN_SIM_DT) this.detectHits(cars, followed, driving, wallDt, velocityHits);
     this.marks.update(cars, simDt);
     if (this.marks.slipping) this.emitSlipFx(cars.length, wallDt, fxDensity);
     this.tyreSmoke.update(Math.max(simDt, wallDt * 0.6), this.view.camera);
@@ -606,13 +607,12 @@ export class Cinematics {
     this.flash = Math.max(this.flash, 0.55 * k);
     this.punch = Math.max(this.punch, k);
     if (this.reduceMotion) return;
-    this.view.trauma = Math.max(this.view.trauma, 0.35 + 0.55 * k);
     const cam = this.view.camera;
     cam.fov += 7 * k;
     cam.updateProjectionMatrix();
   }
 
-  private detectHits(cars: readonly DeformableCar[], followed: DeformableCar | null, driving: boolean, wallDt: number): void {
+  private detectHits(cars: readonly DeformableCar[], followed: DeformableCar | null, driving: boolean, wallDt: number, velocityHits: boolean): void {
     const n = Math.min(cars.length, this.pvx.length);
     for (let i = 0; i < n; i++) {
       const v = cars[i]!.velocity;
@@ -626,6 +626,7 @@ export class Cinematics {
       if (!mine && (followed || k < 0.5)) continue;
       this.hitCool[i] = 0.3;
       this.kick(mine ? 0.3 + 0.7 * k : 0.25 * k);
+      if (mine && velocityHits) this.view.jolt(dv);
       if (mine && driving && k > 0.3) this.hitStop = HIT_STOP;
     }
     this.havePrev = true;

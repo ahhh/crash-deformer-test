@@ -685,7 +685,7 @@ export abstract class EngineScenes extends EngineDerby {
       this.debris.burst(at, n, Math.min(48, 10 + closing) * this.fxDensity);
       this.sparks.poof(at, n, Math.min(28, 6 + closing * 0.5) * this.fxDensity);
     },
-    wall: () => {},
+    wall: (_index, i, closing) => this.noteHit(i, closing),
   };
 
   protected readonly raceCollide = (car: DeformableCar, i: number, h: number): void => this.race.collide(car, i, h);
@@ -694,8 +694,10 @@ export abstract class EngineScenes extends EngineDerby {
   private readonly rampHits: PropHits = {
     knock: () => {},
     fx: () => {},
-    wall: (_index, _car, closing, x, z, nx, nz) =>
-      this.world.strongest.offer({ impulse: Math.max(closing, 0.5), contact: new THREE.Vector3(x, 0.4, z), normal: new THREE.Vector3(nx, 0, nz) }),
+    wall: (_index, i, closing, x, z, nx, nz) => {
+      this.noteHit(i, closing);
+      this.world.strongest.offer({ impulse: Math.max(closing, 0.5), contact: new THREE.Vector3(x, 0.4, z), normal: new THREE.Vector3(nx, 0, nz) });
+    },
   };
 
   protected readonly rampCollide = (car: DeformableCar, _i: number, h: number): void => {
@@ -717,6 +719,7 @@ export abstract class EngineScenes extends EngineDerby {
       this.sparks.poof(at, n, Math.min(28, 6 + closing * 0.5) * this.fxDensity);
     },
     wall: (index, carIndex, closing, x, z, nx, nz) => {
+      this.noteHit(carIndex, closing);
       this.world.strongest.offer({ impulse: Math.max(closing, 0.5), contact: new THREE.Vector3(x, 0.4, z), normal: new THREE.Vector3(nx, 0, nz) });
       if (index < RIG_BALL_FIRST || !shatterBall(this.balls[index - RIG_BALL_FIRST]!, this.world.cars[carIndex]!, closing)) return;
       this.trace.ballHits.push({ t: this.elapsedWall, ball: index - RIG_BALL_FIRST, closing, broken: true });

@@ -52,6 +52,7 @@ A tap shorter than one frame still registers (the press is latched until the nex
 | Orbit (also a thrown driver's ride-along: it orbits the dummy, the ride's shot changes wait during the drag and 2.5 s after) | drag | right stick | one-finger drag |
 | Mouse look (Pointer Lock on the canvas: the pointer hides and mouse movement looks round like a drag, no click; also the HUD's mouse button, desktop only). Chase views and the orbit when watching; the ride-along and fixed or cinematic spectator cams ignore it. Esc, a menu, a scene change or any lost lock (alt-tab, tab hide) ends it; a lost lock pauses a race, Survival run or derby once (the next Esc unpauses a race as usual). Chrome refuses a re-lock for ~1-2 s after an Esc exit: the toggle then stays off, press it again | ; (Semicolon) | | |
 | Zoom | scroll | | two-finger pinch |
+| Impact shake: any hit on the followed or driven car shakes the chase, far chase and hood views (the hood at 0.4 of the amount) in every mode, by how hard it hit (none under 2 m/s, full at 20). Debug views → Camera → **Impact**: **Shake strength** (`cam.shake`, 0 is off) and **Gear-change kick** (`cam.shiftKick`: the body's slight pitch at each gear change). Reduced motion never shakes | | | |
 
 ## Racing (no menu open)
 

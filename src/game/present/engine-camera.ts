@@ -129,10 +129,16 @@ export const CHASE = {
   landing: { minAir: 0.3, fall: 5, zetaUp: 0.6, hold: 0.5, wobble: 0.8, wobbleHz: 30, wobbleRoll: 0.6 },
   /** Forward speed (m/s) from which the view looks into a slide and the aim follows the velocity. */
   followSpeed: 3,
+  /** Impact shake strength: a multiple of `JOLT`'s trauma (0 off); the first crash's kick scales with it too. Hood view shakes `shakeHood` of the chase views' amount (a hood eye sits in the car, so its shake needs less). */
+  shake: 1,
+  shakeHood: 0.4,
 };
 
+/** A hit's closing speed (m/s) to shake: none under `from` (a nudge), full at `full` (a head-on at speed). */
+const JOLT = { from: 2, full: 20 };
+
 /** The debug panel's groups: the talk's three tuning parameters (masterclass 29:27), then what else the chase tunes. */
-type ChaseGroup = "Convergence" | "Momentum" | "Damping" | "Look-ahead" | "Slide" | "Landing";
+type ChaseGroup = "Convergence" | "Momentum" | "Damping" | "Look-ahead" | "Slide" | "Landing" | "Impact";
 
 /** A chase knob's id is its HUD field, its settings entry and its share-URL key: `cam.` plus the `CHASE` path. */
 export type ChaseKnobId =
@@ -140,7 +146,8 @@ export type ChaseKnobId =
   | "cam.zeta.lon" | "cam.zeta.lat" | "cam.zeta.up"
   | "cam.maxSpeed" | "cam.aheadVel" | "cam.aheadMax"
   | "cam.fovSlide" | "cam.driftTilt" | "cam.driftLean"
-  | "cam.landing.fall" | "cam.landing.zetaUp" | "cam.landing.hold" | "cam.landing.wobble" | "cam.landing.wobbleHz";
+  | "cam.landing.fall" | "cam.landing.zetaUp" | "cam.landing.hold" | "cam.landing.wobble" | "cam.landing.wobbleHz"
+  | "cam.shake" | "cam.shiftKick";
 
 type ChaseKnob = {
   id: ChaseKnobId;
@@ -179,6 +186,8 @@ export const CHASE_KNOBS: readonly ChaseKnob[] = [
   knob("Landing", "cam.landing.hold", "Window (s)", 0.1, 1.5, 0.05, () => CHASE.landing.hold, (v) => void (CHASE.landing.hold = v)),
   knob("Landing", "cam.landing.wobble", "Wobble (deg)", 0, 2, 0.05, () => CHASE.landing.wobble, (v) => void (CHASE.landing.wobble = v)),
   knob("Landing", "cam.landing.wobbleHz", "Wobble (Hz)", 10, 40, 1, () => CHASE.landing.wobbleHz, (v) => void (CHASE.landing.wobbleHz = v)),
+  knob("Impact", "cam.shake", "Shake strength", 0, 2, 0.05, () => CHASE.shake, (v) => void (CHASE.shake = v)),
+  knob("Impact", "cam.shiftKick", "Gear-change kick", 0, 3, 0.05, () => LOAD_FEEL.shiftKick, (v) => void (LOAD_FEEL.shiftKick = v)),
 ];
 
 /** Every chase knob's live value by id (the HUD fields and share-state keys). The cast holds: `CHASE_KNOBS` has a row per id (pinned by test). */
@@ -594,11 +603,21 @@ export class ChaseCamera {
 
   /** Impact hit: shake, and unless the user framed the shot, orbit from where the camera is now. */
   kick(carCount: number): void {
-    this.trauma = this.reduceMotion ? 0 : 0.85;
+    this.trauma = this.reduceMotion ? 0 : Math.min(1, 0.85 * CHASE.shake);
     if (!this.userFramed) {
       this.angle = Math.atan2(this.camera.position.x - this.look.x, this.camera.position.z - this.look.z);
       this.radius = THREE.MathUtils.clamp(this.radius + Math.max(0, carCount - 2) * 0.4, 8, 22);
     }
+  }
+
+  /**
+   * A hit on the followed car: `speed` m/s of velocity change adds shake (the orbit is not re-aimed), none under `JOLT.from`,
+   * full (before `CHASE.shake`) at `JOLT.full`, in between a straight ramp (trauma squared draws, so a tap is a nudge). No shake in reduced motion.
+   */
+  jolt(speed: number): void {
+    if (this.reduceMotion) return;
+    const t = THREE.MathUtils.clamp((speed - JOLT.from) / (JOLT.full - JOLT.from), 0, 1);
+    this.trauma = Math.min(1, this.trauma + CHASE.shake * t);
   }
 
   /** Ease toward the orbit around `look`; `spinRate` rad/s auto-rotates unless dragging or reduced motion. */
@@ -636,7 +655,7 @@ export class ChaseCamera {
     const k = 1 - Math.exp((this.dragging || this.locked || padTurn ? -18 : -5.5) * wallDt);
     this.camera.position.lerp(this.pos, k);
     this.camera.lookAt(this.look);
-    if (shake) this.shake();
+    if (shake) this.shake(1);
     easeFov(this.camera, this.lens, wallDt);
   }
 
@@ -684,7 +703,7 @@ export class ChaseCamera {
     this.fallWatch = false;
     this.rig = "chase";
     this.drive.update(this.camera, car, this.seat.view, wallDt, this.pad.rx, this.pad.ry);
-    if (shake && this.seat.view !== "first") this.shake();
+    if (shake) this.shake(this.seat.view === "first" ? CHASE.shakeHood : 1);
   }
 
   /** The followed car's cam: `spec`, else in a race (`chase`) the seat's chase view, elsewhere the orbit. */
@@ -724,7 +743,7 @@ export class ChaseCamera {
     this.rig = "chase";
     this.drive.update(this.camera, car, chase, wallDt, this.pad.rx, this.pad.ry, true);
     this.pushOut(chase === "first" ? null : scene.fixed(), wallDt);
-    if (shake && chase !== "first") this.shake();
+    if (shake) this.shake(chase === "first" ? CHASE.shakeHood : 1);
     return true;
   }
 
@@ -785,12 +804,14 @@ export class ChaseCamera {
     easeFov(this.camera, this.lens, wallDt);
   }
 
-  private shake(): void {
+  /** Apply the screen shake: `scale` 1 in the chase views, `CHASE.shakeHood` in the hood view. */
+  private shake(scale: number): void {
     if (this.trauma <= 0) return;
-    const s = this.trauma * this.trauma;
+    const s = this.trauma * this.trauma * scale;
     const t = performance.now() * 0.017;
-    this.camera.position.x += Math.sin(t * 37.1) * s * 0.28;
-    this.camera.position.y += Math.cos(t * 29.4) * s * 0.18;
+    // Across the view (the Battlefront 2 "orbit" shake, masterclass 40:05): the car near the eye shakes, the road far ahead holds still, and a hit never pulses the eye toward or away from the car.
+    this.camera.translateX(Math.sin(t * 37.1) * s * 0.28);
+    this.camera.translateY(Math.cos(t * 29.4) * s * 0.18);
     this.camera.rotateZ(Math.sin(t * 21.2) * s * 0.025);
   }
 

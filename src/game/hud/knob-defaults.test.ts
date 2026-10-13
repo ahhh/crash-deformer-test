@@ -35,6 +35,7 @@ describe("given the calibrated crash knob defaults (squash, buckle and realism)"
       "cam.maxSpeed": true, "cam.aheadVel": true, "cam.aheadMax": true,
       "cam.fovSlide": true, "cam.driftTilt": true, "cam.driftLean": true,
       "cam.landing.fall": true, "cam.landing.zetaUp": true, "cam.landing.hold": true, "cam.landing.wobble": true, "cam.landing.wobbleHz": true,
+      "cam.shake": true, "cam.shiftKick": true,
     };
     assert.equal(CHASE_KNOBS.map((k) => k.id).sort().join(" "), Object.keys(ids).sort().join(" "), "the rows are exactly the ChaseKnobId union");
   });

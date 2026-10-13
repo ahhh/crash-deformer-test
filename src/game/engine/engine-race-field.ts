@@ -55,6 +55,8 @@ interface RaceHost {
   leave(): void;
   /** Sparks / debris at a wall or prop hit. */
   hitFx(contact: THREE.Vector3, normal: THREE.Vector3, impulse: number): void;
+  /** A wall or prop hit car `i`, closing at `closing` m/s: its view shakes if it is the watched car. */
+  hit(i: number, closing: number): void;
   /** Knockable prop `index` knocked off its spot by car `car` at (vx, vy, vz) m/s: drawn flying and tumbling (cosmetic; headless: nothing). */
   knockProp(index: number, car: number, vx: number, vy: number, vz: number): void;
   /** The course's art (null headless: rules, AI, contacts and physics run without it). */
@@ -159,7 +161,10 @@ export abstract class RaceField {
       this.host.knockProp(index, car, vx, vy, vz);
     },
     fx: (at, n, closing) => this.host.hitFx(at, n, closing),
-    wall: (_index, i, closing, x, z) => this.onWallHit(i, closing, x, z),
+    wall: (_index, i, closing, x, z) => {
+      this.onWallHit(i, closing, x, z);
+      this.host.hit(i, closing);
+    },
   };
   private readonly observers: AiCar[] = [];
   private readonly viewProj = new THREE.Matrix4();

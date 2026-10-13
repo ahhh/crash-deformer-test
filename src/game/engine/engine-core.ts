@@ -544,6 +544,22 @@ export abstract class EngineCore {
       ? this.cars[this.seat.carIndex]!
       : null;
   }
+
+  /** The hardest hit on the watched car since the last frame (closing m/s): `shakeOnHits` hands it to the camera once. */
+  private hitClosing = 0;
+
+  /** Car `i` was hit, closing at `closing` m/s (a car pair, a wall or prop, the slab); only the car the seat drives or follows counts. */
+  protected noteHit(i: number, closing: number): void {
+    if (this.seat.mode !== "global" && i === this.seat.carIndex && closing > this.hitClosing) this.hitClosing = closing;
+  }
+
+  /** Once a frame, before the shake decays: the watched car's hardest hit shakes its view (`ChaseCamera.jolt`). */
+  protected shakeOnHits(): void {
+    if (this.hitClosing <= 0) return;
+    this.view.jolt(this.hitClosing);
+    this.hitClosing = 0;
+  }
+
   /** Where the first hit coming lands, as of the last `contactEta`. */
   protected readonly predicted: PredictedHit = { x: 0, y: 0, z: 0, nx: 1, nz: 0 };
   private fudgedAt = -Infinity;

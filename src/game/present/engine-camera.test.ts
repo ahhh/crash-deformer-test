@@ -2,7 +2,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import * as THREE from "three";
 import { DeformableCar } from "../vehicle/car.ts";
-import { applyDrive, DriverSeat, idleDrive, type DriveInput } from "../vehicle/car-drive.ts";
+import { applyDrive, DriverSeat, idleDrive, type DriveInput, type SeatView } from "../vehicle/car-drive.ts";
 import type { PadState } from "../vehicle/gamepad.ts";
 import { assignClass } from "../vehicle/vehicle-classes.ts";
 import { paint } from "../vehicle/test-support.ts";
@@ -418,5 +418,94 @@ describe("given the chase eye's springs", () => {
       fastest = Math.max(fastest, s.v.length());
     }
     assert.ok(fastest <= 3 + 1e-9, `the eye reached ${fastest.toFixed(2)} m/s`);
+  });
+});
+
+describe("given the chase camera and a hit on the car it follows", () => {
+  const make = (reduceMotion = false) => {
+    const seat = new DriverSeat();
+    seat.mode = "drive";
+    const camera = new THREE.PerspectiveCamera(56, 16 / 9, 0.1, 180);
+    const view = new ChaseCamera(camera, fakeCanvas(), seat, { rx: 0, ry: 0 } as PadState, reduceMotion, () => {});
+    return { seat, camera, view };
+  };
+  /** How far one frame of `trauma` moves the eye of a settled car in the seat's `view` (the clock held, so the shake's phase is the same in every call). */
+  const shaken = (view: SeatView, trauma: number): number => {
+    const { seat, camera, view: cam } = make();
+    seat.view = view;
+    const car = new DeformableCar(paint(), new THREE.Scene());
+    assignClass(car, "sedan");
+    car.spawnFacing(0, 0, 0, 0);
+    for (let t = 0; t < 3; t += DT) cam.frameDrive(car, DT, true);
+    const rest = camera.position.clone();
+    cam.trauma = trauma;
+    cam.frameDrive(car, DT, true);
+    return camera.position.distanceTo(rest);
+  };
+
+  it("when the car is hit at 1, 4, 15 and 40 m/s, then a nudge adds nothing, a hard hit adds trauma by a straight ramp from 2 to 20 m/s, and trauma never passes 1", () => {
+    const { view } = make();
+    view.jolt(1);
+    assert.equal(view.trauma, 0, "1 m/s");
+    view.jolt(4);
+    assert.ok(Math.abs(view.trauma - (4 - 2) / 18) < 1e-12, `4 m/s ${view.trauma}`);
+    view.trauma = 0;
+    view.jolt(15);
+    assert.ok(Math.abs(view.trauma - 13 / 18) < 1e-12, `15 m/s ${view.trauma}`);
+    view.jolt(40);
+    assert.equal(view.trauma, 1, "40 m/s on top of that");
+  });
+
+  it("when the orbit shakes, then the eye moves across the view and never along it, so the road far ahead holds still", (t) => {
+    t.mock.method(performance, "now", () => 5000);
+    const frame = (trauma: number) => {
+      const { camera, view, look } = rig("global");
+      view.look.copy(look);
+      for (let f = 0; f < 120; f++) view.orbit(DT, 0, false);
+      view.trauma = trauma;
+      view.orbit(DT, 0, true);
+      return { at: camera.position.clone(), dir: camera.getWorldDirection(new THREE.Vector3()) };
+    };
+    const calm = frame(0);
+    const shaken = frame(0.7);
+    const d = shaken.at.clone().sub(calm.at);
+    assert.ok(d.length() > 0.05, `the eye moved ${d.length().toFixed(3)} m`);
+    assert.ok(Math.abs(d.dot(calm.dir)) < 1e-9, `${d.dot(calm.dir)} m of it along the view`);
+  });
+
+  it("when the strength knob is 0, or motion is reduced, then a hit and the first crash's kick add no shake", () => {
+    const was = CHASE.shake;
+    CHASE.shake = 0;
+    try {
+      const { view } = make();
+      view.jolt(30);
+      view.kick(2);
+      assert.equal(view.trauma, 0, "knob 0");
+    } finally {
+      CHASE.shake = was;
+    }
+    const calm = make(true).view;
+    calm.jolt(30);
+    calm.kick(2);
+    assert.equal(calm.trauma, 0, "reduced motion");
+    const half = make().view;
+    CHASE.shake = 0.5;
+    try {
+      half.jolt(20);
+      assert.equal(half.trauma, 0.5, "knob 0.5 halves a full hit");
+    } finally {
+      CHASE.shake = was;
+    }
+  });
+
+  it("when the shake runs in the chase, far chase and hood views, then each moves the eye, and the hood by CHASE.shakeHood of the chase's amount", (t) => {
+    t.mock.method(performance, "now", () => 5000);
+    const chase = shaken("third", 0.7);
+    const far = shaken("far", 0.7);
+    const hood = shaken("first", 0.7);
+    assert.ok(chase > 0.05 && far > 0.05, `chase ${chase.toFixed(3)} m, far ${far.toFixed(3)} m`);
+    assert.ok(hood > 0.01 && Math.abs(hood / chase - CHASE.shakeHood) < 0.02, `hood ${hood.toFixed(3)} m is ${(hood / chase).toFixed(3)} of the chase's`);
+    const calm = shaken("third", 0);
+    assert.ok(calm < chase / 20, `no trauma moves the settled eye ${calm.toFixed(4)} m against the shake's ${chase.toFixed(3)} m`);
   });
 });

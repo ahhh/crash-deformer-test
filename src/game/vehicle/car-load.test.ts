@@ -5,7 +5,7 @@ import { applyDrive, type DriveInput } from "./car-drive.ts";
 import { layOnGround } from "./car-air.ts";
 import { LOAD_FEEL } from "./car-load.ts";
 import { DeformableCar } from "./car.ts";
-import { assignClass, VEHICLE_CLASS_IDS, type VehicleClassId } from "./vehicle-classes.ts";
+import { assignClass, CLASSES, gearAt, VEHICLE_CLASS_IDS, type VehicleClassId } from "./vehicle-classes.ts";
 import { paint } from "./test-support.ts";
 import { physicsSlice, sliceSpeed } from "../contact/sat.ts";
 import { newWorld, stepWorld } from "../engine/world-step.ts";
@@ -36,7 +36,7 @@ class Slope extends Ground {
  * One car from `v0` under `input` for `seconds`, as the engine steps it, on the flat or on a `grade`° descent
  * (negative: a climb), starting seated on the road (pitched to it, its velocity along it); the drawn body's pitch (+ nose up) and roll (+ the +x side up) each frame.
  */
-function drive(cls: VehicleClassId, v0: number, input: (speed: number) => Partial<DriveInput>, seconds: number, grade = 0): Sample[] {
+function drive(cls: VehicleClassId, v0: number, input: (speed: number) => Partial<DriveInput>, seconds: number, grade = 0, each?: (car: DeformableCar) => void): Sample[] {
   setGround(grade ? new Slope(grade) : null);
   const car = new DeformableCar(paint(), new THREE.Scene());
   assignClass(car, cls);
@@ -58,6 +58,7 @@ function drive(cls: VehicleClassId, v0: number, input: (speed: number) => Partia
       acc -= h;
     }
     car.updateSkin();
+    each?.(car);
     out.push({ pitch: -body.rotation.x * DEG, roll: body.rotation.z * DEG, speed: car.speed });
   }
   car.dispose();
@@ -173,4 +174,52 @@ describe("given a chase camera that rides the car's drawn body, next to one that
     const held = against([0.2, 0.2, -0.2, -0.2], 0.7, [100, 0]);
     assert.ok(Math.abs(held.dy) < 0.001 && held.tilt < 0.02, `held look: ${(held.dy * 100).toFixed(3)} cm, ${held.tilt.toFixed(3)}°`);
   });
+});
+
+describe("given a car accelerating through its gears, whose drawn body kicks at each gear change", () => {
+  /** The same full-throttle run with the kick at `kick` times its tuned size, the chase eye riding the body (`tilt`: its angle to a camera that does not ride, deg). */
+  function run(cls: VehicleClassId, kick: number): { body: Sample[]; tilt: number[] } {
+    const a = { cam: new THREE.PerspectiveCamera(56, 16 / 9, 0.1, 180), drive: new DriveCam() };
+    const b = { cam: new THREE.PerspectiveCamera(56, 16 / 9, 0.1, 180), drive: new DriveCam() };
+    b.drive.ride = true;
+    a.drive.ride = false;
+    const tilt: number[] = [];
+    LOAD_FEEL.shiftKick = kick;
+    try {
+      const body = drive(cls, 0, () => ({ throttle: 1 }), 5, 0, (car) => {
+        for (const r of [a, b]) {
+          r.drive.update(r.cam, car, "third", FRAME, 0, 0);
+          r.cam.updateMatrixWorld();
+        }
+        tilt.push(a.cam.quaternion.angleTo(b.cam.quaternion) * DEG);
+      });
+      return { body, tilt };
+    } finally {
+      LOAD_FEEL.shiftKick = 1;
+    }
+  }
+
+  for (const cls of VEHICLE_CLASS_IDS) {
+    it(`when a ${cls} launches at full throttle with the kick on and off, then the two runs are the same until the first gear change, the nose then dips within 0.6° of the other run's and rings out, and the riding eye follows`, () => {
+      const off = run(cls, 0);
+      const on = run(cls, 1);
+      const k = CLASSES[cls];
+      const first = off.body.findIndex((s, i) => i > 0 && gearAt(k, s.speed) !== gearAt(k, off.body[i - 1]!.speed));
+      assert.ok(first > 10, `the first gear change comes at frame ${first}`);
+      let before = 0;
+      for (let i = 0; i < first - 10; i++) before = Math.max(before, Math.abs(on.body[i]!.pitch - off.body[i]!.pitch));
+      assert.ok(before < 1e-9, `the runs differ by ${before} deg before the first gear change`);
+      let dip = 0;
+      let most = 0;
+      let ride = 0;
+      for (let i = first - 4; i < first + 36; i++) {
+        const d = on.body[i]!.pitch - off.body[i]!.pitch;
+        dip = Math.min(dip, d);
+        most = Math.max(most, Math.abs(d));
+        ride = Math.max(ride, Math.abs(on.tilt[i]! - off.tilt[i]!));
+      }
+      assert.ok(dip < -0.1 && most < 0.6, `the kick's nose dip ${dip.toFixed(2)}°, its largest ${most.toFixed(2)}°`);
+      assert.ok(ride > 0.003, `the riding eye's tilt differs by ${ride.toFixed(4)}°`);
+    });
+  }
 });

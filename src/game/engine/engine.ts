@@ -29,7 +29,7 @@ import { throwComing } from "../present/ragdoll-trigger.ts";
 import { ChaseCamera, centroid, type SpecScene } from "../present/engine-camera.ts";
 import { activeGround, NO_FLOOR } from "../world/ground.ts";
 import { armTops } from "../world/surfaces.ts";
-import { CompactorPress, JerseyBarrier } from "../scenes/engine-props.ts";
+import { CompactorPress, JerseyBarrier, type ContactHit } from "../scenes/engine-props.ts";
 import { FleetRamps } from "../scenes/fleet-ramps.ts";
 import { Corkscrew } from "../scenes/corkscrew.ts";
 import { TraceRecorder } from "./engine-trace.ts";
@@ -271,6 +271,7 @@ export class CrashEngine extends EngineGarage {
       leave: () => this.setScene("fleet"),
       watchCam: () => void (this.view.spec = "auto"),
       hitFx: this.hitFx,
+      hit: (i, closing) => this.noteHit(i, closing),
       knockProp: (index, car, vx, vy, vz) => this.ragdolls.knockProp(index, car, vx, vy, vz),
       buildArt: (track, placed) => {
         this.queueWarm();
@@ -458,6 +459,7 @@ export class CrashEngine extends EngineGarage {
         this.impactLightLife -= wallDt;
         this.impactLight.intensity = Math.max(0, this.impactLightLife * 90);
       }
+      this.shakeOnHits();
       this.view.trauma = Math.max(0, this.view.trauma - wallDt * 1.6);
       if (this.barrierUp) this.barrier.step(simDt);
       // Debris, sparks, glass and smoke run on the world's own time (the replay's presented clip time, or the slow-mo scaled frame), so they slow with it.
@@ -498,7 +500,7 @@ export class CrashEngine extends EngineGarage {
       if (this.trace.due(wallDt, this.captureTrace)) this.trace.sample(this.traceSetup(), cars, this.traceClock());
       this.stepDerby(simDt);
       this.seat.step(simDt);
-      this.cine.update(wallDt, simDt, cars, this.followedCar(), this.seat.mode === "drive", this.fxDensity);
+      this.cine.update(wallDt, simDt, cars, this.followedCar(), this.seat.mode === "drive", this.fxDensity, this.net.client);
       if (this.derbyMode) {
         const boosts = this.derby.consumeBoosts();
         for (let k = 0; k < boosts.length; k++) this.takedownBoost(boosts[k]!);
@@ -583,6 +585,13 @@ export class CrashEngine extends EngineGarage {
   /** Whether the coming hit will throw a driver: his exit then plays at 1× (`THROW_ONSET`). */
   private readonly throwSoon = (): boolean => throwComing(this.live(), this.barrierUp ? this.barrier : null);
 
+  /** Each car-pair hit: the scene's own hook (the derby's credit, the race recorder, the Lab's), then the shake of whichever of the two is watched. */
+  private readonly pairHit = (a: number, b: number, hit: ContactHit): void => {
+    (this.derbyMode ? this.derbyHit : this.race.active ? this.race.pairHit : this.showLab ? this.lab.pairHit : null)?.(a, b, hit);
+    this.noteHit(a, hit.impulse);
+    this.noteHit(b, hit.impulse);
+  };
+
   private fixedStep(dt: number): void {
     const cars = this.live();
     // Race: every car (the player too) is driven through its controller slot by the director.
@@ -620,7 +629,7 @@ export class CrashEngine extends EngineGarage {
     w.barrier = this.barrierUp ? this.barrier : null;
     w.barrierHits = this.barrierHits;
     w.beforeSlice = this.rigScene && !this.showStack ? this.rigSlice : this.showLab ? this.lab.slice : null;
-    w.pairHit = this.derbyMode ? this.derbyHit : this.race.active ? this.race.pairHit : this.showLab ? this.lab.pairHit : null;
+    w.pairHit = this.pairHit;
     w.partTouch = this.race.active ? this.race.partTouch : null;
     // The corkscrew's walls hold its car on its floor: the ramps are put away there (`SCENE_PROPS`), like the slab and the balls, so
     // their faces cannot stand in for them (a 6 m/s car slid off the bank onto its roof) or wall in a parked car.
@@ -629,6 +638,14 @@ export class CrashEngine extends EngineGarage {
     this.ejection.ctx = this.derbyMode ? "derby" : "default";
     w.fine = this.pace.fine;
     stepWorld(w, dt);
+    // The slab names no car: a hit it took from the watched one, at the step's hardest contact next to that car.
+    const watched = this.seat.mode !== "global" ? cars[this.seat.carIndex] : undefined;
+    const at = w.strongest.contact;
+    if (watched && at && this.barrierUp && this.barrierHits[this.seat.carIndex]) {
+      const dx = at.x - watched.group.position.x;
+      const dz = at.z - watched.group.position.z;
+      if (dx * dx + dz * dz < 16) this.noteHit(this.seat.carIndex, w.strongest.impulse);
+    }
     // A driver thrown out this step (`EjectionWatch`): his dummy flies, the race recorder and the netplay peers hear of it.
     const ejected = this.ejection.take();
     for (let k = 0; k < ejected.length; k++) {
