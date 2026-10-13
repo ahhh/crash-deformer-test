@@ -143,6 +143,8 @@ export class CarSurfaces extends Surface {
   private self: DeformableCar | null = null;
   /** The cage fields each slot's surface shows (the style's shared ones while the car is pristine, else the car's own). */
   private shown: (CageFields | undefined)[] = [];
+  /** The `cage.serial` each slot's surface was last set from: an own fit that changed the fields in place moves it. */
+  private shownSerial: number[] = [];
   private left = new Float64Array(FACES);
   private yielded = new Uint8Array(FACES);
   private grew = new Float64Array(FACES);
@@ -384,11 +386,12 @@ export class CarSurfaces extends Surface {
     }
     // The cage is the drawn body (crush, imprint, torn lids and lift in it): its top is the roof, fitted again only past `REFIT_EPSILON`.
     const cage = car.cage;
-    const refitted = car.refitCage();
-    if (refitted || this.shown[i] !== cage.fields) {
+    car.refitCage();
+    if (this.shown[i] !== cage.fields || this.shownSerial[i] !== cage.serial) {
       const { nu, nv, step, u0, v0 } = cage.style;
       this.setGridData(i, nu, nv, step, step, u0, v0, cage.fields.top, roofOf(cage.style).follow, cage.fields.heightMax);
       this.shown[i] = cage.fields;
+      this.shownSerial[i] = cage.serial;
     }
     const e = car.group.matrixWorld.elements;
     const lift = cageLift(car);
