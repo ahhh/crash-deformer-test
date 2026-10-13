@@ -8,7 +8,7 @@ and the collision touchpoints must be**. So one machine simulates, everyone else
 | Option | Runs locally | Runs on Vercel | Cost / limits | Verdict |
 |---|---|---|---|---|
 | WebSocket server in a Vercel Function | yes | only with Fluid compute; each socket is pinned to one instance and closes at the function's max duration (300 s Hobby, 800 s Pro); no shared memory across instances [1][2][4] | reconnect churn every few minutes, no room state | no |
-| WebRTC DataChannels, signaling over `/api/rtc` (Vercel Function + Neon; PGLite locally) | yes | yes: signaling is short polls, game data never touches Vercel | free; STUN only, so some strict NATs fail without TURN (Cloudflare Calls TURN, Twilio, metered.ca) [10] | **chosen** |
+| WebRTC DataChannels, signaling over `/api/rtc` (PGLite) | yes | yes: signaling is short polls, game data never touches Vercel | free; STUN only, so some strict NATs fail without TURN (Cloudflare Calls TURN, Twilio, metered.ca) [10] | **chosen** |
 | PeerJS cloud broker | yes | yes | third-party broker, same NAT caveat | no: the template already ships the same thing |
 | PartyKit / Cloudflare Durable Objects | `partykit dev` | separate deploy | one stateful object per room, WebSocket hibernation | the upgrade path for 16-player rooms or a server-side host |
 | Ably / Pusher / Liveblocks / Supabase Realtime | yes | yes | per-message quotas, built for pub/sub and presence rather than 30 Hz binary snapshots | no |
@@ -21,16 +21,13 @@ Sources: research note `.extraResearch/perplexity/90-vercel-realtime-transports.
 *Snapshot Compression* (https://gafferongames.com/post/snapshot_interpolation/,
 https://gafferongames.com/post/snapshot_compression/), summarized in `.extraResearch/perplexity/91-snapshot-netcode.md`.
 
-The pick is the template's own P2P kit: `src/lib/multiplayer/p2p.ts` (`P2PRoom`: full-mesh WebRTC,
+The pick is a P2P kit: `src/lib/multiplayer/p2p.ts` (`P2PRoom`: full-mesh WebRTC,
 perfect negotiation, an unreliable `state` channel and a reliable channel, ping RTT), signaled by
-`src/routes/api/rtc.ts` → `src/lib/multiplayer/signaling.server.ts` (the reference relay from
-`.grok/skills/multiplayer-p2p`). Its two tables are `migrations/0002_webrtc_signaling.sql`. Shipping
-a top-level migration is what gets a deploy its Neon database (the `neon` skill): without one the
-deploy has no `DATABASE_URL`, every serverless instance runs its own throwaway PGLite, and peers
-whose polls land on different instances never see each other. Measured with two instances of one
-node-server build and no shared database: each roster holds only its own peer, and a signal across
-instances gets 403. `db:migrate` applies the file on deploy; the PGLite fallback (`vite dev`, the
-VPS node server) applies it before its first query. The game code only sees
+`src/routes/api/rtc.ts` → `src/lib/multiplayer/signaling.server.ts` (a polling relay on the app database). Its tables are `migrations/0002_webrtc_signaling.sql`. Peers whose polls land on
+different instances with no shared database never see each other (measured with two instances of one
+node-server build: each roster holds only its own peer, and a signal across instances gets 403), so the
+relay runs on one node server. The PGLite fallback (`vite dev`, the VPS node server) applies the
+migrations before its first query. The game code only sees
 `NetTransport` (`src/game/net/transport.ts`):
 
 ```ts

@@ -93,7 +93,7 @@ On WSL2, open `http://localhost:8080/` in the Windows browser.
 
 ## Build and deploy
 
-`npm run build` builds for Vercel; `npm run build:node && npm run start:node` builds and runs a self-contained node server
+`npm run build:node && npm run start:node` builds and runs a self-contained node server
 in `.output/`. The live site is a node build under `APP_BASE=/crush/`, deployed by pull with a systemd timer:
 [`docs/DEPLOY.md`](docs/DEPLOY.md).
 

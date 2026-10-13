@@ -282,9 +282,7 @@ error, an unobserved rejection.
 
 ### The census that exists today (closed)
 
-Out of scope (generated or template code this repo doesn't edit): `src/routeTree.gen.ts` (TanStack Router output) and
-the pre-wired template helpers in `src/lib/` (`auth/`, `app-data/`, `og/`, `db.ts`, `preview-*`, `env.server.ts`,
-`error-component.tsx`). In our own code, including `src/lib/multiplayer/`: `as unknown as` casts in a few game files
+Out of scope (generated code this repo doesn't edit): `src/routeTree.gen.ts` (TanStack Router output). In our own code, including `src/lib/multiplayer/`: `as unknown as` casts in a few game files
 and in tests reaching private fields are legacy debt, not a sanctioned pattern. Touching a file that carries one:
 remove it while you are there, or report why the structural fix is a separate change.
 

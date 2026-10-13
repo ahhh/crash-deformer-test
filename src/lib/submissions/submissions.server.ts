@@ -215,7 +215,7 @@ interface Row {
   received_at: string;
 }
 
-/** Row timestamps as UTC ISO text, the same string on PGLite and Neon. */
+/** Row timestamps as UTC ISO text, the string PGLite returns. */
 const RECEIVED = `to_char(received_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS received_at`;
 
 /** One submission as the owner reads it: its row's fields, and the stored JSON text as it is (not parsed and written out again: a capture is megabytes). */

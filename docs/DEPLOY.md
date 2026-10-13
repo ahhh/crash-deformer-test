@@ -1,10 +1,9 @@
 # Deploying
 
-Two targets build from the same tree:
+The game deploys as a self-hosted node server:
 
 | Target | Build | Base path | Signaling database |
 |---|---|---|---|
-| Vercel (default) | `npm run build` (Nitro `vercel` preset) | `/` | Neon via `DATABASE_URL` |
 | Self-hosted node server | `npm run build:node` (Nitro `node-server` preset), run with `npm run start:node` | `APP_BASE`, e.g. `/crush/` | PGLite in `PGLITE_DATA_DIR` |
 
 ## Build knobs
@@ -12,7 +11,7 @@ Two targets build from the same tree:
 Both are read by `vite.config.ts` at build time; neither reaches the browser (only `VITE_`
 variables do).
 
-- `NITRO_PRESET`: the Nitro server target. Unset means `vercel`. `build:node` sets `node-server`
+- `NITRO_PRESET`: the Nitro server target. Unset means `node-server`. `build:node` sets `node-server`
   through `scripts/with-app-env.mjs`, which accepts leading `NAME=value` arguments so the npm script
   also runs on Windows. The node build ships PGLite's whole package (its `.wasm` and `.data` load
   from beside the module), so `.output/` runs on its own with no `node_modules`.
@@ -30,7 +29,7 @@ variables do).
   The plugin registers no service worker (`vite.config.ts`, `pwa`): it would serve a stale build.
 
 Runtime variables for the node server: `PORT` (default 3000), `HOST`, `PGLITE_DATA_DIR`
-(unset = in-memory, wiped on restart), `DATABASE_URL` (set it to use Postgres instead of PGLite).
+(unset = in-memory, wiped on restart).
 A PGLite data dir belongs to one process: PGLite has no cross-process locking. It must also be
 closed on stop: `db.ts` closes it on SIGTERM/SIGINT. Measured without that: a server that opens a
 data dir left unclean (its previous owner was killed or never closed it) crash-recovers it and then
@@ -56,7 +55,7 @@ The Benchmark entry starts a loop (strip, city, biggest course; `src/game/engine
 
 ## The skin kernel (Rust -> WASM)
 
-The skin and normals loops of `StreamedDeformation.skin` run in a 2.7 kB WebAssembly module (`kernels/skin/`, Rust), on the main thread: about 1.5-1.9x faster per skin than the JS loop, copies included (measured: 0.57 of the JS time in the browser at 1x, 0.53 at 4x CPU; 0.66 headless at 32 cars), same bits out. **The box has no cargo**: the built module is committed as `src/game/deform/skin-kernel.wasm`. After changing `kernels/skin/src/lib.rs`, run `npm run build:kernel` (needs cargo and `rustup target add wasm32-unknown-unknown`) and commit the `.wasm`; `build:node` and Vercel only bundle it. Rust builds go through `scripts/cargo.mjs`: `mbx` (mr-boxington's shared, self-pruning build cache) when it is on `PATH`, else plain `cargo`, holding `flock /tmp/crash-cargo.lock` so one build runs at a time. Either gives the same bytes.
+The skin and normals loops of `StreamedDeformation.skin` run in a 2.7 kB WebAssembly module (`kernels/skin/`, Rust), on the main thread: about 1.5-1.9x faster per skin than the JS loop, copies included (measured: 0.57 of the JS time in the browser at 1x, 0.53 at 4x CPU; 0.66 headless at 32 cars), same bits out. **The box has no cargo**: the built module is committed as `src/game/deform/skin-kernel.wasm`. After changing `kernels/skin/src/lib.rs`, run `npm run build:kernel` (needs cargo and `rustup target add wasm32-unknown-unknown`) and commit the `.wasm`; `build:node` only bundles it. Rust builds go through `scripts/cargo.mjs`: `mbx` (mr-boxington's shared, self-pruning build cache) when it is on `PATH`, else plain `cargo`, holding `flock /tmp/crash-cargo.lock` so one build runs at a time. Either gives the same bytes.
 
 - Vite emits it as an asset: under `APP_BASE` (`/crush/assets/skin-kernel-<hash>.wasm`). The engine fetches it with its boot warm-up (`engine-warm.ts`); `window.__crush.skinKernelReady` is true once it is in.
 - The JS skin is the reference and the fallback. If the file cannot be fetched or compiled, the engine logs one `console.warn` ("skin kernel unavailable") and every car skins in JS; the game plays the same.
@@ -143,22 +142,19 @@ jails themselves are left alone. Choosing the file: deploy/README.md step 4.
 
 Install steps: [deploy/README.md](../deploy/README.md).
 
-## Platform-kit changes to re-apply after template updates
+## Files the self-hosted deploy depends on
 
-The app came from a template whose files a template update may overwrite. These template-owned
-files carry changes the self-hosted deploy depends on. After any template update, diff them and
-re-apply what was lost.
+These files carry changes the self-hosted deploy depends on. Reverting one breaks the deploy as described.
 
 | File | Change | Why the VPS needs it | If it is reverted |
 |---|---|---|---|
-| `vite.config.ts` | `base: APP_BASE`; Nitro `preset: NITRO_PRESET \|\| "vercel"`, `baseURL: base`; for `node-server`, `traceDeps: ["@electric-sql/pglite*"]` | serves everything under the sub-path; builds the node target; ships PGLite's `.wasm`/`.data`, which load from beside its module | app answers at `/` only, or `.output/` lacks PGLite's files and signaling cannot open its database |
+| `vite.config.ts` | `base: APP_BASE`; Nitro `preset: NITRO_PRESET \|\| "node-server"`, `baseURL: base`; for `node-server`, `traceDeps: ["@electric-sql/pglite*"]` | serves everything under the sub-path; builds the node target; ships PGLite's `.wasm`/`.data`, which load from beside its module | app answers at `/` only, or `.output/` lacks PGLite's files and signaling cannot open its database |
 | `scripts/with-app-env.mjs` | leading `NAME=value` arguments become env vars | `build:node` sets `NITRO_PRESET=node-server` through it, on Windows too | `build:node` tries to run `NITRO_PRESET=node-server` as a command and fails |
 | `package.json` | `build:node`, `start:node` scripts | `crush-deploy.sh` runs `npm run build:node` | every commit fails to build and is skipped (the old release keeps serving) |
 | `src/lib/db.ts` | `new PGlite({ dataDir: process.env.PGLITE_DATA_DIR })`; with a data dir, `pg.close()` on SIGTERM/SIGINT, then `process.exit(0)` if no other listener for that signal remains | `crush.service` keeps the signaling store in the release-independent `shared/` dir, and a restart must not hang | without the data dir: still works, in memory, rooms mid-handshake are lost on each restart. Without the close: every restart hangs until `TimeoutStopSec` (site down meanwhile) and ends in a SIGKILL. Without the exit: under `CI`/`TEST` (srvx then installs no SIGTERM handler) the server never exits on SIGTERM |
 | `src/lib/multiplayer/p2p.ts` | `RTC_URL = ${import.meta.env.BASE_URL}api/rtc`, used by the poll, signal and leave fetches | signaling lives under the base (`/crush/api/rtc`) | browsers call `/api/rtc` at the site root, which 404s: no peer ever connects, and those 404s go to the site's main access log, where a 4xx-probe jail can ban the players |
 | `src/lib/multiplayer/p2p.ts` | `sendBinary()`, `onBinary`, `binaryType = "arraybuffer"` on both data channels (netplay) | host snapshots and client inputs are binary frames (`RtcTransport`) | WebRTC netplay carries no snapshots: the client never gets a car |
 | `src/lib/multiplayer/signaling.server.ts`, `rate-limit.ts`, `migrations/0002_webrtc_signaling.sql` | in-process token buckets per peer (client IP + peer id), per IP and per room; room cap (`ROOM_MAX`, `rooms.ts`); `GET ?list=public`; tables from migration 0002 (netplay) | in-process limits are exact on one long-lived node server; the IP is the `X-Forwarded-For` first hop, which the nginx snippet overwrites with the real client address; PGLite applies 0002 before its first query | relay is unlimited, public room listing 400s, or signaling has no tables |
-| `src/lib/auth/preview.ts`, `src/lib/auth/server.ts` | the template's baked shared preview OAuth client id/secret are deleted; `GROK_AUTH_CLIENT_ID` / `GROK_AUTH_CLIENT_SECRET` come only from the environment | the repo is public and the app has no sign-in; no credential may live in it | the public repo carries an OAuth client secret again |
 
 The deploy's health check does **not** catch a reverted `RTC_URL`: it calls the server route
 directly, which still works. Check the built client instead, e.g. after `APP_BASE=/crush/ npm run

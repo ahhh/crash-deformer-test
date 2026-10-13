@@ -18,7 +18,7 @@ const MIN_LINES = 5;
 const roots = argv.filter((a, i) => !a.startsWith("--") && argv[i - 1] !== "--min-tokens");
 const files = execFileSync("git", ["ls-files", ...(roots.length ? roots : ["src", "scripts"])], { encoding: "utf8" })
   .split("\n")
-  .filter((f) => /\.(ts|tsx|js|mjs)$/.test(f) && !f.endsWith(".d.ts") && !/routeTree\.gen|grok-pwa|^server\/|^public\//.test(f));
+  .filter((f) => /\.(ts|tsx|js|mjs)$/.test(f) && !f.endsWith(".d.ts") && !/routeTree\.gen|^server\/|^public\//.test(f));
 
 const tokens = []; // { f, line, t }
 const fileStart = new Map();

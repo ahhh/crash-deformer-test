@@ -1,9 +1,9 @@
 /**
- * WebRTC signaling over the app database (Neon deployed, PGLite on a node server or in preview).
+ * WebRTC signaling over the app database (PGLite).
  * Only rendezvous traffic passes through here — roster + SDP/ICE relay while a mesh forms; game
  * data then flows peer-to-peer. Mounted at /api/rtc (under the app's base path); the client side
  * lives in `@/lib/multiplayer`. Tables: `migrations/0002_webrtc_signaling.sql`, `0003_webrtc_peer_tokens.sql`,
- * `0004_webrtc_peer_ip_tag.sql` and `0005_webrtc_peer_meta.sql`, applied by `db:migrate` on deploy and by the
+ * `0004_webrtc_peer_ip_tag.sql` and `0005_webrtc_peer_meta.sql`, applied by the
  * PGLite fallback before its first query.
  *
  * The GET poll is the whole peer lifecycle. A peer's first poll registers it in a free seat with the
