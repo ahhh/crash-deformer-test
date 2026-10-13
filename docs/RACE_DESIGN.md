@@ -150,12 +150,28 @@ into `fight = clamp(mood, 0, 1)` and `shy = clamp(−mood, 0, 1)`. The derby AI 
 
 ## AI difficulty (`ai/constants.ts`, `RaceBrain.due`)
 
-The setup's **AI difficulty** (`RaceOptions.aiDifficulty`: easy, medium, hard; share link `diff`) sets how often a racing rival
-re-decides, in sim time. Each rival rolls its rate once per race in its band (`hash01(id, 11)`, `THINK_HZ`): **hard** 192–240 Hz
-and thinks every physics slice (the default, the bench's setting, the AI as it was before the dial); **medium** 96–192 Hz;
-**easy** 5–96 Hz, up to 200 ms late. Between thinks the car holds its last input (`engine-race-field.ts` `held`); `think`'s
-`dt` is the time since its last think. Police, traffic and the cool-down lap think every slice. Only the host thinks and a
-replay stores inputs, so neither the wire nor replays change.
+The setup's **AI difficulty** (`RaceOptions.aiDifficulty`: easy, medium, hard; share link `diff`) sets how often a rival re-decides
+and how well it drives. Each rival rolls its think rate, its skill factors, its sway and its slip chance once per race in the
+tier's band (`hash01(id, salt)`: `THINK_SALT` 11, `SKILL_SALT` 40–48; `AI_SKILL`, `THINK_HZ` in `ai/constants.ts`). Between thinks
+the car holds its last input (`engine-race-field.ts` `held`); `think`'s `dt` is the time since its last think. Police, traffic
+and the cool-down lap think every slice. Only the host thinks and a replay stores inputs, so neither the wire nor replays change.
+**Hard** is the AI as it was before the dial (the default, the bench's setting): every factor is exactly 1 and every chance 0, so
+its output is bit for bit unchanged (`race-ai.test.ts` pins checkpoints of it). The lower tiers err, they do not just drive slower:
+
+| Tier | Think (Hz) | Corner speed | Braking | Steer gain | Look-ahead | Apex share | Sway (m) | Slip chance per corner | Slip: speed / braking | Shaken (× top) |
+|---|---|---|---|---|---|---|---|---|---|---|
+| easy | 8–20 | ×0.82–0.90 | ×0.6–0.9 | ×0.85–0.95 | ×0.75–0.95 | ×0.5–0.9 | 0.4–0.9 | 0.30–0.50 | ×1.3 / ×2.5 | 0.65 |
+| medium | 96–192 | ×0.97–1 | ×0.95–1 | ×0.97–1 | ×0.95–1 | ×0.9–1 | 0.05–0.2 | 0.05–0.10 | ×1.1 / ×1.5 | 0.93 |
+| hard | 192–240 (every slice) | ×1 | ×1 | ×1 | ×1 | ×1 | 0 | 0 | ×1 / ×1 | 1 |
+
+Corner speed and braking scale what the planner assumes (`RaceBrain.plan`); steer gain and look-ahead scale the pursuit; the apex share
+scales how far the line leans toward the inside of a bend, and the sway (`WOBBLE_K`) is a slow seeded sideways drift about it. A
+**slip** (`slipCheck`, `mistakes` counts them) is rolled when a corner first comes into the plan, at most once per `SLIP_COOL`
+(8 s): for `SLIP_WINDOW` (1.5 s) it plans corners and braking past the grip reserve (the car arrives too fast and runs wide or
+late), then for `SLIP_RECOVER` (4 s) it is shaken and holds back. Every tier's corner factor is at most 1: the lower tiers are
+slower because they err, never because they corner faster. In traffic (a car it follows, swerves for or is nudged by, and for medium any
+car within `calm` = 20 m) a rival drives as hard does: medium errs only on an open road, so a gentle medium field never touches, while
+easy errs in packs too and may bump. The finish bounds in `race-ai.test.ts` scale by tier (`BOUND_SCALE`: easy 1.2, medium 1.1).
 
 ## Campaign
 
@@ -412,7 +428,8 @@ without scrolling, so a long menu keeps its scroll offset; it never falls back t
   laps / AI count / aggression / difficulty, before a race and after one); the campaign pick (default order, tap order, unknown and
   repeated ids dropped, empty never starts, a two-round Watch campaign plays only those courses in that order).
 - `vehicle-classes.test.ts` (a draft's `topScale`), `race-ai.test.ts` (8 clean AI cars finish 3 laps on every course on
-  the road ≥ 95 %; ram / block / follow, boost, the aggression model), `traffic.test.ts`, `placements.test.ts`,
+  the road ≥ 95 % at every tier; easy is slower than hard on every course and ≥ 8 % on average, makes mistakes where hard makes none,
+  two easy runs agree to the bit, hard's `think` output is pinned bit for bit; ram / block / follow, boost, the aggression model), `traffic.test.ts`, `placements.test.ts`,
   `menu-nav.test.ts`, `checkpoint-sweep.test.ts`.
 - `race-finish.test.ts`, every course: 4 AI rivals plus the AI-driven player slot, 2 laps; results within the grid + 2 laps
   at 3 × the reference lap with ≥ 4 of 5 home or out. `RACE_FINISH_RUNS=5` runs 5 seeds at the default slider and 5 more

@@ -536,7 +536,7 @@ function SetupMenu({ race, pad, onCommand, onSurvival }: { race: RaceHud; pad: b
           max={AI_DIFFICULTIES.length - 1}
           step={1}
           shown={o.aiDifficulty}
-          hint="How fast rivals react: hard decides every physics step, easy up to 200 ms late"
+          hint="How well rivals drive: hard never slips and reacts every physics step; easy brakes late, runs wide and drifts off the line"
           onSet={(k) => options({ aiDifficulty: AI_DIFFICULTIES[k]! })}
         />
         <Choice label="Wrecks" off="Respawn" on="No reset" value={o.noReset} onSet={(noReset) => options({ noReset })} />

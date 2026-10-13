@@ -1,7 +1,7 @@
 import { hypot2, detSin, detCos } from "../kernel/physics-core.js";
 import { chargeBoost, idleDrive, topUpBoost, type DriveInput } from "../vehicle/car-drive.ts";
 import { mood } from "./ai-aggression.ts";
-import { AI_EVERY_SLICE, GUARD_BRAKE_IDX, GUARD_COUNT, GUARD_LEAD_IDX, GUARD_TURN_IDX, REVERSE_THROTTLE, STRAIGHT_CURV, THINK_DUE_SLACK, THINK_HZ, THINK_SALT, TURN_ROUND_THROTTLE, type AiDifficulty } from "./constants.ts";
+import { AI_EVERY_SLICE, AI_SKILL, GUARD_BRAKE_IDX, GUARD_COUNT, GUARD_LEAD_IDX, GUARD_TURN_IDX, REVERSE_THROTTLE, SKILL_SALT, SLIP_COOL, SLIP_CORNER, SLIP_RECOVER, SLIP_WINDOW, STRAIGHT_CURV, THINK_DUE_SLACK, THINK_HZ, THINK_SALT, TURN_ROUND_THROTTLE, WOBBLE_K, type AiDifficulty } from "./constants.ts";
 import { guardContact } from "./contact-guard.ts";
 import { DERBY_RULES, STUCK_SPEED, type AiCar } from "./derby-ai.ts";
 import { personality, type Personality } from "./personality.ts";
@@ -194,6 +194,30 @@ export class RaceBrain {
   private readonly lastThrottle = new Float64Array(MAX_CARS);
   /** Per car: seconds between thinks (0: every slice, `AI_EVERY_SLICE`) and the sim time since the last one. */
   private readonly thinkEvery = new Float64Array(MAX_CARS);
+  /** Per car skill multipliers rolled in `setDifficulty` (1 = hard; police and unset cars stay 1): corner speed, brake decel, steer gain, look-ahead, apex share. */
+  private readonly push = new Float64Array(MAX_CARS);
+  private readonly brakeK = new Float64Array(MAX_CARS);
+  private readonly steerK = new Float64Array(MAX_CARS);
+  private readonly lookK = new Float64Array(MAX_CARS);
+  private readonly apexK = new Float64Array(MAX_CARS);
+  /** Per car, from `AI_SKILL` (hard and unset cars: sway 0, mistake chance 0, multipliers 1): sway amplitude (m) and phase (rad), chance of a mistake per corner entry, and its corner-speed and braking multipliers. */
+  private readonly wobble = new Float64Array(MAX_CARS);
+  private readonly phase = new Float64Array(MAX_CARS);
+  private readonly slipP = new Float64Array(MAX_CARS);
+  private readonly slipPush = new Float64Array(MAX_CARS);
+  private readonly slipBrake = new Float64Array(MAX_CARS);
+  private readonly shaken = new Float64Array(MAX_CARS);
+  /** Per car, `AI_SKILL.calm` (m): another car this close holds its errors (0: only one it follows or swerves for). */
+  private readonly calm = new Float64Array(MAX_CARS);
+  /** Per car: seconds left of the mistake in progress and of the wait before the next, whether a corner was ahead last think, and the corners rolled for. */
+  private readonly slip = new Float64Array(MAX_CARS);
+  private readonly cool = new Float64Array(MAX_CARS);
+  private readonly wasCorner = new Uint8Array(MAX_CARS);
+  private readonly rolls = new Int32Array(MAX_CARS);
+  /** Mistakes each car has made since `reset` (tests and the HUD may read it). */
+  readonly mistakes = new Int32Array(MAX_CARS);
+  /** Per car, from its last think: a car close on its line (following, swerving or nudged). Skill errors and slips are for an open road: in traffic every tier drives like hard, so a gentle rival never runs into anyone. */
+  private readonly busy = new Uint8Array(MAX_CARS);
   private readonly sinceThink = new Float64Array(MAX_CARS);
   private readonly mainProj = blankProjection();
   private readonly subProj = blankProjection();
@@ -229,6 +253,14 @@ export class RaceBrain {
     this.track = track;
     this.racers = racers;
     this.guarded = racers;
+    this.push.fill(1);
+    this.brakeK.fill(1);
+    this.steerK.fill(1);
+    this.lookK.fill(1);
+    this.apexK.fill(1);
+    this.slipPush.fill(1);
+    this.slipBrake.fill(1);
+    this.shaken.fill(1);
     for (let i = 0; i < MAX_CARS; i++) this.traits.push(personality(i));
     const p = blankProjection();
     this.mouthS = track.shortcuts.map((sc) => projectPath(track.path, sc.path.x[0]!, sc.path.z[0]!, -1, p).s);
@@ -262,6 +294,12 @@ export class RaceBrain {
     this.meter.fill(1);
     this.burst.fill(0);
     this.sinceThink.fill(0);
+    this.slip.fill(0);
+    this.cool.fill(0);
+    this.wasCorner.fill(0);
+    this.rolls.fill(0);
+    this.mistakes.fill(0);
+    this.busy.fill(0);
   }
 
   /** 0 avoids every hit … 1 rams regardless of its own state (see `mood`). */
@@ -273,6 +311,19 @@ export class RaceBrain {
   setDifficulty(id: number, d: AiDifficulty): void {
     const [lo, hi] = THINK_HZ[d];
     this.thinkEvery[id] = d === AI_EVERY_SLICE ? 0 : 1 / (lo + (hi - lo) * hash01(id, THINK_SALT));
+    const k = AI_SKILL[d];
+    this.push[id] = k.push[0] + (k.push[1] - k.push[0]) * hash01(id, SKILL_SALT.push);
+    this.brakeK[id] = k.brake[0] + (k.brake[1] - k.brake[0]) * hash01(id, SKILL_SALT.brake);
+    this.steerK[id] = k.steer[0] + (k.steer[1] - k.steer[0]) * hash01(id, SKILL_SALT.steer);
+    this.lookK[id] = k.look[0] + (k.look[1] - k.look[0]) * hash01(id, SKILL_SALT.look);
+    this.apexK[id] = k.apex[0] + (k.apex[1] - k.apex[0]) * hash01(id, SKILL_SALT.apex);
+    this.wobble[id] = k.wobble[0] + (k.wobble[1] - k.wobble[0]) * hash01(id, SKILL_SALT.wobble);
+    this.phase[id] = 2 * Math.PI * hash01(id, SKILL_SALT.phase);
+    this.slipP[id] = k.slipP[0] + (k.slipP[1] - k.slipP[0]) * hash01(id, SKILL_SALT.slipP);
+    this.slipPush[id] = k.slipPush;
+    this.slipBrake[id] = k.slipBrake;
+    this.shaken[id] = k.shaken;
+    this.calm[id] = k.calm;
   }
 
   /** A step of `dt` s passed for car `i`: true when it is due to think (always, at `AI_EVERY_SLICE`). */
@@ -313,6 +364,10 @@ export class RaceBrain {
     this.lane[id] = 0;
     this.stuck[id] = 0;
     this.recover[id] = 0;
+    this.slip[id] = 0;
+    this.cool[id] = 0;
+    this.wasCorner[id] = 0;
+    this.busy[id] = 0;
   }
 
   /** One decision for `self` (scratch output: apply it before the next call). */
@@ -386,8 +441,15 @@ export class RaceBrain {
     const step = (this.nudge ? SHOVE_LAT : LANE_RATE * (1 + this.swerve)) * dt;
     this.lane[i] = route < 0 ? this.lane[i]! + clamp(want - this.lane[i]!, -step, step) : 0;
     const lane = this.lane[i]!;
+    let clear = Number.isNaN(this.follow) && this.swerve === 0 && !this.nudge;
+    const calm = this.calm[i]!;
+    for (let j = 0; clear && calm > 0 && j < others.length; j++) {
+      const o = others[j]!;
+      if (o.id !== i && o.alive && hypot2(o.x - self.x, o.z - self.z) < calm) clear = false;
+    }
+    this.busy[i] = clear ? 0 : 1;
 
-    const ld = clamp(5 + 0.5 * speed, 7, LOOK);
+    const ld = clamp(5 + 0.5 * speed, 7, LOOK) * (clear ? this.lookK[i]! : 1);
     const toMouth = route >= 0 ? hypot2(self.x - path.x[0]!, self.z - path.z[0]!) : 0;
     const early = route >= 0 && proj.s < 0.5 && toMouth > 4;
     // Onto a shortcut, until a look-ahead into it: the turn still to make onto its heading, from the car's heading and (short of the mouth,
@@ -404,13 +466,14 @@ export class RaceBrain {
     const alpha = wrapPi(Math.atan2(tx - self.x, tz - self.z) - self.yaw);
     const reach = early ? Math.max(4, hypot2(tx - self.x, tz - self.z)) : ld;
     const omega = (2 * Math.max(speed, 4) * detSin(alpha)) / reach;
-    out.steer = clamp(omega / Math.max(0.2, turnMax), -1, 1);
+    out.steer = clamp((omega * (clear ? this.steerK[i]! : 1)) / Math.max(0.2, turnMax), -1, 1);
 
     const cls = this.cls[i]!;
     const top = cls.topSpeed;
     a[ARG_SPEED_IDX] = speed;
     a[ARG_TOP_IDX] = top;
     let target = this.plan(i, path, route);
+    if (clear && this.slipP[i]! > 0 && this.slipCheck(i, target < SLIP_CORNER * top, dt)) target = this.plan(i, path, route);
     // Boxed in, passing or keeping a gap sets `follow`; otherwise a clear run (or a hunted rival to
     // catch) boosts while the plan at the boosted top wants more speed than the car has.
     if (!Number.isNaN(this.follow)) target = Math.min(target, Math.max(0, this.follow - 0.5));
@@ -545,6 +608,22 @@ export class RaceBrain {
     return this.track.pointAt(this.exitS[route]! + (s - path.length), this.pt);
   }
 
+  /**
+   * Seeded mistake: ages car `i`'s timers by `dt` and, on the step a corner comes into the plan (`corner`) with the last mistake's cooldown over,
+   * rolls its `slipP` (roll count and car id seed the hash: the same field slips at the same corners every run). True when one starts.
+   */
+  private slipCheck(i: number, corner: boolean, dt: number): boolean {
+    this.slip[i] = Math.max(0, this.slip[i]! - dt);
+    this.cool[i] = Math.max(0, this.cool[i]! - dt);
+    const edge = corner && this.wasCorner[i] === 0;
+    this.wasCorner[i] = corner ? 1 : 0;
+    if (!edge || this.cool[i]! > 0 || hash01(i + 64 * this.rolls[i]!++, SKILL_SALT.slipRoll) >= this.slipP[i]!) return false;
+    this.slip[i] = SLIP_WINDOW + SLIP_RECOVER;
+    this.cool[i] = SLIP_COOL;
+    this.mistakes[i]!++;
+    return true;
+  }
+
   /** Highest speed now (up to `top`) that still makes every turn ahead within the braking budget. */
   private plan(i: number, path: TrackPath, route: number): number {
     const a = this.args;
@@ -553,8 +632,13 @@ export class RaceBrain {
     const top = a[ARG_TOP_IDX]!;
     const tr = this.track;
     const cls = this.cls[i]!;
-    const decel = cls.brake * PLAN_BRAKE;
-    let best = top;
+    // A mistake (`slip`) first plans corners faster and braking later than the car can keep to (`SLIP_WINDOW`), then the driver is shaken and holds back to `shaken` x top speed (`SLIP_RECOVER`). In traffic (`busy`) the car plans as hard does.
+    const open = this.busy[i] === 0;
+    const slip = open ? this.slip[i]! : 0;
+    const over = slip > SLIP_RECOVER;
+    const decel = cls.brake * PLAN_BRAKE * (open ? this.brakeK[i]! : 1) * (over ? this.slipBrake[i]! : 1);
+    const push = (open ? this.push[i]! : 1) * (over ? this.slipPush[i]! : 1);
+    let best = slip > 0 && !over ? top * this.shaken[i]! : top;
     // A shortcut meets the loop at an angle neither path's curvature shows: the turn into its mouth
     // and the one back onto the loop at its end are corners too.
     if (this.entry >= 0) best = Math.min(best, this.junction(cls, this.turnIn, surfaceAt(tr.shortcuts[this.entry]!.path, 0), this.lead, decel));
@@ -572,7 +656,7 @@ export class RaceBrain {
       const curv = Math.abs(pp.curv[k]!);
       // `cornerSpeed`: the class's top, its lateral grip and its full-lock yaw on this surface at `HANDLING.realism`.
       // The AI lifts over a crest it would fly, like a driver over a blind crest (`crestSpeed`).
-      const corner = Math.min(top * surf.speed, curv > STRAIGHT_CURV ? cornerSpeed(cls, CORNER_MARGIN / curv, surf.grip) : Infinity, crestSpeed(pp, ss));
+      const corner = Math.min(top * surf.speed, curv > STRAIGHT_CURV ? cornerSpeed(cls, CORNER_MARGIN / curv, surf.grip) * push : Infinity, crestSpeed(pp, ss));
       const allow = Math.sqrt(corner * corner + 2 * decel * d);
       if (allow < best) best = allow;
     }
@@ -619,7 +703,11 @@ export class RaceBrain {
     let keepGap = GAP_KEEP * pace;
     for (let d = 10; d <= 34; d += 6) curv += tr.path.curv[sampleAt(tr.path, s + d)]!;
     curv /= 5;
-    let want = clamp(Math.sign(curv) * Math.min(1, Math.abs(curv) * 30) * half * 0.45 + p.side * LINE_SIDE_BIAS, -room, room);
+    // The skill line (apex share, sway) holds on an open road only; `busy` is the last think's (this one's traffic scan is below).
+    const open = this.busy[i] === 0;
+    let raw = Math.sign(curv) * Math.min(1, Math.abs(curv) * 30) * half * (0.45 * (open ? this.apexK[i]! : 1)) + p.side * LINE_SIDE_BIAS;
+    if (open && this.wobble[i]! !== 0) raw += this.wobble[i]! * detSin(WOBBLE_K * s + this.phase[i]!);
+    let want = clamp(raw, -room, room);
     const aggr = this.aggression[i]!;
     let blocker = -1;
     let blockerAhead = Infinity;

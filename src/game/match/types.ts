@@ -67,7 +67,7 @@ export type RaceOptions = {
   aiCount: number;
   /** Field aggression 0–1; each AI gets a personal spread around it. */
   aggression: number;
-  /** How often each rival re-decides: hard every physics slice (today's AI), medium 96–192 Hz, easy 5–96 Hz. */
+  /** How well each rival drives (`AI_SKILL`, `THINK_HZ`): hard thinks every physics slice and never errs (today's AI); medium and easy think slower and slip, wobble and brake late, easy most. */
   aiDifficulty: AiDifficulty;
   /** Watch only: this browser's car is one more AI racer and the camera follows the field (no player car). */
   spectate: boolean;
