@@ -159,7 +159,7 @@ scenarios at the engine's slices), `scenes/contact-parity.test-util.ts` (striker
 queries) → `engine-warm` (shader warm-up, skin kernel) → `engine-hud` (`emitHud`) → `engine-derby` (derby on / off, its netplay
 mirror) → `engine-scenes` (scene picker, fade, reset, derby step) → `engine-rigs` (press, pistons, doors) → `engine-input` (keys, pad, HUD commands, `advance`) → `engine-reel`
 (crash highlights) → `engine-share` (the `#` URL) → `engine.ts`. `window.__crush` is the live engine (benches and probes).
-A race runs through `RaceDirector` (`engine-race.ts`) over `RaceField` (`engine-race-field.ts`).
+A race runs through `RaceDirector` (`engine-race.ts`) over `RaceHudLayer` (`engine-race-hud.ts`: HUD read model, next-course flow, setup menu), `RaceWatch` (`engine-race-watch.ts`) and `RaceField` (`engine-race-field.ts`).
 
 **Frame** (`CrashEngine.tickInner`, wall `dt` ≤ 0.1 s):
 

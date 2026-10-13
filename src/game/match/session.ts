@@ -111,7 +111,6 @@ function newRecord(e: Entrant, grid: number, x: number, z: number): CarRecord {
 /**
  * The race rules for one course: grid → countdown → racing → finished. Deterministic for a given sequence of `step(dt, poses)`
  * calls (one `CarPose` per entrant per fixed step); no scene, DOM or clock. The host drains `events()` after each step.
- * `snapshot()` / `RaceSession.restore` round-trip the whole state through plain JSON.
  */
 export class RaceSession {
   readonly track: Track;
@@ -126,7 +125,6 @@ export class RaceSession {
   winnerId: number | null = null;
   winBy: WinBy | null = null;
   readonly cars: CarRecord[];
-  /** Car indices in position order. */
   private readonly rank: number[];
   private readonly firstAt: Float64Array;
   private readonly queue: RaceEvent[] = [];
@@ -359,7 +357,6 @@ export class RaceSession {
     return { humans, free, place: this.endless ? null : place, won };
   }
 
-  /** Final (or live) classification in position order. */
   results(): RaceResultRow[] {
     const win = this.winnerId == null ? null : this.cars.find((c) => c.id === this.winnerId)!;
     const winTime = win?.finishTime ?? null;
@@ -667,10 +664,7 @@ export class RaceSession {
     this.queue.push({ type: "respawn", id: c.id, x: spot.x, z: spot.z, yaw: spot.yaw, keep: false });
   }
 
-  /**
-   * The driver holds reset: back on the road at once, car as it is (host keeps its damage). Allowed in a no-reset race while the
-   * car is still racing; refused in an endless run, when the race is not on, and for a car respawning, out or finished.
-   */
+  /** The driver holds reset: back on the road at once, car as it is (host keeps its damage), also in a no-reset race; refused in an endless run and unless racing. */
   holdReset(id: number): boolean {
     const i = this.cars.findIndex((c) => c.id === id);
     const c = this.cars[i];

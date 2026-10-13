@@ -3,7 +3,6 @@ import { applyDrive, type DriveInput } from "../vehicle/car-drive.ts";
 import type { DeformableCar } from "../vehicle/car.ts";
 import type { ContactHit } from "../scenes/engine-props.ts";
 import { propContact } from "../contact/prop-contact.ts";
-import { carGauge } from "../match/car-view.ts";
 import { snapshotAiCar } from "../match/derby.ts";
 import { clamp } from "../kernel/scalar.ts";
 import { MAX_CARS } from "../scenes/fleet.ts";
@@ -12,30 +11,15 @@ import { SURFACES } from "../world/catalog.ts";
 import { PoliceBrain } from "../ai/police.ts";
 import { HunterBrain } from "../ai/hunter.ts";
 import type { AiCar } from "../ai/derby-ai.ts";
-import { copyDrive, onSurface, surfaceAt } from "../ai/race-ai.ts";
+import { copyDrive, onSurface } from "../ai/race-ai.ts";
 import { AI_DIFFICULTIES } from "../ai/constants.ts";
-import { brakeCueAt } from "../ai/brake-cue.ts";
-import { projectPath, type TrackPath } from "../world/track.ts";
-import { carClass, classStats } from "../vehicle/vehicle-classes.ts";
 import { DRAFT, RaceSession } from "../match/session.ts";
-import {
-  cleanName,
-  RACE_MODE,
-  RACE_MODES,
-  type Entrant,
-  type RaceCommand,
-  type RaceHud,
-  type RaceHudRow, type RacePhase,
-  type RaceSnapshot,
-  type RaceView
-} from "../match/types.ts";
+import { cleanName, RACE_MODES, type Entrant, type RaceCommand, type RacePhase, type RaceSnapshot } from "../match/types.ts";
 import type { Cand, Wreck } from "../match/auto-watch.ts";
-import { RaceWatch } from "./engine-race-watch.ts";
+import { RaceHudLayer } from "./engine-race-hud.ts";
 
 /** Seconds between traffic-bubble passes. */
 const BUBBLE_EVERY = 0.25;
-/** A police unit's boost meter as the gauge shows it: always full (police boost with no meter, `cop-brain.ts`). */
-const POLICE_METER = 1;
 /** Seconds the finish card shows before the results menu (and the results reel), and the BUSTED banner before the camera moves on. */
 export const RESULTS_DELAY = 2.5;
 const SUN_OFFSET = new THREE.Vector3(-10, 22, 9);
@@ -49,7 +33,7 @@ const SUN_UP = SUN_OFFSET.clone().cross(SUN_RIGHT).normalize();
  * respawns and the HUD read model. `CrashEngine` calls `drive` at the start and `collide` / `step`
  * at the end of every physics slice, `frame` once per rendered frame.
  */
-export class RaceDirector extends RaceWatch {
+export class RaceDirector extends RaceHudLayer {
   /** A netplay client's race is its host's: `applySnapshot` has fed it (cleared on `enter` and `exit`). A run this browser started itself is not mirrored. */
   mirrored = false;
   /** Per car id: the drafting bonuses (`CarRecord.drafts`) already put on a meter. */
@@ -89,7 +73,7 @@ export class RaceDirector extends RaceWatch {
   }
 
   /**
-   * Race mode on. `survival`: a Survival run on its own course instead of the setup menu (docs/SURVIVAL.md). `lobby`: the Havana free-drive
+   * Race mode on. `survival`: a Survival run on its own course instead of the setup menu. `lobby`: the Havana free-drive
    * lobby of a hosted room (no menu, no rules, no hunters; `showLobby`) with a car for the host and each seated peer.
    */
   enter(survival = false, lobby = false): void {
@@ -340,19 +324,6 @@ export class RaceDirector extends RaceWatch {
     r.boost = input.boost;
   }
 
-  /**
-   * Car `id`'s boost meter as its driver keeps it (0-1): this browser's seat, the race AI where this browser runs it, a police unit's
-   * always full (police boost with no meter: `cop-brain.ts`), else what netplay heard (a peer's own meter; on a client, the host's).
-   * Null for a car with no nitrous: traffic, nobody heard.
-   */
-  meterOf(id: number): number | null {
-    if (this.free) return id === this.self ? this.host.seat.boost : this.host.heardMeter(id);
-    if (this.seatDrives(id)) return this.host.seat.boost;
-    if (this.aiDrives(id) && this.brain) return this.brain.meter[id]!;
-    if (id >= this.policeFrom && id < this.host.live().length) return POLICE_METER;
-    return this.host.heardMeter(id);
-  }
-
   /** Host: the whole rules state as plain JSON (null outside a race). */
   snapshot(): RaceSnapshot | null {
     const s = this.session;
@@ -494,9 +465,6 @@ export class RaceDirector extends RaceWatch {
     return this.session !== null && !(id === this.self && (this.menu != null || this.spectating));
   }
 
-  /** How far the hold of this browser's reset control is, 0–1 (`ResetHold.fill`): the input layer writes it each frame, the HUD's fill reads it. */
-  holdFill = 0;
-
   /**
    * The reset control held (this browser), or a netplay peer's hold for its car `id` (host): back on the road at once, damage kept (`RaceSession.holdReset`).
    * It works in a no-reset race and refuses where a tap does (a menu is up, spectating) and in Survival. In the lobby it is a tap: there is no damage worth keeping.
@@ -600,14 +568,6 @@ export class RaceDirector extends RaceWatch {
     propContact(car, i, this.solids, this.knocked, this.propHits, h);
   }
 
-  /** The braking cue for car `id` on the main loop: its forward speed against what the planned braking allows for a corner ahead. No allocation. */
-  private brakeCue(id: number, car: DeformableCar, path: TrackPath): boolean {
-    const p = car.group.position;
-    const pr = projectPath(path, p.x, p.z, this.seg[id]!, this.proj);
-    const along = car.velocity.x * car.fwdFlat.x + car.velocity.z * car.fwdFlat.z;
-    return brakeCueAt(path, classStats(carClass(car)), pr.s, along, surfaceAt(path, pr.k).grip);
-  }
-
   /** End of a physics step of `dt` s, which the world ran on the schedule `shape` (`World.shape`): rules step, deaths, respawns. */
   step(dt: number, shape: number): void {
     const s = this.session;
@@ -690,185 +650,6 @@ export class RaceDirector extends RaceWatch {
     this.followSun();
   }
 
-  /** The race's part of the HUD read model; the engine adds the reel's (`reel`, `solo`, `shown`, `saved`, `outdated`, `autoPurge`). */
-  hud(): Omit<RaceHud, "reel" | "solo" | "shown" | "saved" | "outdated" | "autoPurge"> {
-    const s = this.session;
-    const tr = this.track;
-    const cars = this.host.live();
-    const seat = this.host.seat;
-    const standings: RaceHudRow[] = [];
-    let you: RaceHud["you"] = null;
-    if (s) {
-      for (const id of s.order()) {
-        const c = s.cars[this.rowOf[id]!]!;
-        const win = s.winnerId == null ? null : s.cars[this.rowOf[s.winnerId]!]!;
-        // A finisher a lap or more down has no time gap; the HUD shows its laps behind.
-        const gap =
-          c.place === 1
-            ? null
-            : c.status === "finished" && c.finishTime != null && win?.finishTime != null
-              ? c.lap < s.laps
-                ? null
-                : c.finishTime - win.finishTime
-              : c.split;
-        standings.push({
-          id,
-          name: c.name,
-          place: c.place,
-          lap: c.lap,
-          status: c.status,
-          gap,
-          bestLap: c.bestLap,
-          you: c.kind === "player",
-          watched: seat.mode !== "global" && seat.carIndex === id,
-        });
-      }
-      const me = this.entrants[this.self]?.kind === "player" ? s.cars[this.rowOf[this.self]!] : undefined;
-      if (me) {
-        you = {
-          id: this.self,
-          place: me.place,
-          lap: Math.min(s.laps, me.lap + 1),
-          status: me.status,
-          wrongWay: me.wrongWay,
-          missed: me.missed && me.status === "racing",
-          respawnIn: me.respawnAt == null ? null : Math.max(0, me.respawnAt - s.time),
-          finishTime: me.finishTime,
-          busted: me.bustedAt != null,
-          driverOut: cars[this.self]?.driverOut != null,
-        };
-      }
-    }
-    const id = seat.mode === "global" ? -1 : seat.carIndex;
-    const car = s && id >= 0 ? cars[id] : undefined;
-    let view: RaceView | null = null;
-    if (s && car) {
-      const c = id < this.entrants.length ? s.cars[this.rowOf[id]!] : undefined;
-      // Race distance covered: the rules' own ranking measure (`progress`), a finisher's all of it.
-      const total = s.laps * s.track.length;
-      const done = c === undefined ? 0 : c.status === "finished" ? 1 : clamp(c.progress / total, 0, 1);
-      const cops = c !== undefined ? (this.police?.copsOn(id) ?? 0) : 0;
-      const asking = c !== undefined && this.mine(id) && !this.spectating && this.menu === null && s.phase === "racing" && c.status === "racing";
-      view = {
-        id,
-        racer: c
-          ? {
-              place: c.place,
-              lap: Math.min(s.laps, c.lap + 1),
-              lapTime: s.phase === "racing" && c.status !== "finished" ? Math.max(0, s.time - c.lapStart) : 0,
-              lastLap: c.lapTimes.length > 0 ? c.lapTimes[c.lapTimes.length - 1]! : null,
-              bestLap: c.bestLap,
-              split: c.split,
-              drafting: c.draft > 0,
-              done: s.endless ? null : done,
-              toGo: s.endless ? null : (1 - done) * total,
-            }
-          : null,
-        ...carGauge(car),
-        brakeCue: this.brakeCue(id, car, s.track.path),
-        boost: this.meterOf(id),
-        chase: c !== undefined && c.status === "racing" && (cops > 0 || c.stopped > 0) ? { cops: Math.max(1, cops), hold: Math.min(1, c.stopped / s.bustTime), left: Math.max(0, s.bustTime - c.stopped) } : null,
-        // R / D-pad ↓ acts unless `requestRespawn` refuses it (a menu is up, spectating) or the rules do (no-reset race, not racing); holding it acts wherever `holdReset` does: a no-reset race too, not Survival.
-        canReset: asking && !s.noReset,
-        canHold: asking && !s.endless,
-        resetHold: this.holdFill,
-      };
-    }
-    const winner = s && s.winnerId != null ? s.cars[this.rowOf[s.winnerId]!]!.name : null;
-    const watched =
-      this.spectating && seat.carIndex >= 0 ? (this.entrants[seat.carIndex]?.name ?? (seat.carIndex >= this.policeFrom ? "Police" : null)) : null;
-    return {
-      menu: this.menu,
-      mode: this.campaign ? RACE_MODE.campaign : RACE_MODE.single,
-      options: { ...this.options },
-      courses: this.courses,
-      phase: s ? s.phase : null,
-      trackName: tr ? tr.name : "",
-      laps: s ? s.laps : this.rules.laps,
-      noReset: s ? s.noReset : this.rules.noReset,
-      time: s ? s.time : 0,
-      you,
-      view,
-      field: s ? s.cars.length : this.rules.aiCount + 1,
-      standings,
-      spectating: watched,
-      auto: this.auto && watched !== null,
-      winnerName: winner,
-      winBy: s ? s.winBy : null,
-      results: s && s.phase === "finished" ? s.results() : null,
-      campaign: this.campaign ? this.campaign.snapshot() : null,
-      nextCourse: this.nextCourseName(),
-      fullUi: this.fullUi,
-      survival: this.survivalHud(),
-      team: s ? s.team() : null,
-    };
-  }
-
-  private next(): void {
-    if (this.menu === "results") {
-      if (this.campaign) {
-        // A team that did not win its event plays it again: the round counts once a human finishes first.
-        if (this.session?.team()?.won === false) {
-          this.start(this.campaign.trackId!, this.campaign.grid());
-          return;
-        }
-        if (this.session) this.campaign.record(this.session.results());
-        this.menu = "standings";
-        return;
-      }
-      const id = this.nextTrackId();
-      if (id) this.start(id, this.defaultGrid());
-      return;
-    }
-    if (this.menu === "standings" && this.campaign) {
-      if (this.campaign.done) {
-        this.toSetup();
-        return;
-      }
-      this.pegCampaign();
-      this.start(this.campaign.trackId!, this.campaign.grid());
-    }
-  }
-
-  /** Each rival keeps the aggression it rolled when the campaign began. */
-  private pegCampaign(): void {
-    if (!this.campaign) return;
-    for (const r of this.campaign.standings()) {
-      const e = this.entrants[r.id];
-      if (e?.kind === "ai") e.aggression = r.aggression;
-    }
-  }
-
-  private nextTrackId(): string | null {
-    if (!this.track || this.courses.length < 2) return null;
-    const i = this.courses.findIndex((c) => c.id === this.track!.id);
-    return this.courses[(i + 1) % this.courses.length]!.id;
-  }
-
-  private nextCourseName(): string | null {
-    if (this.campaign) {
-      if (this.menu === "results") return "Standings";
-      const id = this.campaign.trackId;
-      return id ? (this.courses.find((c) => c.id === id)?.name ?? null) : null;
-    }
-    const id = this.nextTrackId();
-    return id ? (this.courses.find((c) => c.id === id)?.name ?? null) : null;
-  }
-  /** Setup menu: the chosen course with the field parked on its grid, no race running. */
-  private toSetup(): void {
-    this.campaign = null;
-    this.setProgram(null);
-    this.session = null;
-    this.brain = null;
-    this.traffic = null;
-    this.police = null;
-    this.spectating = false;
-    this.auto = false;
-    this.menu = "setup";
-    this.host.setPaused(false);
-    this.host.seat.clear();
-    this.park();
-  }
   /** Keep the sun's shadow box on `car`: the followed car (or the grid), a highlight's subject while the reel plays. */
   followSun(car: DeformableCar | undefined = this.followed()): void {
     if (!car) return;
