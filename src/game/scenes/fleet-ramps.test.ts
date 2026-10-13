@@ -2,7 +2,7 @@ import { afterEach, describe, it } from "node:test";
 import assert from "node:assert/strict";
 import * as THREE from "three";
 import { DeformableCar } from "../vehicle/car.ts";
-import { COM_Y, G, TOUCH } from "../vehicle/car-air.ts";
+import { COM_Y, G, TOUCH } from "../vehicle/car-air-body.ts";
 import { CAR_HALF } from "../vehicle/car-mesh.ts";
 import { JerseyBarrier } from "./engine-props.ts";
 import { FleetRamps, RAMP } from "./fleet-ramps.ts";

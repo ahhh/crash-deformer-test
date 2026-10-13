@@ -2,7 +2,7 @@ import { after, afterEach, before, describe, it } from "node:test";
 import assert from "node:assert/strict";
 import * as THREE from "three";
 import { CAR_HALF, DeformableCar } from "../vehicle/car.ts";
-import { COM_Y, MU_BODY } from "../vehicle/car-air.ts";
+import { COM_Y, MU_BODY } from "../vehicle/car-air-body.ts";
 import { UNDERSIDE } from "../vehicle/car-suspension.ts";
 import { applyDrive, type DriveInput } from "../vehicle/car-drive.ts";
 import { JerseyBarrier } from "./engine-props.ts";

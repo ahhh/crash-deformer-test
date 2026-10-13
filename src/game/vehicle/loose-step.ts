@@ -4,7 +4,9 @@ import { GRAVITY } from "../kernel/constants.ts";
 import { detCos, detSin } from "../kernel/physics-core.js";
 import { NO_FLOOR } from "../world/ground.ts";
 import { C_DEPTH, C_GRIP, C_H, C_NX, C_NZ, clearOf, HIT_SIZE, holdTops, pointContact, PQ_SIZE, PQ_VX, PQ_VY, PQ_VZ, PQ_X, PQ_Y, PQ_Z, stirNear } from "../world/surfaces.ts";
-import { centreOfMass, loadShape, moveBody, openRows, placeBody, readPoints, solveRows, standAtCentre, bindBody } from "./car-air.ts";
+import { centreOfMass, moveBody, placeBody, standAtCentre, bindBody } from "./car-air-body.ts";
+import { loadShape, readPoints } from "./car-air-points.ts";
+import { openRows, solveRows } from "./car-air.ts";
 import { DENT_MIN_DV, recordDent, type DentState } from "./loose-dent.ts";
 import type { LooseBody, LooseShape } from "./car-core.ts";
 

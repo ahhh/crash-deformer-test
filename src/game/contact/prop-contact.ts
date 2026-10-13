@@ -6,7 +6,7 @@ import { C_ARG, C_DEPTH, C_NX, C_NY, C_NZ, HIT_SIZE, KNOCK, P_STRIDE, pointConta
 import { TYRE_R } from "../deform/deform-state.ts";
 import { type ContactBox, makeBox, partContact, solidFace } from "./external-contact.ts";
 import { HIT_AHEAD, impulseCar, markApproach, wallBounce } from "./pair-contact.ts";
-import { COM_Y, WALL_CRUSH } from "../vehicle/car-air.ts";
+import { COM_Y, WALL_CRUSH } from "../vehicle/car-air-body.ts";
 import { cageLift } from "../vehicle/car-cage-rig.ts";
 import { UNDERSIDE } from "../vehicle/car-suspension.ts";
 

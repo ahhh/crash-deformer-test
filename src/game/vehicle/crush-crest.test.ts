@@ -6,7 +6,7 @@ import { TRACKS } from "../world/tracks/index.ts";
 import { parseTrack } from "../world/track-schema.ts";
 import { VEHICLE_CLASS_IDS, type VehicleClassId } from "./vehicle-classes.ts";
 import { DEG, drive, type Sample } from "./ground-probe.test-util.ts";
-import { CONTACT_HZ, G } from "./car-air.ts";
+import { CONTACT_HZ, G } from "./car-air-body.ts";
 import { WHEEL_POS } from "./car-mesh.ts";
 import { SPRINGS } from "./car-suspension.ts";
 import { useStiffSprings } from "./stiff-springs.test-util.ts";

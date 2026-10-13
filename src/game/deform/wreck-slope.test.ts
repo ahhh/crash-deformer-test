@@ -2,7 +2,7 @@ import { afterEach, describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { DEG, FRAME, fit, frame, makeCar, worldOf, type Fit } from "../vehicle/ground-probe.test-util.ts";
 import { idleDrive } from "../vehicle/car-drive.ts";
-import { layOnGround } from "../vehicle/car-air.ts";
+import { layOnGround } from "../vehicle/car-air-points.ts";
 import type { VehicleClassId } from "../vehicle/vehicle-classes.ts";
 import { Ground, setGround } from "../world/ground.ts";
 import { Track, blankPoint, pointOn } from "../world/track.ts";

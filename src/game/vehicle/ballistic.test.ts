@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import * as THREE from "three";
 import { applyDrive, type DriveInput } from "./car-drive.ts";
 import { beginFakeFall, type DeformableCar } from "./car.ts";
-import { COM_Y, G, readContact } from "./car-air.ts";
+import { COM_Y, G } from "./car-air-body.ts";
+import { readContact } from "./car-air-points.ts";
 import { makeCar } from "./ground-probe.test-util.ts";
 import { newWorld, stepWorld } from "../engine/world-step.ts";
 

@@ -11,7 +11,7 @@ import type { DetachPart, LooseBody } from "./car-core.ts";
 import { CAR_HALF } from "./car-mesh.ts";
 import { crownY } from "./car-cage-rig.ts";
 import { SKIN } from "./car-surfaces.ts";
-import { RESTITUTION, invInertia } from "./car-air.ts";
+import { RESTITUTION, invInertia } from "./car-air-body.ts";
 import { newLooseShape, stepLoose } from "./loose-step.ts";
 import { corner, LIES_FLAT, lowest, RESTS, thinAxisUp } from "./loose-step.test-util.ts";
 import { assertSameDigest, paint } from "./test-support.ts";

@@ -2,7 +2,7 @@ import * as THREE from "three";
 import "../kernel/rapier-node.test-util.ts";
 import { frame, FRAME, makeWorld, type World } from "../world/race-world.test-util.ts";
 import { blankPoint, type Track } from "../world/track.ts";
-import { layOnGround } from "../vehicle/car-air.ts";
+import { layOnGround } from "../vehicle/car-air-points.ts";
 import { clipTitle, type HighlightClip } from "../match/highlights.ts";
 import { phaseClock } from "../match/phase.ts";
 import type { ViewBox } from "../match/types.ts";

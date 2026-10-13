@@ -6,7 +6,7 @@ import { blankPoint, blankProjection, pointOn, Track } from "../world/track.ts";
 import { parseTrack } from "../world/track-schema.ts";
 import { TRACKS } from "../world/tracks/index.ts";
 import type { DriveInput } from "./car-drive.ts";
-import { layOnGround } from "./car-air.ts";
+import { layOnGround } from "./car-air-points.ts";
 import type { ExitPane } from "./car-core.ts";
 import { EjectionWatch } from "./ejection.ts";
 import { armKill, DEFAULT_REALISM, killClass, VEHICLE_CLASS_IDS, type VehicleClassId } from "./vehicle-classes.ts";

@@ -12,7 +12,7 @@ import { mass, paint } from "../vehicle/test-support.ts";
 import { newWorld, stepWorld, type World } from "../engine/world-step.ts";
 import { EjectionWatch, type Ejection } from "../vehicle/ejection.ts";
 import { applyDrive, idleDrive, type DriveInput } from "../vehicle/car-drive.ts";
-import { layOnGround } from "../vehicle/car-air.ts";
+import { layOnGround } from "../vehicle/car-air-points.ts";
 import type { SimPacer } from "../engine/sim-pace.ts";
 
 /**

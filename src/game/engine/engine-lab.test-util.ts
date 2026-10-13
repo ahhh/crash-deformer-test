@@ -8,7 +8,7 @@ import { setGround } from "../world/ground.ts";
 import { RagdollSystem } from "../present/engine-ragdoll.ts";
 import { AIR_LINEAR } from "../present/ragdoll-body.ts";
 import { BOARD, type LabLayout, type LabPresetId } from "../scenes/lab.ts";
-import { G } from "../vehicle/car-air.ts";
+import { G } from "../vehicle/car-air-body.ts";
 import { Lab, WALL, type LabShot } from "./engine-lab.ts";
 
 /** Headless Lab: a layout's cars built and placed, the Lab's ground made active, its hooks on the engine's step (`tickWorld`); `dolls`: the dummies' world, when the rig has one. */

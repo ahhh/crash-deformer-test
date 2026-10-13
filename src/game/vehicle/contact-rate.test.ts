@@ -1,6 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { contactHz, stepFree } from "./car-air.ts";
+import { contactHz } from "./car-air-points.ts";
+import { stepFree } from "./car-air.ts";
 import { makeCar } from "./ground-probe.test-util.ts";
 import { stepSlices } from "./wedge.test-util.ts";
 

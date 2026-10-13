@@ -2,7 +2,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import * as THREE from "three";
 import { applyDrive, type DriveInput } from "./car-drive.ts";
-import { layOnGround } from "./car-air.ts";
+import { layOnGround } from "./car-air-points.ts";
 import { LOAD_FEEL } from "./car-load.ts";
 import { DeformableCar } from "./car.ts";
 import { assignClass, CLASSES, gearAt, VEHICLE_CLASS_IDS, type VehicleClassId } from "./vehicle-classes.ts";

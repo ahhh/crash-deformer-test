@@ -1,6 +1,6 @@
 import { afterEach, describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { G } from "./car-air.ts";
+import { G } from "./car-air-body.ts";
 import { layOnWedge, RAD, stepSlices, Wedge } from "./wedge.test-util.ts";
 import { setGround } from "../world/ground.ts";
 

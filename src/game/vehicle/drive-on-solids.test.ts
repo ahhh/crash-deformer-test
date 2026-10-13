@@ -4,7 +4,7 @@ import * as THREE from "three";
 import { DeformableCar } from "./car.ts";
 import type { DriveInput } from "./car-drive.ts";
 import { assignClass } from "./vehicle-classes.ts";
-import { COM_Y, CONTACT_HZ, G } from "./car-air.ts";
+import { COM_Y, CONTACT_HZ, G } from "./car-air-body.ts";
 import { paint } from "./test-support.ts";
 import { makeWorld, tickWorld, type CrashWorld } from "../contact/crash-scenarios.test-util.ts";
 import { BARRIER_TOP } from "../contact/sat.ts";

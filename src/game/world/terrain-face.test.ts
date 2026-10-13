@@ -4,7 +4,7 @@ import { launch } from "../contact/crash-scenarios.test-util.ts";
 import { physicsSlice, sliceSpeed } from "../contact/sat.ts";
 import { newWorld, settleStep, stepWorld } from "../engine/world-step.ts";
 import { CAR_HALF } from "../vehicle/car-mesh.ts";
-import { MU_BODY } from "../vehicle/car-air.ts";
+import { MU_BODY } from "../vehicle/car-air-body.ts";
 import { EjectionWatch } from "../vehicle/ejection.ts";
 import { activeGround, Ground, NO_FLOOR, setGround } from "./ground.ts";
 import { makeWorld as raceWorld } from "./race-world.test-util.ts";

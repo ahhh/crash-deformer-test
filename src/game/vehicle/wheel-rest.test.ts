@@ -8,7 +8,7 @@ import { newWorld, stepWorld, type World } from "../engine/world-step.ts";
 import { INITIAL_HUD } from "../hud/hud-store.ts";
 import { assertSameNumbers, DT, paint } from "./test-support.ts";
 import { HIT_SIZE } from "../world/surfaces.ts";
-import { REST_SPEED } from "./car-air.ts";
+import { REST_SPEED } from "./car-air-body.ts";
 import { applyDrive, idleDrive } from "./car-drive.ts";
 
 const IDLE = idleDrive();

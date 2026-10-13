@@ -4,7 +4,7 @@ import * as THREE from "three";
 import { labRig, leaveLab, runLab, throwAt, type LabRig } from "./engine-lab.test-util.ts";
 import type { LabShot } from "./engine-lab.ts";
 import type { DeformableCar } from "../vehicle/car.ts";
-import { COM_Y } from "../vehicle/car-air.ts";
+import { COM_Y } from "../vehicle/car-air-body.ts";
 import { FLICK, LabFlick } from "./lab-flick.ts";
 import { aimLabShot, LAB_FOV, LAB_SHOT } from "./lab-shot.ts";
 

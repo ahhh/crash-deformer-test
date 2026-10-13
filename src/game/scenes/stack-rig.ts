@@ -1,5 +1,5 @@
 import type { DeformableCar } from "../vehicle/car.ts";
-import { readContact } from "../vehicle/car-air.ts";
+import { readContact } from "../vehicle/car-air-points.ts";
 import { ROOF_REST_Y } from "../vehicle/car-parts.ts";
 import { crownY, keelY } from "../vehicle/car-cage-rig.ts";
 import { SKIN } from "../vehicle/car-surfaces.ts";

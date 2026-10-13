@@ -1,4 +1,4 @@
-import { MU_BODY } from "../vehicle/car-air.ts";
+import { MU_BODY } from "../vehicle/car-air-body.ts";
 
 /**
  * The contact every fixed solid gives a car (docs/UNIFIED_CONTACT.md, stage 4): the rebound of a light touch, and the Coulomb friction

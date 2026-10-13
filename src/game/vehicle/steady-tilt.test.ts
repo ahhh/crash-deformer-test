@@ -1,7 +1,7 @@
 import { after, before, describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { applyDrive, type DriveInput } from "./car-drive.ts";
-import { G } from "./car-air.ts";
+import { G } from "./car-air-body.ts";
 import { WHEEL_POS } from "./car-mesh.ts";
 import { makeCar } from "./ground-probe.test-util.ts";
 import { STIFF_HZ, useStiffSprings } from "./stiff-springs.test-util.ts";

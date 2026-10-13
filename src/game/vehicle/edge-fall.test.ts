@@ -2,7 +2,7 @@ import { afterEach, describe, it } from "node:test";
 import assert from "node:assert/strict";
 import * as THREE from "three";
 import { beginFakeFall, type DeformableCar } from "./car.ts";
-import { COM_Y } from "./car-air.ts";
+import { COM_Y } from "./car-air-body.ts";
 import { FREEWHEEL, makeCar, makeWorld, runPair, tickWorld } from "../contact/crash-scenarios.test-util.ts";
 import { edgeAction, FAKE_DEPTH, FLEET_MIN_SEP, fleetEmptied, layoutFleet, respawnSlot, RESPAWN_S, VAPOR_DEPTH } from "../scenes/fleet.ts";
 import { DISC_GROUND, DISC_RADIUS, FLAT_GROUND, setGround, type Ground } from "../world/ground.ts";

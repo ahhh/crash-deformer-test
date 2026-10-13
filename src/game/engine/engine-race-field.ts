@@ -2,7 +2,7 @@ import { detCos, detSin, hypot2 } from "../kernel/physics-core.js";
 import * as THREE from "three";
 import { idleDrive, type DriveInput, type DriverSeat } from "../vehicle/car-drive.ts";
 import type { DeformableCar } from "../vehicle/car.ts";
-import { layOnGround } from "../vehicle/car-air.ts";
+import { layOnGround } from "../vehicle/car-air-points.ts";
 import { blankAiCar, type AiCar } from "../ai/derby-ai.ts";
 import { MAX_CARS } from "../scenes/fleet.ts";
 import { setGround } from "../world/ground.ts";

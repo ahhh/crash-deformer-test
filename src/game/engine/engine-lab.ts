@@ -3,7 +3,8 @@ import { GROUND_REACH, HIT_DV, type RagdollSystem } from "../present/engine-ragd
 import type { PropTumble } from "../present/prop-tumble.ts";
 import { colliderSolids, type Solid } from "../present/ragdoll-solids.ts";
 import type { DeformableCar } from "../vehicle/car.ts";
-import { G, readContact } from "../vehicle/car-air.ts";
+import { G } from "../vehicle/car-air-body.ts";
+import { readContact } from "../vehicle/car-air-points.ts";
 import { propContact, type PropHits } from "../contact/prop-contact.ts";
 import type { ContactHit } from "../scenes/engine-props.ts";
 import { BENCH, BOARD, BRACKET_T, FLOOR, heldPose, labColliders, labGround, labPlaced, labSurfaces, LAB_LAYOUTS, type LabItem, type LabLayout, type LabPresetId, type LabSurface } from "../scenes/lab.ts";
