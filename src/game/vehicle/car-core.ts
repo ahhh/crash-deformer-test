@@ -46,7 +46,6 @@ const _inv = new THREE.Quaternion();
 const _lampQ = new THREE.Quaternion();
 const _lampE = new THREE.Euler();
 
-/** Where each body panel sits in the rig: its cage, then the sensors on its two ends. */
 const PANEL_SEATS: Record<PanelName, readonly [DetachPart["cage"], number, number]> = {
   quarterL: ["wingRL", 10, 8],
   quarterR: ["wingRR", 11, 9],
@@ -60,8 +59,7 @@ const PANEL_SEATS: Record<PanelName, readonly [DetachPart["cage"], number, numbe
 const LIGHT_BAR_Z = -0.02;
 /** Siren flash: red, then blue, each half of this period (s). */
 const SIREN_PERIOD = 0.5;
-/** Lit lens emissive gain past the bloom threshold; each stays under the ACES knee where it washes out
- *  (red to orange, as the tail lamps; blue to lavender, seen at 2.4). */
+/** Lit lens emissive gain past the bloom threshold; each stays under the ACES knee where it washes out (red to orange, blue to lavender at 2.4). */
 const SIREN_GAIN = { red: 1.3, blue: 1.5 } as const;
 /** Wheels off the ground lose 1/e of their spin to bearing drag in this long (s). */
 const AIR_SPIN_TAU = 1.5;
@@ -82,7 +80,6 @@ const HULL_Y1 = 0.72;
 /** The box's 12 edges as corner pairs. Corner k sits at HULL_Y1 if k ≥ 4; round the ring, k & 3 is (x0,z0) (x1,z0) (x1,z1) (x0,z1). */
 const BOX_EDGES = [0, 1, 1, 2, 2, 3, 3, 0, 4, 5, 5, 6, 6, 7, 7, 4, 0, 4, 1, 5, 2, 6, 3, 7];
 
-/** Writes the box's edges (BOX_EDGES.length × 3 floats) into `arr` from the plan bounds `box` (x min, x max, z min, z max). */
 function writePlanBox(arr: Float32Array, box: Float64Array): void {
   let o = 0;
   for (const k of BOX_EDGES) {
@@ -100,7 +97,7 @@ export const DOOR_AJAR = 0.2;
 /** C2: below 30 km/h EBS a folded bumper stays on (IIHS low-speed bumper protocols). */
 export const BUMPER_TEAR_MPS = 30 / 3.6;
 
-// Door hinge and mirror model (docs/DOOR_RIG.md). Sourced: FMVSS 206 hinge 11 kN longitudinal,
+// Door hinge and mirror model. Sourced: FMVSS 206 hinge 11 kN longitudinal,
 // latch/hinge 8.9 kN transverse. Guessed: masses, stop angle, plastic travel, mirror numbers.
 /** Front-door assembly (kg), guessed inside the usual 20–30 kg. */
 const DOOR_MASS = 25;
@@ -139,7 +136,7 @@ export interface DoorHinge {
   mirrorFold: number;
 }
 
-/** Netplay state of a car's detachable parts, lamps and glass (docs/MULTIPLAYER.md), preallocated from `partNetSizes()`. */
+/** Netplay state of a car's detachable parts, lamps and glass, preallocated from `partNetSizes()`. */
 export interface PartNetState {
   /** Per part: 1 detached, 2 folding, 4 its door swing is latched. */
   readonly flags: Uint8Array;
@@ -160,7 +157,6 @@ type GlassState = "intact" | "cracked" | "shattered";
 /** Panes by place: doorL / doorR are the front side windows (they ride the doors, −x is the car's left). */
 export type GlassName = "windshield" | "rear" | "doorL" | "doorR" | "quarterL" | "quarterR";
 
-/** Pane a thrown driver leaves through: the windshield on a head-on, the struck side's front window on a side hit. */
 export type ExitPane = Extract<GlassName, "windshield" | "doorL" | "doorR">;
 
 /** `ExitPane`s by wire code: `EXIT_PANES.indexOf(car.driverOut)` is a snapshot frame's 2 bits (0: still at the wheel). */
@@ -232,16 +228,12 @@ export interface DetachPart {
   open: boolean;
   /** The hinge value the open shell was last posed at (`shellPose`): an attached panel is re-posed only when it changes (a changed skin re-poses all, `skinPanels`). */
   posed: number;
-  /** The bounces this part has taken (`loose-dent.ts`). */
   dent: DentState;
   /** The box it flies as (`stepLoose`), preallocated; measured when it first flies. */
   shape: LooseShape;
 }
 
-/**
- * A loose body's points and inertia (`loose-step.ts`): `count` points (0: not measured yet) as offsets from its middle `centre`, in
- * the object's own axes, and its inverse inertia per unit mass about those axes.
- */
+/** A loose body's points and inertia (`loose-step.ts`): `count` points (0: not measured yet) as offsets from its middle `centre`, in the object's own axes, and its inverse inertia per unit mass about those axes. */
 export interface LooseShape {
   readonly points: Float64Array;
   count: number;
@@ -258,7 +250,6 @@ export interface LooseShape {
   airborne: boolean;
 }
 
-/** What `stepLoose` moves: a detached part, or a wheel off its hub. */
 export interface LooseBody {
   object: THREE.Object3D;
   velocity: THREE.Vector3;
@@ -267,11 +258,7 @@ export interface LooseBody {
   shape: LooseShape;
 }
 
-/**
- * The car's state and build: every field, the constructor (body, panels, doors, bumpers, lamps, glass, parts,
- * hull overlay, wheels), the contact hulls, lamp and glass resets and the body frame. Layers stack `CarCore` →
- * `CarParts` → `DeformableCar` (one class split by context; `DeformableCar` is the one anything constructs).
- */
+/** The car's state and build. Layers stack `CarCore` → `CarParts` → `DeformableCar` (the one anything constructs). */
 export abstract class CarCore {
   readonly group = new THREE.Group();
   readonly body: THREE.Mesh;
@@ -290,18 +277,12 @@ export abstract class CarCore {
 
   speed = 0;
   crashed = false;
-  /**
-   * Off the fleet disc and 2 m down (`CrashEngine.stepEdge`): a frozen copy of the car as it was (mesh, parts, lamps) dropping on
-   * the rigid step's flight, `velocity` and `angular`; no contacts with other cars, deform or skin.
-   */
+  /** Off the fleet disc and 2 m down (`CrashEngine.stepEdge`): a frozen copy of the car dropping on the rigid step's flight; no contacts with other cars, deform or skin. */
   falling = false;
   /** Fell 20 m below the fleet disc and burst into smoke (`CrashEngine.setVaporized`): hidden and out of the sim until respawned. */
   vaporized = false;
-  /**
-   * The pane the driver was thrown out through, null while he is in the car (`EjectionWatch`, stepped with the world).
-   * Sim state: a race gives the car no pedals or steering while it is set (`RaceDirector.drive`) and counts it a wreck
-   * (`judge`); netplay snapshots and highlight clips carry it. `resetVisual` puts him back.
-   */
+  /** The pane the driver was thrown out through, null while he is in the car (`EjectionWatch`). Sim state: a race gives the car no pedals or steering while it is set
+   *  (`RaceDirector.drive`) and counts it a wreck (`judge`); netplay snapshots and highlight clips carry it. `resetVisual` puts him back. */
   driverOut: ExitPane | null = null;
   yaw = 0;
   roll = 0;
@@ -309,12 +290,8 @@ export abstract class CarCore {
   spawnSpeed = 0;
   /** Times this car was put on a spot (`placeAt`: a respawn, a wake, a start): the recorder keys a step the count moved in. */
   placements = 0;
-  /**
-   * Last slice's drive (applyDrive writes it). spin / lock / slide are 0–1 wheel slip for tyre FX:
-   * launch wheelspin, brake lock-up, sideways slide; `drift` is the drift assist's own state; `hold` is the sideways grip
-   * (m/s) the tyres have left this step, which a face the car is pressed on spends (`wallBounce`). `-0`: doubles
-   * from construction, or each field's first fractional write mid-race deoptimised applyDrive for seconds.
-   */
+  /** Last slice's drive (applyDrive writes it). spin / lock / slide: 0–1 wheel slip for tyre FX (launch wheelspin, brake lock-up, sideways slide); `drift`: the drift assist's state; `hold`: sideways grip (m/s) left this step, spent by a face the car is pressed on (`wallBounce`).
+   *  `-0`: doubles from construction; each field's first fractional write mid-race deoptimised applyDrive for seconds. */
   readonly drive = { throttle: -0, steer: -0, brake: -0, ebrake: false, boost: false, neutral: false, spin: -0, lock: -0, slide: -0, drift: -0, hold: -0 };
   /** A wreck at rest: `integrateWreck` skips its rigid step until something moves it (`wake`). */
   asleep = false;
@@ -334,7 +311,6 @@ export abstract class CarCore {
   protected world: THREE.Scene;
   protected onGlass: GlassBurst | null;
   protected bodyMat: THREE.MeshPhysicalMaterial;
-  /** Each drawn wheel's angle about its axle (rad), in `wheels` order. */
   protected readonly wheelSpin = new Float64Array(4);
   /** Each drawn wheel's rate about its axle (rad/s, forward positive): drawn only, the sim never reads it. */
   readonly wheelRate = new Float64Array(4);
@@ -353,14 +329,9 @@ export abstract class CarCore {
   protected endReach = Infinity;
   protected endSqueeze = false;
   readonly lamps: Lamp[] = [];
-  /**
-   * The hood, boot lid, doors and bumpers. They lie on the body's shell until a crash or a hinge moves them, so an undamaged
-   * car's sun shadow is the body's alone and they cast only from then on (`CarParts.settleCasters`). Far-car detail cuts
-   * (`present/car-detail.ts`) treat them as casters all the same.
-   */
+  /** Hood, boot lid, doors, bumpers: they lie on the shell until a crash or hinge moves them, so an undamaged car's sun shadow is the body's alone (`CarParts.settleCasters`); far-car detail cuts treat them as casters anyway. */
   readonly flushCasters: THREE.Mesh[] = [];
   protected hullHelper: THREE.LineSegments | null = null;
-  /** The car's contact shape: its drawn body (`DeformableCar.cage`). */
   abstract readonly cage: CarCage;
   private bumperF: THREE.Group;
   private bumperR: THREE.Group;
@@ -384,11 +355,9 @@ export abstract class CarCore {
   protected lightBarPart: DetachPart | null = null;
   protected lightBarRest: Float32Array | null = null;
   protected readonly lightBarOrigin = new THREE.Vector3();
-  /** The quarter panels and arch flares cut from this style's body (`panelRegions`). */
   private readonly regions: readonly PanelRegion[];
   private sirenMat: THREE.MeshStandardMaterial | null = null;
   private sirensOn = false;
-  /** Lens lit this frame: 0 none, 1 red, 2 blue. */
   private sirenLit = 0;
 
   constructor(paint: CarPaint, world: THREE.Scene, onGlass: GlassBurst | null = null, style: CarStyleId = "sedan") {
@@ -398,7 +367,6 @@ export abstract class CarCore {
     this.onGlass = onGlass;
     this.group.name = paint.name;
 
-    // A livery (police) fixes the paint: black body and bumpers, white doors.
     const livery = this.style.livery;
     this.bodyMat = makePaintMaterial(livery?.body ?? paint.body);
     const doorMat = livery ? makePaintMaterial(livery.doors) : this.bodyMat;
@@ -513,8 +481,7 @@ export abstract class CarCore {
     return g;
   }
 
-  /** Head lamps on the nose, tails on the tail panel (upright in its corners beside a tailgate), at the body's own
-   *  seats (`BodyStyle.lamps`), so each sits flush on the skin with the bumper gone. Each rides three nearby skin vertices. */
+  /** Head lamps on the nose, tails on the tail panel (upright in its corners beside a tailgate), at `BodyStyle.lamps` seats: flush on the skin with the bumper gone, each riding three skin vertices. */
   private addLamps(): void {
     const { profile, lamps, boot } = this.style;
     for (const kind of ["head", "tail"] as const) {
@@ -657,7 +624,6 @@ export abstract class CarCore {
     this.group.add(this.hullHelper);
   }
 
-  /** Redraws the G-key overlay over the cage's plan box as of the last fit. */
   protected updateHullHelper(): void {
     if (!this.hullHelper) return;
     const attr = this.hullHelper.geometry.getAttribute("position") as THREE.BufferAttribute;
@@ -665,7 +631,6 @@ export abstract class CarCore {
     attr.needsUpdate = true;
   }
 
-  /** Back to an intact, clear pane on its rest seat and shape. */
   protected resetGlass(g: GlassPane): void {
     g.state = "intact";
     g.mesh.visible = true;
@@ -674,7 +639,6 @@ export abstract class CarCore {
     this.wearGlass(g, "clear");
   }
 
-  /** Pane `g` draws in `look`, in its own colour. */
   protected wearGlass(g: GlassPane, look: GlassLook): void {
     g.look = look;
     g.mesh.material = glassMaterial(look, g.tint);
@@ -688,13 +652,11 @@ export abstract class CarCore {
     }
   }
 
-  /** Relight every lamp and re-seat it on the (rest) skin. */
   protected resetLamps(): void {
     for (const lamp of this.lamps) lamp.intact = true;
     this.poseLamps();
   }
 
-  /** Seat each lamp on the skinned body; after every skin write (4 anchors, no allocation). */
   protected poseLamps(): void {
     const pos = (this.body.geometry.getAttribute("position") as THREE.BufferAttribute).array as Float32Array;
     for (const l of this.lamps) poseOnSkin(l.anchor, pos, l.seat.position, l.seat.quaternion);
@@ -704,9 +666,8 @@ export abstract class CarCore {
     return this.lamps.length + (this.lightBar ? LIGHT_BAR_LENS.length : 0);
   }
 
-  /** Writes lamp `i`'s world seat on the skin and outward axis; returns its kind, or null once broken.
-   *  Past the body lamps come the light bar's sirens, red then blue: lit only while flashing.
-   *  Both go through the full parent chain: a class lift (truck, monster) raises the lamps with the body. */
+  /** Writes lamp `i`'s world seat on the skin and outward axis; returns its kind, or null once broken. Past the body lamps come the light bar's
+   *  sirens (red, blue), lit only while flashing. Via the full parent chain: a class lift (truck, monster) raises the lamps with the body. */
   lampWorld(i: number, pos: THREE.Vector3, dir: THREE.Vector3): GlowKind | null {
     const l = this.lamps[i];
     if (!l) return this.sirenWorld(i - this.lamps.length, pos, dir);
@@ -734,7 +695,6 @@ export abstract class CarCore {
     return k === 0 ? "red" : "blue";
   }
 
-  /** Police: sirens on or off (a no-op on a car without a light bar). */
   setSirens(on: boolean): void {
     this.sirensOn = on && this.lightBar !== null;
     if (!this.sirensOn) this.lightSiren(0);
@@ -744,21 +704,18 @@ export abstract class CarCore {
     return this.sirensOn;
   }
 
-  /** Once a frame (`LampLights.update`): red for the first half of `SIREN_PERIOD`, blue for the second;
-   *  dark once the bar is torn off. */
+  /** Once a frame (`LampLights.update`): red for the first half of `SIREN_PERIOD`, blue for the second; dark once the bar is torn off. */
   flashSirens(now: number): void {
     if (!this.sirensOn) return;
     this.lightSiren(this.lightBarPart!.detached ? 0 : now % SIREN_PERIOD < SIREN_PERIOD / 2 ? 1 : 2);
   }
 
-  /** The bar's emissive colour picks its lit lens (see `makeSirenMaterial`). */
   private lightSiren(lit: number): void {
     this.sirenLit = lit;
     this.sirenMat?.emissive.setRGB(lit === 1 ? SIREN_GAIN.red : 0, 0, lit === 2 ? SIREN_GAIN.blue : 0);
   }
 
-  /** Group matrix only: children are refreshed once per frame by the renderer. Recursing the
-   * ~60-node car subtree here was ~40% of frame CPU at 10+ cars. */
+  /** Group matrix only: children refresh once per frame in the renderer (recursing the ~60-node car subtree here was ~40% of frame CPU at 10+ cars). */
   refreshBasis(): void {
     this.group.updateWorldMatrix(false, false);
     this.forward.set(0, 0, 1).applyQuaternion(this.group.quaternion);
@@ -770,13 +727,9 @@ export abstract class CarCore {
   }
 
   /**
-   * Turn the drawn wheels one step (drawn only: the sim never reads them). On the ground (`rolling`) each tyre turns with
-   * its own contact point's travel along the car's heading over the radius it is drawn at (the mesh's tread crown `TYRE_R`
-   * at the class's wheel scale): the body's speed less the yaw rate times the wheel's sideways offset, so in a turn the
-   * inner wheels turn slower than the outer. Reversing turns it back, a sideways slide turns nothing, and a wheel the
-   * drive locks (the handbrake on the rear pair, a hard brake's `lock` on all four) turns that much less. In the air the
-   * wheels keep their last rate and lose it to bearing drag, a driven body's throttle winding them up a little. A wheel
-   * off the car turns on its own.
+   * Drawn only: the sim never reads it. Rolling, each tyre turns with its contact point's travel along the heading over the drawn radius
+   * (`TYRE_R` × wheel scale): body speed less yaw rate × sideways offset, so inner wheels turn slower; a locked wheel (handbrake on the
+   * rear pair, hard-brake `lock`) turns less. In the air the wheels keep their rate and lose it to bearing drag, throttle winding a driven body's up.
    */
   protected spinWheels(dt: number, rolling: boolean): void {
     const d = this.drive;
@@ -807,8 +760,7 @@ export abstract class CarCore {
     return this.angular.y + (this.deform.massActive ? this.deform.keptSpin : 0);
   }
 
-  /** Velocity of a world point riding the body: v + ω × r about the yaw axis, the way `integrate`
-   *  turns `angular.y` into `rotation.y` (pitch and roll here are eased poses, not rates). */
+  /** Velocity of a world point riding the body: v + ω × r about the yaw axis, as `integrate` turns `angular.y` into `rotation.y` (pitch and roll are eased poses, not rates). */
   pointVelocity(world: THREE.Vector3, out: THREE.Vector3): THREE.Vector3 {
     const w = this.yawRate;
     return out.set(
@@ -818,7 +770,6 @@ export abstract class CarCore {
     );
   }
 
-  /** The car's state at 4 decimals (digests and test reads). */
   snapshot(): Record<string, unknown> {
     return {
       name: this.paint.name,

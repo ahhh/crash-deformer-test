@@ -77,11 +77,8 @@ export class DeformableCar extends CarParts {
   }
   /** The cage's fields changed since a caller last asked (`refitCage`). */
   private cageChanged = false;
-  /**
-   * Fits the cage to the body as the sim last baked its skin (`stepBreakage`: every step of a crush window), a car never baked
-   * or just reset or restored from the net to its style's shared shape, and answers whether its fields changed since the last answer
-   * (`CarCage.refit`: not for a mass within `REFIT_EPSILON` of the last raster). Never solves the skin: drawing cannot reach the cage.
-   */
+  /** Fits the cage to the body as the sim last baked its skin (`stepBreakage`: every step of a crush window); a car never baked, or just reset or restored from the net, gets its style's shared shape.
+   *  Answers whether its fields changed since the last answer (`CarCage.refit`: not for a mass within `REFIT_EPSILON` of the last raster). Never solves the skin: drawing cannot reach the cage. */
   refitCage(): boolean {
     if (this.deform.cageDue) this.fitCage();
     const changed = this.cageChanged;
@@ -100,10 +97,7 @@ export class DeformableCar extends CarParts {
   solverSize(): number {
     return this.deform.simSize() + (this.cageRig ??= new CageRig(this)).cage.stateSize();
   }
-  /**
-   * The car's solver state into `buf` (`solverSize()` numbers), or with `write` restored from it: the deform's, then the cage's refit history
-   * (a restored car's cage is the recorded one, bit for bit, whatever the sim baked since).
-   */
+  /** The car's solver state into `buf` (`solverSize()` numbers), or with `write` restored from it: the deform's, then the cage's refit history (a restored car's cage is the recorded one, bit for bit). */
   solverState(buf: Float64Array, write: boolean): void {
     const rig = (this.cageRig ??= new CageRig(this));
     const n = this.deform.simSize();
@@ -250,17 +244,12 @@ export class DeformableCar extends CarParts {
     for (const g of this.glassPanes) this.resetGlass(g);
     this.resetLamps();
   }
-  /**
-   * `impulse` is the closing speed (FX, glass); `ebs` the equivalent barrier speed that sizes the crush.
-   * The first hit starts the crash; on a wreck a fresh, hard enough contact re-arms a new hit (`rearmHit`). Returns whether the hit armed.
-   */
+  /** `impulse` is the closing speed (FX, glass); `ebs` the equivalent barrier speed that sizes the crush. The first hit starts the crash; on a wreck a fresh, hard enough contact re-arms a new hit (`rearmHit`). Returns whether the hit armed. */
   applyImpact(worldPoint: THREE.Vector3, worldInward: THREE.Vector3, impulse: number, ebs: number): boolean {
     const rigid = this.rigid;
     if (rigid) {
-      // A rigid body (`stepFree`) takes the hit on its masses: its centre's velocity carried to the group's origin, as
-      // `land` does, and a wreck's masses keep their dents. Its masses fly it on (`syncPose`) and hand it back to
-      // `stepFree` once their contact window closes; left rigid, nothing ever landed it and its drive stayed idled
-      // (8 s, stopped, on the stunt course).
+      // A rigid body (`stepFree`) takes the hit on its masses: its centre's velocity carried to the group's origin, as `land` does, and a wreck's masses keep their dents. Its masses fly it on (`syncPose`)
+      // and hand it back to `stepFree` once their contact window closes; left rigid, nothing ever landed it and its drive stayed idled (8 s, stopped, on the stunt course).
       this.velocity.sub(_v.crossVectors(this.angular, _p.set(0, COM_Y, 0).applyQuaternion(this.group.quaternion)));
       if (this.crashed) {
         this.deform.armMasses(this.group, this.velocity, this.angular);
@@ -313,12 +302,7 @@ export class DeformableCar extends CarParts {
   }
 
   /**
-   * Highlight keyframes (docs/HIGHLIGHTS.md): what a netplay pose rounds or leaves out, `FLIGHT` doubles into `buf` at `o`,
-   * or with `write` from it: the spins, the Euler angles the drive turns and the quaternion the rigid step turns (each is the
-   * other's derived copy only up to rounding, and the drive reads the heading off the quaternion before it sets it from the
-   * Euler), velocity and position whole (the wire rounds them: a first impact 0.5 m/s off), the squeeze clocks, the drift
-   * state, the weight a rider that stepped after this car left borne on it (its next step takes it: it is the step's input as
-   * much as the velocity is) and a wreck's rest timer (set last: a wreck that was asleep sleeps again where it lies). What the body touches is read again (`restoreContact`).
+   * What a netplay pose rounds or leaves out, `FLIGHT` doubles into `buf` at `o`, or with `write` from it: the spins, the Euler angles the drive turns and the quaternion the rigid step turns (each the other's derived copy only up to rounding; the drive reads the heading off the quaternion before it sets it from the Euler), velocity and position whole (the wire rounds them: a first impact 0.5 m/s off), the squeeze clocks, the drift state, the weight a rider that stepped after this car left has borne on it (the step's input as much as the velocity is) and a wreck's rest timer (set last: a wreck that was asleep sleeps again where it lies). What the body touches is read again (`restoreContact`).
    */
   flight(buf: Float64Array, o: number, write: boolean): void {
     if (write) {
@@ -391,10 +375,7 @@ export class DeformableCar extends CarParts {
     this.yielding = buf[down + 3] !== 0;
   }
 
-  /**
-   * A wreck flying as a rigid body (`stepFree`) with three wheels on the world goes back to its masses (`armed`): they take its centre's
-   * velocity less the spin's carry (a body crushed only by a load has no masses and stands on its wheels as an intact car does).
-   */
+  /** A wreck flying as a rigid body (`stepFree`) with three wheels on the world goes back to its masses (`armed`), taking its centre's velocity less the spin's carry (a body crushed only by a load has no masses and stands on its wheels). */
   private landWreck(): void {
     this.velocity.sub(_v.crossVectors(this.angular, _p.set(0, COM_Y, 0).applyQuaternion(this.group.quaternion)));
     this.angular.set(0, this.angular.y, 0);
@@ -425,8 +406,6 @@ export class DeformableCar extends CarParts {
     this.endAgo[0] += dt;
     this.endAgo[1] += dt;
     const d = this.deform;
-    // The squeeze lasts while both ends are still being struck; after it a hit is an ordinary
-    // one-ended hit again (and may re-arm), and a settled wreck may plant.
     if (this.endSqueeze && Math.max(this.endAgo[0]!, this.endAgo[1]!) > END_WINDOW) {
       this.endSqueeze = false;
       d.bidirectional = false;
@@ -437,13 +416,8 @@ export class DeformableCar extends CarParts {
     else this.sampleMotion();
   }
 
-  /**
-   * Shared crash rule for every contact path (car-car, press, pistons; docs/CONTACT_PARITY.md):
-   * `end` (+1 front, −1 rear) is being struck, the striker's face `reach` m from the car's centre
-   * along its length. Both ends struck within `END_WINDOW` is a squeeze: both ends become crumple
-   * zones (`bidirectional`), and once a face is inboard of the wheel centres the cage may yield
-   * (`deepCrush`). Both clear when the contact has been quiet for `REARM_QUIET_S`.
-   */
+  /** Shared crash rule for every contact path (car-car, press, pistons): `end` (+1 front, −1 rear) is being struck, the striker's face `reach` m from the car's centre along its length.
+   *  Both ends struck within `END_WINDOW` is a squeeze: both become crumple zones (`bidirectional`), and a face inboard of the wheel centres lets the cage yield (`deepCrush`). Both clear after `REARM_QUIET_S` of quiet. */
   noteContactEnd(end: 1 | -1, reach: number): void {
     this.endAgo[end > 0 ? 0 : 1] = 0;
     this.endReach = Math.min(this.endReach, reach);
@@ -461,10 +435,8 @@ export class DeformableCar extends CarParts {
   }
 
   /**
-   * A wreck is the rigid body's (`stepFree`): the masses' motion relative to the body is the crush (`moveRelative`), the body steps, and
-   * the masses are carried to where the body put them. Its wheels, ride and loose parts step once per slice, here. A wreck at rest
-   * (`asleep`) skips the rigid step until it is moved (`wake`, or a velocity written to it) or something that moves comes within `REACH`
-   * of where it lies (`stirNear`: a prop, solid or car top whose car is `moving`); its drawn ride goes on settling.
+   * A wreck is the rigid body's (`stepFree`): the masses' motion relative to the body is the crush (`moveRelative`), the body steps, and the masses are carried to where it put them. Its wheels, ride and loose parts step once per slice, here.
+   * A wreck at rest (`asleep`) skips the rigid step until it is moved (`wake`, or a velocity written to it) or something that moves comes within `REACH` of where it lies (`stirNear`); its drawn ride goes on settling.
    */
   private integrateWreck(dt: number): void {
     if (this.asleep) {
@@ -548,11 +520,8 @@ export class DeformableCar extends CarParts {
     this.stepLooseParts(dt, this.slot);
   }
 
-  /**
-   * One fixed step of what the crash does to the car's parts (`settleStep`, once per step; docs/HIGHLIGHTS.md): the
-   * sensors follow the masses, hinges move, parts tear off, lamps break, glass cracks. Drawing never decides any of it:
-   * at 60, 144 or 240 Hz the same crash tears the same parts at the same step, and a replay re-running the steps does too.
-   */
+  /** One fixed step of what the crash does to the car's parts (`settleStep`): sensors follow the masses, hinges move, parts tear off, lamps break, glass cracks.
+   *  Drawing never decides any of it: at 60, 144 or 240 Hz the same crash tears the same parts at the same step, and a replay re-running the steps does too. */
   stepBreakage(dt: number): void {
     if (this.vaporized || this.falling) return;
     this.deform.stepCrush(dt);

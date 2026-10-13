@@ -231,7 +231,6 @@ export function applyDrive(car: DeformableCar, input: DriveInput, dt: number, to
   _grip[1] = ((down & 4) !== 0 ? hit[2 * HIT_SIZE + C_GRIP]! : 0) / 2 + ((down & 8) !== 0 ? hit[3 * HIT_SIZE + C_GRIP]! : 0) / 2;
   const muF = _grip[0]! * _loss[3]!; // an axle with its wheels off grips like a body on the road
   const muR = _grip[1]! * _loss[4]!;
-  // Pedals: speed along the nose.
   _pedal[0] = throttle;
   _pedal[1] = brake;
   _pedal[2] = along;
@@ -246,12 +245,10 @@ export function applyDrive(car: DeformableCar, input: DriveInput, dt: number, to
   const want = _pedal[9]!;
   const spin = _pedal[10]!;
   const lock = _pedal[11]!;
-  // Wheel: yaw rate, slide state, damage pull.
   const v = Math.abs(speed);
   const grip = k.grip * a.grip * 0.5 * (muF + muR);
   let yawRate =
     steer * k.turn * (ebrake ? DRIVE.ebrakeTurn : 1) * (0.35 + Math.min(1, v / 8) * 0.65) * (0.45 + 0.55 * muF);
-  // Body angle to the velocity, + = nose left of the path.
   const beta = Math.atan2(-lat0, Math.max(1, Math.abs(along)));
   const dir = beta > 0.02 ? 1 : beta < -0.02 ? -1 : Math.sign(steer);
   let target = 0;
@@ -262,14 +259,12 @@ export function applyDrive(car: DeformableCar, input: DriveInput, dt: number, to
     // Held on the gas with lock either way short of a hard counter-steer.
     if (d.drift > 0.05 && throttle > 0.25 && Math.abs(steer) > 0.1 && steer * dir > -0.6) target = Math.max(target, d.drift);
   }
-  // Loose classes (high `drift`) let a slide run on longer before it catches.
   const catchRate = a.catchRate * (1.25 - 0.5 * k.drift) * (steer * dir < -0.6 ? 2 : 1);
   if (target > d.drift) d.drift = Math.min(target, d.drift + 6 * dt);
   else d.drift = Math.max(target, d.drift - catchRate * dt);
   const drift = d.drift;
   const slideBite = grip * ((1 - realism) * DRIVE.slideGrip[0] + realism * DRIVE.slideGrip[1]);
   if (drift < 0.05 && v > 1) {
-    // Gripping: the tyres cap the yaw rate (understeer at the realistic end).
     const cap = (grip * GRIP_YAW_CAP) / v;
     yawRate = Math.max(-cap, Math.min(cap, yawRate));
   } else if (drift >= 0.05) {
@@ -284,7 +279,6 @@ export function applyDrive(car: DeformableCar, input: DriveInput, dt: number, to
   yawRate += dmg.pull * Math.min(1, v / 10);
   const dyaw = yawRate * dt;
 
-  // New heading; velocity split along it.
   const c = detCos(dyaw);
   const s = detSin(dyaw);
   const fx = fx0 * c + fz0 * s;
