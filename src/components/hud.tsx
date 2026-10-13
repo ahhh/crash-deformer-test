@@ -249,6 +249,14 @@ export function Hud(props: HudProps) {
           onReset={tapReset}
           onCommand={raceCommand}
           onSurvival={state.inRoom ? null : () => engine.current?.toggleSurvival()}
+          audio={{
+            on: state.audioOn,
+            music: state.musicVolume,
+            engines: state.engineVolume,
+            onToggle: () => engine.current?.toggleAudio(),
+            onMusic: (value) => engine.current?.setMusicVolume(value),
+            onEngines: (value) => engine.current?.setEngineVolume(value),
+          }}
         />
       ) : null}
       {state.race ? <RaceStatus race={state.race} corner={focus && !touch} /> : null}

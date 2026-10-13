@@ -1,4 +1,4 @@
-import { useId, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import {
   Ban,
   ChevronLeft,
@@ -7,10 +7,8 @@ import {
   Eye,
   Flag,
   Focus,
-  Minus,
   PanelsTopLeft,
   Play,
-  Plus,
   RotateCcw,
   Siren,
   Skull,
@@ -24,8 +22,10 @@ import { copyText } from "@/lib/clipboard";
 import { DriverRows } from "@/components/race-driver";
 import { CARD, MenuShell, NavButton } from "@/components/race-menu-shell";
 import { BustedBanner } from "@/components/race-busted";
-import { FOCUS, FOCUS_WITHIN } from "@/components/race-menu-styles";
+import { FOCUS } from "@/components/race-menu-styles";
+import { AudioRows, type AudioLevels } from "@/components/race-audio";
 import { ReelList, SavedList } from "@/components/race-reel";
+import { Choice, Stepper } from "@/components/race-rows";
 import { ResetPrompt } from "@/components/reset-prompt";
 import { StartLights } from "@/components/start-lights";
 import { SurvivalResults } from "@/components/survival-hud";
@@ -189,6 +189,7 @@ export function RaceOverlay({
   onReset,
   onCommand,
   onSurvival,
+  audio,
 }: {
   race: RaceHud;
   pad: boolean;
@@ -197,8 +198,10 @@ export function RaceOverlay({
   onCommand: Send;
   /** Enter Survival from the setup menu; null where the mode is not offered (a room). */
   onSurvival: (() => void) | null;
+  /** The sound settings the setup and pause menus show (the modal covers the settings panel). */
+  audio: AudioLevels;
 }) {
-  if (race.menu !== null) return <RaceMenu race={race} pad={pad} onCommand={onCommand} onSurvival={onSurvival} />;
+  if (race.menu !== null) return <RaceMenu race={race} pad={pad} onCommand={onCommand} onSurvival={onSurvival} audio={audio} />;
   const you = race.you;
   return (
     <div className="pointer-events-none absolute inset-x-0 top-1/3 z-10 flex flex-col items-center gap-3 px-3 sm:top-1/4">
@@ -300,17 +303,17 @@ function FinishCard({ race }: { race: RaceHud }) {
   );
 }
 
-function RaceMenu({ race, pad, onCommand, onSurvival }: { race: RaceHud; pad: boolean; onCommand: Send; onSurvival: (() => void) | null }) {
+function RaceMenu({ race, pad, onCommand, onSurvival, audio }: { race: RaceHud; pad: boolean; onCommand: Send; onSurvival: (() => void) | null; audio: AudioLevels }) {
   const quit = () => onCommand({ type: "quit" });
   const retry = () => onCommand({ type: "retry" });
   const end = () => onCommand({ type: "end" });
   switch (race.menu) {
     case "setup":
-      return <SetupMenu race={race} pad={pad} onCommand={onCommand} onSurvival={onSurvival} />;
+      return <SetupMenu race={race} pad={pad} onCommand={onCommand} onSurvival={onSurvival} audio={audio} />;
     case "pause": {
       const resume = () => onCommand({ type: "resume" });
       return (
-        <MenuShell id="pause" eyebrow={race.survival ? `${race.trackName} · Survival` : `${race.trackName} · Lap ${race.you?.lap ?? 1}/${race.laps}`} title="Paused" pad={pad} onBack={resume} onStart={resume}>
+        <MenuShell id="pause" eyebrow={race.survival ? `${race.trackName} · Survival` : `${race.trackName} · Lap ${race.you?.lap ?? 1}/${race.laps}`} title="Paused" pad={pad} adjust onBack={resume} onStart={resume}>
           <div className="grid gap-2">
             <NavButton onClick={resume}>
               <Play />
@@ -328,6 +331,7 @@ function RaceMenu({ race, pad, onCommand, onSurvival }: { race: RaceHud; pad: bo
               {race.fullUi ? <Focus /> : <PanelsTopLeft />}
               {race.fullUi ? "Race view" : "Full menu"}
             </NavButton>
+            <AudioRows audio={audio} />
             <NavButton variant="ghost" onClick={quit}>
               Quit to menu
             </NavButton>
@@ -366,112 +370,7 @@ function RaceMenu({ race, pad, onCommand, onSurvival }: { race: RaceHud; pad: bo
   }
 }
 
-function Stepper({
-  label,
-  value,
-  min,
-  max,
-  step,
-  shown,
-  slider,
-  hint,
-  onSet,
-}: {
-  label: string;
-  value: number;
-  min: number;
-  max: number;
-  step: number;
-  shown: string;
-  slider?: boolean;
-  /** One line under the row, inside the focus ring. */
-  hint?: string;
-  onSet: (value: number) => void;
-}) {
-  const hintId = useId();
-  const set = (v: number) => onSet(Math.min(max, Math.max(min, Math.round(v * 100) / 100)));
-  return (
-    <div
-      data-nav
-      data-adjust
-      tabIndex={0}
-      role={slider ? "slider" : "spinbutton"}
-      aria-label={label}
-      aria-valuemin={min}
-      aria-valuemax={max}
-      aria-valuenow={value}
-      aria-valuetext={shown}
-      aria-describedby={hint ? hintId : undefined}
-      className={cn("flex min-h-11 flex-wrap items-center gap-x-2 rounded-md bg-surface-2 py-0.5 pl-2 pr-0.5 shadow-[var(--shadow-border)] sm:min-h-8", FOCUS_WITHIN)}
-    >
-      <span className="hud-label w-24 shrink-0 text-muted sm:w-32">{label}</span>
-      {slider ? (
-        <input
-          type="range"
-          tabIndex={-1}
-          min={min}
-          max={max}
-          step={step}
-          value={value}
-          onChange={(e) => set(Number(e.target.value))}
-          aria-label={label}
-          className="h-8 min-w-0 flex-1 cursor-pointer accent-current"
-        />
-      ) : (
-        <span className="flex-1" />
-      )}
-      <Button variant="ghost" size="icon" className="sm:size-8" tabIndex={-1} data-step="-1" aria-label={`Less ${label.toLowerCase()}`} disabled={value <= min} onClick={() => set(value - step)}>
-        <Minus />
-      </Button>
-      <span className="w-10 shrink-0 text-center font-display text-lg font-semibold tabular-nums">{shown}</span>
-      <Button variant="ghost" size="icon" className="sm:size-8" tabIndex={-1} data-step="1" aria-label={`More ${label.toLowerCase()}`} disabled={value >= max} onClick={() => set(value + step)}>
-        <Plus />
-      </Button>
-      {hint ? (
-        <p id={hintId} className="basis-full pb-1.5 pr-2 text-xs leading-snug text-muted">
-          {hint}
-        </p>
-      ) : null}
-    </div>
-  );
-}
-
-/** A two-way row: ←/→ or a tap on a side picks it, a tap on the row flips it. */
-function Choice({ label, off, on, value, onSet }: { label: string; off: string; on: string; value: boolean; onSet: (value: boolean) => void }) {
-  const set = (v: boolean) => {
-    if (v !== value) onSet(v);
-  };
-  const segment = (lit: boolean) =>
-    cn(
-      "h-11 rounded-md px-2 font-display text-sm font-medium transition-colors duration-[var(--motion-quick)] sm:h-7",
-      lit ? "bg-accent text-accent-fg" : "text-muted hover:text-fg",
-    );
-  return (
-    <div
-      data-nav
-      data-adjust
-      tabIndex={0}
-      role="group"
-      aria-label={`${label}: ${value ? on : off}`}
-      onClick={(e) => {
-        if (e.target === e.currentTarget) set(!value);
-      }}
-      className={cn("flex min-h-11 items-center gap-2 rounded-md bg-surface-2 py-0.5 pl-2 pr-0.5 shadow-[var(--shadow-border)] sm:min-h-8", FOCUS_WITHIN)}
-    >
-      <span className="hud-label w-24 shrink-0 text-muted sm:w-32">{label}</span>
-      <div className="grid flex-1 grid-cols-2 gap-0.5 rounded-md bg-surface p-0.5">
-        <button type="button" tabIndex={-1} data-step="-1" aria-pressed={!value} onClick={() => set(false)} className={segment(!value)}>
-          {off}
-        </button>
-        <button type="button" tabIndex={-1} data-step="1" aria-pressed={value} onClick={() => set(true)} className={segment(value)}>
-          {on}
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function SetupMenu({ race, pad, onCommand, onSurvival }: { race: RaceHud; pad: boolean; onCommand: Send; onSurvival: (() => void) | null }) {
+function SetupMenu({ race, pad, onCommand, onSurvival, audio }: { race: RaceHud; pad: boolean; onCommand: Send; onSurvival: (() => void) | null; audio: AudioLevels }) {
   const o = race.options;
   const options = (patch: Partial<RaceOptions>) => onCommand({ type: "options", options: patch });
   const campaign = o.mode === "campaign";
@@ -541,6 +440,7 @@ function SetupMenu({ race, pad, onCommand, onSurvival }: { race: RaceHud; pad: b
         />
         <Choice label="Wrecks" off="Respawn" on="No reset" value={o.noReset} onSet={(noReset) => options({ noReset })} />
         <Choice label="Police" off="Off" on="Chase" value={o.police} onSet={(police) => options({ police })} />
+        <AudioRows audio={audio} />
       </div>
       <div className="mt-3 grid grid-cols-2 gap-1.5">
         <NavButton className="col-span-2" disabled={campaign && o.campaign.length === 0} onClick={() => onCommand({ type: campaign ? "campaign" : "start" })}>
