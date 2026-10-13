@@ -206,7 +206,10 @@ export function stepWorld(w: World, dt: number): void {
       const dz = ca.group.position.z - cb.group.position.z;
       // Cars at different heights (one flying over the other, on a bridge over it) never touch; nor does a fake falling off the fleet disc.
       if (dx * dx + dz * dz > 28 || !bandsMeet(ca, cb) || ca.falling || cb.falling) continue;
-      if (partContactPair(ca, cb, h)) w.partTouch?.(a, b);
+      if (partContactPair(ca, cb, h)) {
+        wakePair(ca, cb);
+        w.partTouch?.(a, b);
+      }
     }
 
     // One pass over the slice's contacts: the barrier, then every near pair through the one kernel, then the barrier's clip; accuracy
@@ -232,6 +235,7 @@ export function stepWorld(w: World, dt: number): void {
       if (!bandsMeet(cars[a]!, cars[b]!) || cars[a]!.falling || cars[b]!.falling) continue;
       const pair = resolveCarPair(cars[a]!, cars[b]!, h);
       if (pair) {
+        wakePair(cars[a]!, cars[b]!);
         w.pairHit?.(a, b, pair);
         strongest.offer(pair);
       }
@@ -305,4 +309,14 @@ export function warmCrashPath(): boolean {
     b.dispose();
   }
   return crashed;
+}
+
+/**
+ * A contact between two cars wakes both only when one of them moves: wrecks resting in a pile touch every slice, and waking them there
+ * restarts their rest timers, so none would ever sleep.
+ */
+function wakePair(a: DeformableCar, b: DeformableCar): void {
+  if (!a.moving && !b.moving) return;
+  a.wake();
+  b.wake();
 }

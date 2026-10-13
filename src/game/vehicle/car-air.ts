@@ -173,7 +173,7 @@ const CLEAR_ROUND = 1e-6;
 const PASSES = 12;
 /** Passes for a body at rest (what a slice's gravity leaves it, under `REST_SPEED`, as `loose-step.ts` counts rest): 12 left the car-on-car friction unconverged (rebuilt from 0 every slice), and the house of cards' top car crept 0.13 mm in 10 s on the residual. 24 passes crept, 48 stood still. ponytail: more passes at rest, not a warm start; a friction+normal warm start across slices if the rest cost shows in the cost rows. */
 const REST_PASSES = 48;
-const REST_SPEED = (2 * G) / 120;
+export const REST_SPEED = (2 * G) / 120;
 /** The most (in G·dt) the solve's change of velocity moves the body within its own slice (half of it, the trapezoid rule). */
 const SOLVE_MOVE_G = 1.5;
 /** Per contact: the depth (m) along its normal the lift has still to take out (-Infinity: a row that does not lift). */
@@ -959,7 +959,7 @@ export function solveRows(n: number): void {
   // How deep the belly is in the world's ground (m, vertical): what a body at rest lifts out of.
   let under = 0;
   // Each row's depth along its surface normal still to lift out (a steep face's vertical gap overstates it): `LEFT`.
-  // A body at rest solves over more passes: its friction is rebuilt from 0 every slice and the residual slide integrates.
+  // A body at rest solves over more passes: its friction is rebuilt from 0 every slice and the residual slide integrates (a wreck at rest then sleeps, `integrateWreck`).
   const passes = !part && v.lengthSq() < REST_SPEED * REST_SPEED && w.lengthSq() < REST_SPEED * REST_SPEED ? REST_PASSES : PASSES;
   for (let pass = 0; pass < passes; pass++) {
     for (let c = 0; c < n; c++) {
@@ -1663,5 +1663,6 @@ export function stepFree(car: DeformableCar, dt: number): boolean {
   car.wheelsDown = down;
   car.airborne = down === 0 && n === 0;
   car.hardTouch = hard || landing(hit, down, v);
+  car.contacts = n;
   return worldWheels(car, down) >= 3;
 }

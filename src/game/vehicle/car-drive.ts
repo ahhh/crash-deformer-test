@@ -199,6 +199,8 @@ export function applyDrive(car: DeformableCar, input: DriveInput, dt: number, to
   const alive = car.deform.drivetrainAlive && !stalled;
   car.airThrottle = alive && car.airborne ? throttle : 0; // in the air the gas winds the wheels (`spinWheels`)
   if (!alive || car.wheelsDown === 0) return idleDriveState(d);
+  // A pedal wakes a sleeping wreck only where it acts: the clip records the outputs (`idleDriveState` zeroes a dead or wheel-less car's), so a wake on the raw input would be one the replay never sees.
+  if (throttle !== 0 || brake !== 0 || input.ebrake) car.wake();
   const k = CLASSES[carClass(car)];
   const realism = HANDLING.realism;
   // assists() reads only realism, so it reruns when that changes: called out of line, it boxed realism per step.

@@ -5,12 +5,12 @@ import { CAR_HALF, DOOR, WHEEL_POS } from "./car-mesh.ts";
 import { activeGround } from "../world/ground.ts";
 import { CarParts } from "./car-parts.ts";
 import { END_WINDOW, type PartNetState, REARM_QUIET_S } from "./car-core.ts";
-import { COM_Y, readContact, stepFree, wreckCentre, wreckInvI } from "./car-air.ts";
+import { COM_Y, readContact, REST_SPEED, stepFree, wreckCentre, wreckInvI } from "./car-air.ts";
 import { bodyLift, Suspension, UPRIGHT_UP_Y } from "./car-suspension.ts";
-import { C_GRIP, C_NY, C_OWNER, HIT_SIZE } from "../world/surfaces.ts";
+import { C_GRIP, C_NY, C_OWNER, HIT_SIZE, stirNear } from "../world/surfaces.ts";
 import { carClass, CLASSES } from "./vehicle-classes.ts";
 import { clearDents } from "./loose-dent.ts";
-import type { CarSurfaces } from "./car-surfaces.ts";
+import { REACH, type CarSurfaces } from "./car-surfaces.ts";
 import type { CarCage } from "./car-cage.ts";
 import { CageRig } from "./car-cage-rig.ts";
 import { CLASS_HUBS, CLASS_LIFT, LID, FUEL_CUTOFF_G, SIDE_HIT_X, STALL_S } from "./constants.ts";
@@ -26,7 +26,7 @@ const _v = new THREE.Vector3();
 const _in = new THREE.Vector3();
 const _zero = new THREE.Vector3();
 const _wantQuaternion = new THREE.Quaternion();
-/** Where a `DeformableCar.flight` block holds each part: spin (3), pitch, yaw, roll (3), orientation quaternion (4), velocity (3), position (3), contact-end clocks (2), reach, squeeze flag, drift, the seconds the engine stays cut (`stalledS`), the weight borne on it by cars that stepped after it (6: `CarSurfaces.borneState`), what its wheels touch (`FLIGHT_CONTACT`: each wheel's contact, the wheels down, airborne, hard touch, yielding), a wreck's hub rise (`hubRise`, 5) and its yaw inverse inertia (`invYaw`). */
+/** Where a `DeformableCar.flight` block holds each part: spin (3), pitch, yaw, roll (3), orientation quaternion (4), velocity (3), position (3), contact-end clocks (2), reach, squeeze flag, drift, the seconds the engine stays cut (`stalledS`), the weight borne on it by cars that stepped after it (6: `CarSurfaces.borneState`), what its wheels touch (`FLIGHT_CONTACT`: each wheel's contact, the wheels down, airborne, hard touch, yielding), a wreck's hub rise (`hubRise`, 5), its yaw inverse inertia (`invYaw`) and its rest timer (`restS`: at `WRECK_REST_S` it sleeps). */
 export const FLIGHT_EULER = 3;
 const FLIGHT_QUATERNION = 6;
 export const FLIGHT_VELOCITY = 10;
@@ -40,7 +40,10 @@ const FLIGHT_BORNE = 22;
 const FLIGHT_CONTACT = 28;
 const FLIGHT_DOWN = FLIGHT_CONTACT + 4 * HIT_SIZE;
 const FLIGHT_INV_YAW = FLIGHT_DOWN + 4;
-export const FLIGHT = FLIGHT_INV_YAW + 1;
+const FLIGHT_REST = FLIGHT_INV_YAW + 1;
+export const FLIGHT = FLIGHT_REST + 1;
+/** A wreck rests this long (s) before it sleeps: a toppling pile pauses on the way over, and a monster settling on a bank creeps to its pose for most of a second after it first slows under `REST_SPEED`. */
+const WRECK_REST_S = 1;
 /** Each wheel's contact standing on level road, as built and at a spawn (`resetContact`): no lift, the normal up, full grip, the world's. */
 const STANDING = new Float64Array(4 * HIT_SIZE);
 for (let i = 0; i < 4; i++) {
@@ -59,6 +62,13 @@ export class DeformableCar extends CarParts {
   /** Moved by the rigid contact solve (`stepFree`), not by its crush masses: derived, never stored. `velocity` is then its centre of mass's. */
   get rigid(): boolean {
     return !this.deform.massActive;
+  }
+  /** Faster than rest (`REST_SPEED`, m/s or rad/s) in translation or spin: what wakes a neighbour (`wakePair`) and what a sleeper's `stirNear` sees of a car top. */
+  get moving(): boolean {
+    const v = this.velocity;
+    const w = this.angular;
+    const r2 = REST_SPEED * REST_SPEED;
+    return v.x * v.x + v.y * v.y + v.z * v.z >= r2 || w.x * w.x + w.y * w.y + w.z * w.z >= r2;
   }
   private cageRig: CageRig | null = null;
   /** The car's contact shape: its drawn body (`CarCage`), fitted by `refitCage`. */
@@ -165,6 +175,7 @@ export class DeformableCar extends CarParts {
   }
 
   resetVisual(): void {
+    this.wake();
     this.vaporized = false;
     this.falling = false;
     this.driverOut = null;
@@ -303,11 +314,12 @@ export class DeformableCar extends CarParts {
    * or with `write` from it: the spins, the Euler angles the drive turns and the quaternion the rigid step turns (each is the
    * other's derived copy only up to rounding, and the drive reads the heading off the quaternion before it sets it from the
    * Euler), velocity and position whole (the wire rounds them: a first impact 0.5 m/s off), the squeeze clocks, the drift
-   * state and the weight a rider that stepped after this car left borne on it (its next step takes it: it is the step's input as
-   * much as the velocity is). What the body touches is read again (`restoreContact`).
+   * state, the weight a rider that stepped after this car left borne on it (its next step takes it: it is the step's input as
+   * much as the velocity is) and a wreck's rest timer (set last: a wreck that was asleep sleeps again where it lies). What the body touches is read again (`restoreContact`).
    */
   flight(buf: Float64Array, o: number, write: boolean): void {
     if (write) {
+      this.wake();
       this.angular.fromArray(buf, o);
       this.pitch = buf[o + FLIGHT_EULER]!;
       this.yaw = buf[o + FLIGHT_EULER + 1]!;
@@ -326,6 +338,12 @@ export class DeformableCar extends CarParts {
       this.restoreContact();
       this.contact(buf, o, true);
       this.invYaw = buf[o + FLIGHT_INV_YAW]!;
+      this.restS = buf[o + FLIGHT_REST]!;
+      if (this.restS >= WRECK_REST_S) {
+        this.asleep = true;
+        this.sleepX = this.group.position.x;
+        this.sleepZ = this.group.position.z;
+      }
       return;
     }
     this.angular.toArray(buf, o);
@@ -344,6 +362,7 @@ export class DeformableCar extends CarParts {
     else buf.fill(0, o + FLIGHT_BORNE, o + FLIGHT_BORNE + 6);
     this.contact(buf, o, false);
     buf[o + FLIGHT_INV_YAW] = this.invYaw;
+    buf[o + FLIGHT_REST] = this.restS;
   }
 
   /**
@@ -440,9 +459,22 @@ export class DeformableCar extends CarParts {
 
   /**
    * A wreck is the rigid body's (`stepFree`): the masses' motion relative to the body is the crush (`moveRelative`), the body steps, and
-   * the masses are carried to where the body put them. Its wheels, ride and loose parts step once per slice, here.
+   * the masses are carried to where the body put them. Its wheels, ride and loose parts step once per slice, here. A wreck at rest
+   * (`asleep`) skips the rigid step until it is moved (`wake`, or a velocity written to it) or something that moves comes within `REACH`
+   * of where it lies (`stirNear`: a prop, solid or car top whose car is `moving`); its drawn ride goes on settling.
    */
   private integrateWreck(dt: number): void {
+    if (this.asleep) {
+      const v = this.velocity;
+      const w = this.angular;
+      if (v.x * v.x + v.y * v.y + v.z * v.z + w.x * w.x + w.y * w.y + w.z * w.z === 0 && !stirNear(this.sleepX, this.sleepZ, REACH, this.slot, this.surfaces?.cars ?? null)) {
+        this.nudgeWheels(dt);
+        this.ride(dt);
+        this.stepLooseParts(dt, this.slot);
+        return;
+      }
+      this.wake();
+    }
     const g = this.group;
     const ms = this.deform.masses;
     g.updateWorldMatrix(false, false);
@@ -461,6 +493,16 @@ export class DeformableCar extends CarParts {
     this.invYaw = wreckInvI.y;
     this.flewDt = dt;
     stepFree(this, dt);
+    const rest = !this.moving;
+    if (!this.deform.crushing && this.contacts >= 3 && rest) {
+      if ((this.restS += dt) >= WRECK_REST_S) {
+        this.velocity.set(0, 0, 0);
+        this.angular.set(0, 0, 0);
+        this.asleep = true;
+        this.sleepX = g.position.x;
+        this.sleepZ = g.position.z;
+      }
+    } else this.restS = 0;
     this.yaw = g.rotation.y;
     this.pitch = g.rotation.x;
     this.roll = g.rotation.z;

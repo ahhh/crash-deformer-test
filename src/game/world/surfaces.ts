@@ -1500,24 +1500,30 @@ function answer(q: Float64Array, out: Float64Array): void {
   out[C_AUX] = 1;
 }
 
+/** What `stirNear` asks of a car: whether it moves (speed or spin at or above rest). */
+type StirCar = { readonly moving: boolean };
+
 /**
  * Whether anything that moves or changes has its box over the square of half side `r` about plan (`x`, `z`): a static's or a solid's patch rewritten
  * since the seal (a press plate, a ramp slid into place, a prism put out) or a car's top but the asker `skip`'s own. A body at rest there is
- * answered what it was the step before when this is false: the queries read nothing else.
+ * answered what it was the step before when this is false: the queries read nothing else. With `cars` (the world's, a top's owner being its slot) a
+ * top whose car does not move (asleep, or resting under rest speed) is not a change either: neighbours settling together all fall asleep.
  */
-export function stirNear(x: number, z: number, r: number, skip: number): boolean {
-  return stirIn(live.statics, x, z, r, -2) || stirIn(live.solids, x, z, r, -2) || stirIn(live.tops, x, z, r, skip);
+export function stirNear(x: number, z: number, r: number, skip: number, cars: readonly StirCar[] | null = null): boolean {
+  return stirIn(live.statics, x, z, r, -2, null) || stirIn(live.solids, x, z, r, -2, null) || stirIn(live.tops, x, z, r, skip, cars);
 }
 
 /** `stirNear` over `s`: every patch but `skip`'s own when `skip` is a slot (-1 or more), else only those changed since the seal (`Surface.dyn`). */
-function stirIn(s: Surface | null, x: number, z: number, r: number, skip: number): boolean {
+function stirIn(s: Surface | null, x: number, z: number, r: number, skip: number, cars: readonly StirCar[] | null): boolean {
   if (s === null) return false;
   const P = s.p;
   const all = skip >= -1;
   const n = all ? s.count : s.nDyn;
   for (let k = 0; k < n; k++) {
     const i = all ? k : s.dyn[k]!;
-    if (skip >= 0 && s.q[i * Q_STRIDE + Q_OWNER] === skip) continue;
+    const owner = s.q[i * Q_STRIDE + Q_OWNER]!;
+    if (skip >= 0 && owner === skip) continue;
+    if (cars !== null && owner >= 0 && !cars[owner]!.moving) continue;
     const o = i * P_STRIDE;
     if (x + r >= P[o + P_MINX]! && x - r <= P[o + P_MAXX]! && z + r >= P[o + P_MINZ]! && z - r <= P[o + P_MAXZ]!) return true;
   }

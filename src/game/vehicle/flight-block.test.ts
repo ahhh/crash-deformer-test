@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { applyDrive, type DriveInput } from "./car-drive.ts";
+import { applyDrive, idleDrive, type DriveInput } from "./car-drive.ts";
 import { FLIGHT, type DeformableCar } from "./car.ts";
 import { makeCar } from "./ground-probe.test-util.ts";
 import { newWorld, stepWorld } from "../engine/world-step.ts";
@@ -77,5 +77,43 @@ describe("given a car and a twin rebuilt from its flight block, driven on with t
   it("when the car was just placed facing a yaw a full turn past its heading (its Euler angles are not the quaternion's derived copy), at every heading, then both take every next slice to the bit", () => {
     const bad = headingsWhereTheyDiffer((car, heading) => car.spawnFacing(3, -5, heading + FULL_TURN, SPAWN_SPEED));
     assert.deepEqual(bad, []);
+  });
+});
+
+const IDLE = idleDrive();
+
+/** A sedan hit on the nose so it is a wreck, stepped on idle pedals until `until(car)` holds (a failure if it never does within 10 s). */
+function wreckUntil(until: (car: DeformableCar) => boolean): DeformableCar {
+  const car = makeCar("sedan");
+  car.spawnFacing(0, 0, 0, 0);
+  car.group.updateMatrixWorld(true);
+  car.updateSkin();
+  car.applyImpact(car.group.position.clone().addScaledVector(car.forward, 2.05), car.forward.clone().negate(), 0.5, 0.5);
+  const world = newWorld([car], null);
+  for (let slice = 0; slice < 10 * 120 && !until(car); slice++) {
+    applyDrive(car, IDLE, SLICE_S);
+    stepWorld(world, SLICE_S);
+    car.stepBreakage(SLICE_S);
+    car.updateSkin();
+  }
+  assert.ok(until(car), `the wreck never reached the state (restS ${car.restS}, asleep ${car.asleep})`);
+  return car;
+}
+
+describe("given a wreck at rest and a twin rebuilt from its flight block", () => {
+  it("when the wreck is asleep, then the twin is asleep with its rest timer and the plan position it sleeps at", () => {
+    const car = wreckUntil((c) => c.asleep);
+    const twin = twinFromFlightBlock(car);
+    assert.ok(twin.asleep, "the twin woke");
+    assert.equal(twin.restS, car.restS);
+    assert.equal(twin.sleepX, twin.group.position.x);
+    assert.equal(twin.sleepZ, twin.group.position.z);
+  });
+
+  it("when the wreck is resting but not yet asleep, then the twin is awake with the wreck's rest timer, not zero", () => {
+    const car = wreckUntil((c) => c.restS > 0.2 && !c.asleep);
+    const twin = twinFromFlightBlock(car);
+    assert.ok(!twin.asleep, "the twin sleeps early");
+    assert.equal(twin.restS, car.restS);
   });
 });

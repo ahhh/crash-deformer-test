@@ -4,10 +4,14 @@ import * as THREE from "three";
 import { DeformableCar } from "./car.ts";
 import { assignClass, armKill, killClass, CLASSES, HANDLING, VEHICLE_CLASS_IDS, type VehicleClassId } from "./vehicle-classes.ts";
 import { droop, sagOffsets, Suspension } from "./car-suspension.ts";
-import { newWorld, stepWorld } from "../engine/world-step.ts";
+import { newWorld, stepWorld, type World } from "../engine/world-step.ts";
 import { INITIAL_HUD } from "../hud/hud-store.ts";
 import { assertSameNumbers, DT, paint } from "./test-support.ts";
 import { HIT_SIZE } from "../world/surfaces.ts";
+import { REST_SPEED } from "./car-air.ts";
+import { applyDrive, idleDrive } from "./car-drive.ts";
+
+const IDLE = idleDrive();
 
 /**
  * A wreck missing wheels rests on the body corners where they were (and on the wheels it still has), as the drawn
@@ -22,17 +26,34 @@ const _v = new THREE.Vector3();
 
 type Rest = { low: number; corners: number[]; fresh: number[]; all: number[]; speed: number; drift: number };
 
-/** A parked car hit once (so it is a wreck), its wheels `lost` popped, run `secs` s; then the body mesh read. */
-function rest(cls: VehicleClassId, lost: readonly number[], secs = 5): Rest {
+/** A parked `cls` car at (`x`, `z`), hit once on its nose so it is a wreck. */
+function struck(cls: VehicleClassId, x = 0, nose = 2.05, z = 0): DeformableCar {
   const car = new DeformableCar(paint(), new THREE.Scene(), null, CLASSES[cls].style);
   car.deform.squash = INITIAL_HUD.squash;
   car.deform.buckle = INITIAL_HUD.buckle;
   car.deform.setMode(INITIAL_HUD.deformMode);
   assignClass(car, cls);
   armKill(car.deform, killClass(car), HANDLING.realism, "default");
-  car.spawnFacing(0, 0, 0, 0);
+  car.spawnFacing(x, z, 0, 0);
   car.group.updateMatrixWorld(true);
   car.updateSkin();
+  if (nose > 0) car.applyImpact(car.group.position.clone().addScaledVector(car.forward, nose), car.forward.clone().negate(), 0.5, 0.5);
+  return car;
+}
+
+/** One step of `w`: the idle pedals a wreck nobody drives rolls on (`CrashEngine.wreckCoast`), then the world. */
+function tick(w: World, cars: readonly DeformableCar[]): void {
+  for (const car of cars) applyDrive(car, IDLE, DT);
+  stepWorld(w, DT);
+  for (const car of cars) {
+    car.stepBreakage(DT);
+    car.updateSkin();
+  }
+}
+
+/** A parked car hit once (so it is a wreck), its wheels `lost` popped, run `secs` s; then the body mesh read. */
+function rest(cls: VehicleClassId, lost: readonly number[], secs = 5): Rest {
+  const car = struck(cls, 0, 0);
   const bodyY = (): number[] => {
     car.group.updateMatrixWorld(true);
     car.body.updateWorldMatrix(true, false);
@@ -149,5 +170,89 @@ describe("given a wreck's suspension that loses its front-left wheel and then it
       sagOffsets(0, droop("sedan"), gone, want);
       assertSameNumbers(s.offset, want, `wheels gone ${gone}`, 1e-4);
     }
+  });
+});
+
+/** Ticks `w` until `until()` holds: the 1-based frame it first did, or -1 if it never did within `limit` frames. */
+function frames(w: World, cars: readonly DeformableCar[], limit: number, until: () => boolean): number {
+  for (let f = 1; f <= limit; f++) {
+    tick(w, cars);
+    if (until()) return f;
+  }
+  return -1;
+}
+
+describe("given a sedan hit once so it is a wreck, on level ground", () => {
+  it("when it comes to rest, then it is asleep within 2 s; a 2 m/s push wakes it the next step and it sleeps again within 2 s of stopping", () => {
+    const car = struck("sedan");
+    const w = newWorld([car]);
+    const rested = (): boolean => car.velocity.length() < REST_SPEED && car.angular.length() < REST_SPEED;
+    const still = frames(w, [car], 10 * 60, () => rested() && car.contacts >= 3 && !car.deform.crushing);
+    assert.ok(still > 0, "the wreck never came to rest");
+    const slept = frames(w, [car], 2 * 60, () => car.asleep);
+    assert.ok(slept > 0, `awake 2 s after it came to rest (frame ${still}, speed ${car.velocity.length().toFixed(3)} m/s)`);
+    car.velocity.x = 2;
+    tick(w, [car]);
+    assert.ok(!car.asleep, "a 2 m/s velocity write did not wake it");
+    assert.ok(car.group.position.x > 0, "it did not move on the push");
+    const stopped = frames(w, [car], 10 * 60, () => rested());
+    assert.ok(stopped > 0, "the pushed wreck never came to rest");
+    assert.ok(frames(w, [car], 2 * 60, () => car.asleep) > 0, "awake 2 s after the push stopped");
+  });
+
+  it("when two wrecks rest 3 m apart, then both sleep and both stay asleep for 2 s", () => {
+    const cars = [struck("sedan", 0), struck("sedan", 3)];
+    const w = newWorld(cars);
+    assert.ok(frames(w, cars, 10 * 60, () => cars[0]!.asleep && cars[1]!.asleep) > 0, "the pair never both slept");
+    for (let f = 0; f < 2 * 60; f++) {
+      tick(w, cars);
+      assert.ok(cars[0]!.asleep && cars[1]!.asleep, `a wreck woke ${f} frames after both slept`);
+    }
+  });
+
+  it("when three wrecks lie side by side (touching, then 0.5 m apart) and are shoved 0.4 s apart, then all sleep within 3 s of the last one's rest and stay asleep for 2 s", () => {
+    const cars = [struck("sedan", 0, 2.05), struck("sedan", 2.0, 1.9), struck("sedan", 4.5, 1.7)];
+    const w = newWorld(cars);
+    for (let f = 0; f < 3 * 24; f++) {
+      if (f % 24 === 0) cars[f / 24]!.velocity.z = 3;
+      tick(w, cars);
+    }
+    const done = (): boolean => cars.every((c) => c.asleep);
+    const slept = frames(w, cars, 3 * 60, done);
+    assert.ok(slept > 0, `asleep ${cars.map((c) => c.asleep).join("/")} 3 s after the last shove (restS ${cars.map((c) => c.restS.toFixed(2)).join("/")})`);
+    for (let f = 0; f < 2 * 60; f++) {
+      tick(w, cars);
+      assert.ok(done(), `a wreck woke ${f} frames after all slept`);
+    }
+  });
+
+  it("when four wrecks rest in a row and the first is kept moving, then the awake wreck touching it does not stir the two at the far end: both sleep and stay asleep for 2 s", () => {
+    // Slots 0..3 stand at x = 0 (rocking), 4.0, 5.78 and 1.78 (touching the rocker, so woken every slice, yet at rest): the far wrecks step before it,
+    // so they read it right after a wake, with restS 0. Only a car that moves may stir a sleeper.
+    const cars = [struck("sedan", 0, 2.05), struck("sedan", 4.0, 1.7), struck("sedan", 5.78, 1.9), struck("sedan", 1.78, 1.9)];
+    const w = newWorld(cars);
+    let n = 0;
+    const rock = (): void => {
+      cars[0]!.velocity.z = (Math.floor(n++ / 30) % 2 === 0 ? 1 : -1) * 0.6;
+      tick(w, cars);
+    };
+    for (let f = 0; f < 10 * 60; f++) rock();
+    const far = (): boolean => cars[1]!.asleep && cars[2]!.asleep;
+    assert.ok(far(), `far wrecks asleep ${cars.map((c) => c.asleep).join("/")} 10 s on (restS ${cars.map((c) => c.restS.toFixed(2)).join("/")})`);
+    for (let f = 0; f < 2 * 60; f++) {
+      rock();
+      assert.ok(far(), `a far wreck woke ${f} frames after both slept (asleep ${cars.map((c) => c.asleep).join("/")})`);
+    }
+  });
+
+  it("when a wreck slides into a sleeping one, then the sleeper wakes and is shoved along", () => {
+    const cars = [struck("sedan", 0), struck("sedan", 0, 2.05, 6)];
+    const w = newWorld(cars);
+    assert.ok(frames(w, cars, 10 * 60, () => cars[0]!.asleep && cars[1]!.asleep) > 0, "the pair never both slept");
+    const z0 = cars[0]!.group.position.z;
+    cars[1]!.velocity.z = -10;
+    assert.ok(frames(w, cars, 3 * 60, () => !cars[0]!.asleep) > 0, "the sleeper stayed asleep under the slider");
+    for (let f = 0; f < 2 * 60; f++) tick(w, cars);
+    assert.ok(cars[0]!.group.position.z < z0 - 0.05, `the sleeper was not shoved: moved ${(cars[0]!.group.position.z - z0).toFixed(3)} m`);
   });
 });

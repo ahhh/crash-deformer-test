@@ -316,6 +316,20 @@ export abstract class CarCore {
    * from construction, or each field's first fractional write mid-race deoptimised applyDrive for seconds.
    */
   readonly drive = { throttle: -0, steer: -0, brake: -0, ebrake: false, boost: false, neutral: false, spin: -0, lock: -0, slide: -0, drift: -0, hold: -0 };
+  /** A wreck at rest: `integrateWreck` skips its rigid step until something moves it (`wake`). */
+  asleep = false;
+  /** Seconds the wreck has rested (`integrateWreck`); it sleeps at `WRECK_REST_S`. */
+  restS = 0;
+  /** Plan position where it fell asleep: a moved prop, solid or awake car top within reach wakes it (`stirNear`). */
+  sleepX = 0;
+  sleepZ = 0;
+  /** Contact rows the last rigid step solved (tyres + points). */
+  contacts = 0;
+
+  wake(): void {
+    this.asleep = false;
+    this.restS = 0;
+  }
 
   protected world: THREE.Scene;
   protected onGlass: GlassBurst | null;
