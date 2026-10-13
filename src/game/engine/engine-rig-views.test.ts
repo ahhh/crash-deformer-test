@@ -41,6 +41,10 @@ describe("given the real engine in a rig scene, watching its car", () => {
     Object.assign(engine["renderer"], { render() {}, compile() {}, compileAsync: () => Promise.resolve() });
     await engine.ready;
     engine.fadeScenes = false;
+    // The pacer's step timing is wall clock: a loaded box makes a frame run past its deadline and give sim time up (the car coasts slow).
+    // A clock that reads 1 µs later each time (far from the deadline, real now + 8 ms, for any run this long) is not blind, so every frame steps its whole time.
+    let tick = 0;
+    Object.assign(engine.pace, { now: () => (tick += 0.001) });
   });
   after(() => {
     engine.dispose();
