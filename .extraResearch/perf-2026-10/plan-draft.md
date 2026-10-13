@@ -39,6 +39,8 @@ Exit: full gate green; secret-scan; wsl-push; owner benches the build.
 | 1.4 | Rapier `unreachable` trap in `glassTouch` under node preload; `advance` does not catch it | find cause; harness blind spot | investigate (owner: no browser impact seen) |
 | 1.5 | Handling tests run only at 1/120 while desktop runs 1/240 and phones flip (C1 masterclass) | guards 2.3 | parametrise LAUNCH/lap tests over both rates |
 
+**Phase 1 status: landed and pushed as bbf470cc (REPLAY 68).** 1.0 recorder cache (15c03b32), 1.1 idle drive on undriven wrecks (a8e3c08d; fleet settles 0.13 s after the last hit, was gliding at 3.8 m/s), 1.2b wheels and ride once per slice (8bc38d3b), 1.3 solids in the wreck gate and tyre footprint (e4bcb2ce; +1.2–1.5 % points read, 0 lost), 1.4 pane-first glass query (c4b41423; 0 tick errors with the ragdoll preloaded), 1.5 handling at 120 and 240 Hz (3009f368; no 240 Hz delta), 1.6 roof grid follows every cage refit (0d0ec8fa). A/B in `measurements.md` §5. Phase 5 (Grok template removal, AGENTS.md rewrite, lint clean) landed alongside: 8bd7a499, 218848a9, 2ece5e87.
+
 ## Phase 2. Budget cuts: do less sim where nobody feels it (sim-changing; each needs the digest suites + REPLAY) [owner approvals]
 
 Ranked by measured share × "felt by nobody". Each one gets its own A/B rows and a playtest criterion before it lands.

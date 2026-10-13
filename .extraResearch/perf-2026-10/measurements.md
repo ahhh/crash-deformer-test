@@ -101,6 +101,9 @@ Node city32 (aggression 1): 801 ms/sim-s; 27 wrecks; readPoints 17 µs inclusive
 | loose double-step (c75bca24) | 0.93 / 1.00 by arm order (lane's rows) | — | — | — | NO: debris only (REPLAY 67); car digests same |
 | read chain (c98aed7d, 7edb9359) | 0.917–0.979 | 0.911–0.961 | 0.920–0.990 | noise | yes (0 bad hits / 142 k; 0 bad rows / 43 k) |
 | **Batch: main 7edb9359 vs ecbc560e** (provisional: interleaved, load 1.9–2.9, one arm order with ecbc560e first) | **0.871–0.880** (452 → ~395 ms/sim-s) | 0.90–0.95 | **0.868–0.870** | **17.4/17.2 → 13.9/14.4 (0.80–0.84); aftermath 27.7/26.7 → 21.7/22.5** | car digests equal on all rows and the fleet |
+| **Phase 1 (REPLAY 68): main bbf470cc vs 0c8dd5c6** (worker box, load 1.0–1.2, both arm orders, 3 runs each) | 1.012–1.045 (base 612–630 ms/sim-s on the worker) | 1.020–1.122 | 0.999–1.060 | RAG=0: 19.70/19.96 → 19.40/19.54 (0.98); aftermath 30.51/30.85 → 30.21/30.38 | city16 and a0c16 digests equal (the gained solid rows meet nothing there); a1c32 and fleet differ by design. The a0c16 cost (up to +12 %) is the per-point `solidTop` asks of 1.3: 1.23 % more points read on city16 and 1.46 % on a1c32, 0 lost. |
+
+Phase 1 fleet settle (1.1; 32 cars, seed 4242, 12000 frames = 2.84 sim-s, RAG=0, worker): 0c8dd5c6 last hit at 1.67 s, a wreck still gliding at 3.81 m/s at 2.83 s; bbf470cc last hit at 1.62 s, every wreck under 0.5 m/s from 1.75 s (0.13 s after it), the fastest at 0.13 m/s at the end. Bar (< 0.5 m/s within 3 s of the last hit) holds.
 
 Against the morning build 7cf2c6f9 (601 ms/sim-s on city16) main is therefore ≈ 0.80 in node (provisional): 601 → ~395 ms/sim-s. Still 1.74× the pre-plan 227.
 
@@ -114,6 +117,7 @@ Pacer: node race rows run with no pacer (fixed 1/240 s floor slices); live phone
 
 - `scratch-CostProfile3/drive.mjs` (+ `rows.sh`, `row1.sh`): headless race, two trees alternating chunks; env ROOTS, CARS, POLICE, AGG, SECS, WARM, TRACK, SEED, MODE=count|alloc, PROF.
 - `fleet-bench/fleet5.mjs`: real CrashEngine headless, fake clock 1/60 s per frame, pacer pinned fine (`PIN=coarse` for 1/120); deterministic (digest 795525135 at x7–x10). **Does not run the ragdoll system** (Rapier never finishes loading: no yields); a variant that preloads Rapier trips a `RuntimeError: unreachable` in `glassTouch` → `torso.contactCollider(pane)` (reverse query does not trap; cause unknown; browser `tick` catches it, `advance` does not).
+- `fleet-bench/fleet5-wasm.mjs` (Phase 1 on): preloads the ragdoll unless `RAG=0` and counts tick errors (0 at cost-p1: the pane-first `glassTouch` query no longer traps); `PIN=auto` leaves the slice to the pacer (pin null, adaptive off); settle fields in engine sim seconds (`lastHitSim`: a wreck's quietTime fell; `lastFastSim`: a wreck ≥ 0.5 m/s). cost-p1 RAG=1: mean 26.6 ms, digest 1987993139, against RAG=0's 1869913629: the dummies feed the sim (the fleet clock's slow-mo also covers 1.14 sim-s against 0.28), a lead for `hitGlass`/`smashGlass`.
 - `city-prof/inject*.mjs`: call-counter injection into scratch copies.
 - Profiles: `owner-traces/chrome/cpuprof-map.cjs` (self/inclusive per function), `callers.cjs` (caller chains).
 - All timing/counting on this box goes through `flock ~/crash-wt/ab.lock`.
