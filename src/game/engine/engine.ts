@@ -21,7 +21,7 @@ import { FX_TIERS } from "../present/engine-post.ts";
 import { AutoFx, gpuRenderer, hardwareDesktop } from "../present/auto-fx.ts";
 import { PHONE_LEVEL } from "../present/car-detail.ts";
 import { DetailGovernor } from "../present/detail-governor.ts";
-import { sortByDrawClass } from "../present/draw-order.ts";
+import { makeRenderer } from "./engine-renderer.ts";
 import { DebrisSystem, SparkSystem, GlassDotSystem, TireSmokeSystem } from "../present/engine-fx.ts";
 import { GameAudio } from "../present/game-audio.ts";
 import { FX_REACH } from "../present/witness.ts";
@@ -46,6 +46,7 @@ import { EngineGarage } from "./engine-garage.ts";
 import { GARAGE } from "../present/garage-art.ts";
 import { detSin, detCos } from "../kernel/physics-core.js";
 import { SPARK_MIN_IMPULSE } from "./constants.ts";
+import { firstMassContact } from "./car-contact-scan.ts";
 
 const FIXED = 1 / 60;
 /** Deform LoD: sphere around a car — rest half-diagonal 2.5 m plus crumple slack and the
@@ -61,41 +62,10 @@ const _p = new THREE.Vector3();
 const _bn = new THREE.Vector3();
 const _bp = new THREE.Vector3();
 
-/**
- * Lit shaders skip a point or spot light's BRDF where the light adds nothing: past its range, outside its cone,
- * or at intensity 0. Every lit program carries the lamp pool's 4 spots and 4 points (`lamp-lights.ts`: changing
- * the count relinks every program), the impact flash and the derby winner's spot, and three ran the full BRDF
- * for each of them on every fragment. Exact: three already zeroes such a light's colour and clears `visible`.
- */
-const RE_DIRECT = "RE_Direct( directLight, ";
-const SKIP_DARK = `if ( directLight.visible ) ${RE_DIRECT}`;
-const lightsChunk = THREE.ShaderChunk.lights_fragment_begin;
-if (!lightsChunk.includes(RE_DIRECT)) throw new Error("three's lights_fragment_begin changed: re-check the dark-light skip");
-if (!lightsChunk.includes(SKIP_DARK)) THREE.ShaderChunk.lights_fragment_begin = lightsChunk.replaceAll(RE_DIRECT, SKIP_DARK);
-
-/** The page's renderer: sRGB out, ACES at the game's exposure, PCF shadows, MSAA only at device pixel ratio 1. */
-function makeRenderer(canvas: HTMLCanvasElement): THREE.WebGLRenderer {
-  const renderer = new THREE.WebGLRenderer({
-    canvas,
-    antialias: (window.devicePixelRatio || 1) <= 1,
-    alpha: false,
-    powerPreference: "high-performance",
-  });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
-  renderer.setClearColor(0x12141a, 1);
-  renderer.outputColorSpace = THREE.SRGBColorSpace;
-  renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.45;
-  renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFShadowMap;
-  renderer.setOpaqueSort(sortByDrawClass);
-  return renderer;
-}
-
 export class CrashEngine extends EngineGarage {
   /** Resolves when `warmPrograms` is done (a failure is logged): the loop simulates and draws only after it, so play never links a program. */
   readonly ready: Promise<void>;
-  /** Netplay (docs/MULTIPLAYER.md): a client draws host snapshots instead of simulating. */
+  /** A client draws host snapshots instead of simulating. */
   readonly net = new NetPlay({
     cars: () => this.live(),
     // The host's field size. Race and derby own their field (they seat peers at their next start), and a
@@ -124,7 +94,6 @@ export class CrashEngine extends EngineGarage {
     exitRace: () => {
       if (!this.race.active) return;
       this.setRace(false);
-      // Race unload leaves the flat track ground: back to the fleet's disc, poles and props like a host's Z.
       this.randomizeAndReset();
       this.emitHud();
     },
@@ -155,14 +124,12 @@ export class CrashEngine extends EngineGarage {
     dropLooks: () => this.dropLooks(),
     seat: this.seat,
   });
-  /** The results reel and its solo view (docs/HIGHLIGHTS.md). */
+  /** The results reel and its solo view. */
   protected readonly highlights: ReelDirector;
-  /** The sim's steps against the frames (`SimPacer`), and the cars drawn between the last two (`PoseBlend`). */
   readonly pace = new SimPacer(true);
   private readonly blend = new PoseBlend();
   /** What a crashed car nobody drives rolls on: its drive's idle pedals (engine braking, the test world's IDLE). */
   private readonly wreckCoast = idleDrive();
-  /** One sim step of the frame (`SimPacer.run`): the cars' poses either side of it kept for the blend. */
   private readonly slice = (h: number): void => {
     const cars = this.live();
     this.blend.begin(cars);
@@ -257,53 +224,8 @@ export class CrashEngine extends EngineGarage {
     this.lampLights.middleTile = desktop;
     groundMaterial(this.lampLights.pools.material as THREE.Material, GROUND_LEVEL.decal);
     this.lampLights.pools.renderOrder = levelOrder(GROUND_LEVEL.decal);
-    this.race = new RaceDirector({
-      scene: this.scene,
-      camera: this.camera,
-      sun: this.sun,
-      seat: this.seat,
-      live: () => this.live(),
-      setCarCount: (n) => this.ensureCars(n),
-      setPolice: (from, count) => this.setPolice(from, count),
-      dress: (car) => this.dressCar(car),
-      setPaused: (on) => {
-        this.playing = !on;
-        this.emitHud();
-      },
-      leave: () => this.setScene("fleet"),
-      watchCam: () => void (this.view.spec = "auto"),
-      hitFx: this.hitFx,
-      hit: (i, closing) => this.noteHit(i, closing),
-      knockProp: (index, car, vx, vy, vz) => this.ragdolls.knockProp(index, car, vx, vy, vz),
-      buildArt: (track, placed) => {
-        this.queueWarm();
-        const art = new TrackArt(track, placed, this.stage);
-        this.ragdolls.setCourse(track, placed, art.props);
-        return art;
-      },
-      markBounds: (minX, minZ, maxX, maxZ) => this.cine.marks.setBounds(minX, minZ, maxX, maxZ),
-      // tickInner's wreck-slide rule (`bleedAfterSlide` once the crash clock is past the hit).
-      bleeds: () => this.clock.wallSinceImpact > 0.2,
-      reelReady: (clips, since) => this.startReel(clips, since),
-      clear: () => this.clearScene(),
-      heardMeter: (i) => this.net.heard(i),
-    });
-    this.highlights = new ReelDirector({
-      carsOf: (clip) => clip.cars.map((c) => this.cars[c.slot]!),
-      live: () => this.live(),
-      scene: { dress: (car) => this.dressCar(car), collide: (car, slot, h) => this.race.courseHit(car, slot, h), restore: (slot, mem, at) => this.race.remember(slot, mem, at), knocks: (bits) => this.race.knockTo(bits), blend: this.blend },
-      resetProps: () => this.race.resetProps(),
-      clear: () => this.clearLocal(),
-      sight: (focus) => this.sceneSight(focus, true),
-      still: () => this.sceneSight(null, false),
-      clock: this.clock,
-      crash: (contact, normal) => this.cine.beginCrashCam(contact, normal, this.crashSight(), this.clock.hold),
-      impact: (contact, normal, closing) => this.beginCinematic(contact, normal, closing, false),
-      hit: this.hitFx,
-      fudge: (at, normal) => this.fudgeContact(at, normal),
-      eject: (e, ride) => { this.ragdolls.launch(e, this.live(), ride); if (ride) this.ragdolls.follow(); },
-      ride: (camera, wallDt, subject) => this.ragdolls.rideAlong && this.ragdolls.frameCamera(camera, wallDt, false, this.cars.indexOf(subject), false, this.view.lens, () => this.sceneSight(subject, true)) !== "none",
-    });
+    this.race = this.makeRace();
+    this.highlights = this.makeHighlights();
 
     this.resize();
     this.resizeObs = new ResizeObserver(() => this.resize());
@@ -334,6 +256,59 @@ export class CrashEngine extends EngineGarage {
         // disabled before it is in simply throws nobody (`EjectionWatch` only judges edges it saw).
         this.ragdolls.preload().catch((err: unknown) => console.error("Crush Stream ragdoll load failed", err));
       });
+  }
+
+  private makeRace(): RaceDirector {
+    return new RaceDirector({
+      scene: this.scene,
+      camera: this.camera,
+      sun: this.sun,
+      seat: this.seat,
+      live: () => this.live(),
+      setCarCount: (n) => this.ensureCars(n),
+      setPolice: (from, count) => this.setPolice(from, count),
+      dress: (car) => this.dressCar(car),
+      setPaused: (on) => {
+        this.playing = !on;
+        this.emitHud();
+      },
+      leave: () => this.setScene("fleet"),
+      watchCam: () => void (this.view.spec = "auto"),
+      hitFx: this.hitFx,
+      hit: (i, closing) => this.noteHit(i, closing),
+      knockProp: (index, car, vx, vy, vz) => this.ragdolls.knockProp(index, car, vx, vy, vz),
+      buildArt: (track, placed) => {
+        this.queueWarm();
+        const art = new TrackArt(track, placed, this.stage);
+        this.ragdolls.setCourse(track, placed, art.props);
+        return art;
+      },
+      markBounds: (minX, minZ, maxX, maxZ) => this.cine.marks.setBounds(minX, minZ, maxX, maxZ),
+      // tickInner's wreck-slide rule (`bleedAfterSlide` once the crash clock is past the hit).
+      bleeds: () => this.clock.wallSinceImpact > 0.2,
+      reelReady: (clips, since) => this.startReel(clips, since),
+      clear: () => this.clearScene(),
+      heardMeter: (i) => this.net.heard(i),
+    });
+  }
+
+  private makeHighlights(): ReelDirector {
+    return new ReelDirector({
+      carsOf: (clip) => clip.cars.map((c) => this.cars[c.slot]!),
+      live: () => this.live(),
+      scene: { dress: (car) => this.dressCar(car), collide: (car, slot, h) => this.race.courseHit(car, slot, h), restore: (slot, mem, at) => this.race.remember(slot, mem, at), knocks: (bits) => this.race.knockTo(bits), blend: this.blend },
+      resetProps: () => this.race.resetProps(),
+      clear: () => this.clearLocal(),
+      sight: (focus) => this.sceneSight(focus, true),
+      still: () => this.sceneSight(null, false),
+      clock: this.clock,
+      crash: (contact, normal) => this.cine.beginCrashCam(contact, normal, this.crashSight(), this.clock.hold),
+      impact: (contact, normal, closing) => this.beginCinematic(contact, normal, closing, false),
+      hit: this.hitFx,
+      fudge: (at, normal) => this.fudgeContact(at, normal),
+      eject: (e, ride) => { this.ragdolls.launch(e, this.live(), ride); if (ride) this.ragdolls.follow(); },
+      ride: (camera, wallDt, subject) => this.ragdolls.rideAlong && this.ragdolls.frameCamera(camera, wallDt, false, this.cars.indexOf(subject), false, this.view.lens, () => this.sceneSight(subject, true)) !== "none",
+    });
   }
 
   /**
@@ -464,7 +439,6 @@ export class CrashEngine extends EngineGarage {
       this.shakeOnHits();
       this.view.trauma = Math.max(0, this.view.trauma - wallDt * 1.6);
       if (this.barrierUp) this.barrier.step(simDt);
-      // Debris, sparks, glass and smoke run on the world's own time (the replay's presented clip time, or the slow-mo scaled frame), so they slow with it.
       const fxDt = simDt;
       // The bits land on the ground and the cars' tops of the world this frame stepped, the replay's while a clip plays (`landOn`).
       armTops(this.highlights.surfaces ?? this.world.surfaces);
@@ -487,7 +461,7 @@ export class CrashEngine extends EngineGarage {
             this.puffDeadEngine(car);
           }
         } else if (this.elapsedWall < (this.smokeUntil[i] ?? 0)) {
-          // 60 puffs per wall second whatever the refresh rate (it was one per rendered frame).
+          // 60 puffs per wall second whatever the refresh rate.
           this.deadSmokeAcc[i] = (this.deadSmokeAcc[i] ?? 0) + wallDt;
           for (; this.deadSmokeAcc[i]! >= 1 / 60; this.deadSmokeAcc[i]! -= 1 / 60) this.puffEngine(car);
         } else if (damageStage(car) === "limping") {
@@ -677,38 +651,9 @@ export class CrashEngine extends EngineGarage {
     const cars = this.live();
     let contact: THREE.Vector3 | null = null;
     let normal: THREE.Vector3 | null = null;
-    outer: for (let i = 0; i < cars.length; i++) {
-      const ca = cars[i]!;
-      const massesA = ca.deform.masses;
-      for (let j = i + 1; j < cars.length; j++) {
-        const cb = cars[j]!;
-        const dxg = ca.group.position.x - cb.group.position.x;
-        const dzg = ca.group.position.z - cb.group.position.z;
-        if (dxg * dxg + dzg * dzg > 36) continue;
-        const massesB = cb.deform.masses;
-        for (let ia = 0, nA = massesA.length; ia < nA; ia++) {
-          const a = massesA[ia]!;
-          const ax = a.world.x;
-          const ay = a.world.y;
-          const az = a.world.z;
-          const ar = a.radius;
-          for (let ib = 0, nB = massesB.length; ib < nB; ib++) {
-            const b = massesB[ib]!;
-            const dx = ax - b.world.x;
-            const dy = ay - b.world.y;
-            const dz = az - b.world.z;
-            const maxR = ar + b.radius + 0.08;
-            const d2 = dx * dx + dy * dy + dz * dz;
-            if (d2 >= maxR * maxR || d2 < 1e-10) continue;
-            const dist = Math.sqrt(d2);
-            _p.set((ax + b.world.x) * 0.5, (ay + b.world.y) * 0.5, (az + b.world.z) * 0.5);
-            _n.set(dx / dist, dy / dist, dz / dist);
-            contact = _p;
-            normal = _n;
-            break outer;
-          }
-        }
-      }
+    if (firstMassContact(cars, _p, _n)) {
+      contact = _p;
+      normal = _n;
     }
     if (!contact && this.barrierUp) {
       const hi = this.barrierHits.findIndex(Boolean);

@@ -37,10 +37,6 @@ const _w = new THREE.Vector3();
 /** Race commands a netplay client may run: viewing only (the host starts, pauses and ends races). */
 const CLIENT_RACE_COMMANDS: ReadonlySet<RaceCommand["type"]> = new Set(["fullUi", "cycle", "watch", "spectate"]);
 
-/**
- * Scenes: switching between the fleet, the rigs, the derby and the race, resetting and spawning the field and the
- * fleet disc's edge.
- */
 export abstract class EngineScenes extends EngineDerby {
   /** The corkscrew's car this run: not yet flown, in the air, or down again (`EngineRigs.watchCorkscrew`). */
   protected corkFlight: "ground" | "air" | "down" = "ground";
@@ -54,12 +50,10 @@ export abstract class EngineScenes extends EngineDerby {
     if (this.fleetPropsLocked) return;
     this.showBarrier = !this.showBarrier;
     if (this.derbyMode) {
-      // Out of the bowl like every scene switch: the reset brings back the disc ground, poles and fresh spots, and places the barrier.
       this.setDerby(false);
       this.randomizeAndReset();
     } else {
       this.barrier.group.visible = this.showBarrier;
-      // With the ramps up the slab takes their line; alone it faces the lead car broadside.
       if (this.showBarrier && this.showRamps) {
         this.barrier.yaw = this.ramps.group.rotation.y;
         this.barrier.group.rotation.y = this.barrier.yaw;
@@ -83,7 +77,6 @@ export abstract class EngineScenes extends EngineDerby {
     this.emitHud();
   }
 
-  /** The jump ramps on the slab's ends (`FleetRamps`): a fleet prop like the slab and the balls. */
   toggleRamps(): void {
     if (this.fleetPropsLocked) return;
     this.showRamps = !this.showRamps;
@@ -91,7 +84,6 @@ export abstract class EngineScenes extends EngineDerby {
       this.setDerby(false);
       this.randomizeAndReset();
     } else {
-      // On the slab's ends where it stands; alone, end-on to the lead car so it jumps them.
       if (!this.showBarrier) this.barrier.orient(this.carA.group.position, true);
       this.ramps.place(this.barrier.yaw, this.showBarrier ? this.barrier : null);
       this.ramps.group.visible = this.showRamps;
@@ -101,18 +93,11 @@ export abstract class EngineScenes extends EngineDerby {
     this.emitHud();
   }
 
-  /**
-   * Whether a scene pick fades through the cel look and black (`SceneFade`). Probes and scripts that read the new
-   * scene right after a toggle clear it; the shared link, the net and the boot never fade (`applyScene`).
-   */
+  /** Off for probes and scripts that read the new scene right after a toggle; the shared link, the net and the boot never fade (`applyScene`). */
   fadeScenes = true;
   private veilBlack = 0;
 
-  /**
-   * Scene picker (HUD, keys): the one entry every pick goes through. Picking the scene in play (or on its way) goes
-   * back to the fleet. The switch itself (`applyScene`) waits for the black frame of the transition, which is local
-   * presentation only; a pick mid-transition retargets it.
-   */
+  /** Scene picker (HUD, keys): every pick goes through here; picking the scene in play (or on its way) goes back to the fleet. The switch waits for the transition's black frame, and a pick mid-transition retargets it. */
   protected setScene(next: SceneId): void {
     // A room refuses the single-player scenes; a public room, which runs the race or derby its name says, refuses Survival too (a private room's host may run it as a team). A host in the lobby picks its game in the session panel, not here.
     if (this.net.client || this.net.status().gate !== null || (this.net.role !== "off" && (SOLO_SCENES[next] || (next === "survival" && this.net.status().public !== null)))) return;
@@ -123,7 +108,6 @@ export abstract class EngineScenes extends EngineDerby {
     } else this.applyScene(next);
   }
 
-  /** Per wall frame: advances the transition, makes the switch on its black frame and feeds the cel pass and the veil. */
   protected stepSceneFade(wallDt: number): void {
     const fade = this.sceneFade;
     // The Lab and the garage are single player: a room (hosted or joined) takes the player back to the fleet. So does a guest's own Survival run: a hosted one is the host's.
@@ -149,9 +133,6 @@ export abstract class EngineScenes extends EngineDerby {
     }
   }
 
-  /**
-   * The switch itself: `next` replaces the scene in play. Leaves the race or the derby first, then resets the field.
-   */
   protected applyScene(next: SceneId): void {
     if (this.net.client) return;
     // The range and the garage are one-car scenes: the sandbox's field comes back after them (the range's wall is its own, never the user's).
@@ -204,17 +185,14 @@ export abstract class EngineScenes extends EngineDerby {
     this.setScene("range");
   }
 
-  /** The Lab (`scenes/lab.ts`): flick a toy car at a stack, a wall of props or a car on a stand, on a giant workbench. */
   toggleLab(): void {
     this.setScene("lab");
   }
 
-  /** The garage: recolour and spray-paint the player's car and driver. */
   toggleGarage(): void {
     this.setScene("garage");
   }
 
-  /** The Lab's set (HUD): its preset's cars and props in place, framed afresh. */
   setLabPreset(id: LabPresetId): void {
     if (!this.showLab || this.lab.preset === id) return;
     this.lab.load(id);
@@ -225,11 +203,9 @@ export abstract class EngineScenes extends EngineDerby {
     this.emitHud();
   }
 
-  /** The look point the Lab's camera holds (`frameLab`), and whether it was framed for an upright screen. */
   protected readonly labLook = new THREE.Vector3();
   protected labUpright = false;
 
-  /** The Lab's opening shot (`LAB_SHOT`) for this screen's shape; the camera then holds that look point (`labLook`). */
   protected frameLab(): void {
     const from = this.lab.centre(0, _v);
     const f = this.lab.focus;
@@ -266,12 +242,10 @@ export abstract class EngineScenes extends EngineDerby {
     this.setScene("corkscrew");
   }
 
-  /** Survival (docs/SURVIVAL.md): single player, on its own course. */
   toggleSurvival(): void {
     this.setScene("survival");
   }
 
-  /** Stack (docs/LOAD_CRUSH.md): cars dropped one at a time onto a base car. */
   toggleStack(): void {
     this.setScene("stack");
   }
@@ -280,7 +254,6 @@ export abstract class EngineScenes extends EngineDerby {
     this.setScene("derby");
   }
 
-  /** Race scene on / off (scene picker, X). */
   toggleRace(): void {
     this.setScene("race");
   }
@@ -301,13 +274,11 @@ export abstract class EngineScenes extends EngineDerby {
   /** Stop the results reel or a solo view now, giving the cars back as they were. */
   protected abstract stopReel(): void;
 
-  /** R / D-pad down tapped: back on the track (a netplay client asks the host). */
   protected requestRespawn(): void {
     if (this.net.client) this.net.requestRespawn();
     else this.race.requestRespawn();
   }
 
-  /** R / D-pad down held: back on the track at once with the damage kept (a netplay client asks the host). */
   protected requestHoldReset(): void {
     if (this.net.client) this.net.requestHoldReset();
     else this.race.holdReset();
@@ -385,14 +356,9 @@ export abstract class EngineScenes extends EngineDerby {
       this.finishResetCommon();
       return;
     }
-    // The fleet's ground ends at the disc's rim (with the ramps, they and the slab's top too); the derby arena is its own ground (a baked grid
-    // and the prisms standing on it); the rigs and the range keep the endless pad; the corkscrew's channel is the ground over a pad drawn three
-    // times wider for its far landings; the Lab's is its bench, brackets, shelves and the workshop floor, and its art replaces the pad.
     setGround(this.showCorkscrew ? this.corkscrew : this.showLab ? this.lab.ground : this.derbyMode ? this.derbyGround : this.rigScene || this.showRange || this.showGarage ? null : this.showRamps ? this.ramps : DISC_GROUND);
-    // What stands on it: the Lab's props and wall, else the fleet's rigs (slab, press plates, lamp posts, ramp balls), as prisms of one store.
     armSolids(this.showLab ? this.lab.prisms : this.rigs);
     this.stage.ground.scale.setScalar(this.showCorkscrew ? 3 : 1);
-    // The Lab's, the garage's and the derby arena's art replace the pad.
     for (const o of this.studio) o.visible = !this.showLab && !this.showGarage && !this.derbyMode;
     // A rig owns its car (the press and rams move it, the corkscrew's spawn speed coasts it): a reset hands it back from the driver, whose pedals would unpark it and brake the run.
     if (this.rigScene && !this.showStack && this.seat.mode === "drive") {
@@ -457,7 +423,6 @@ export abstract class EngineScenes extends EngineDerby {
     this.parkExtras();
   }
 
-  /** The cars past the scene's count: hidden, at rest, out of the way. */
   private parkExtras(): void {
     for (let i = this.carCount; i < this.cars.length; i++) {
       const extra = this.cars[i]!;
@@ -467,7 +432,6 @@ export abstract class EngineScenes extends EngineDerby {
     }
   }
 
-  /** The Lab's preset: its cars at their poses on the bench and its brackets, shelves and props shown (`LabArt`), knocked by its cars. */
   private spawnLab(): void {
     if (this.labArt) this.lab.tumble = this.labArt.show(this.lab.preset ?? LAB_PRESET.cards);
     const cars = this.live();
@@ -487,7 +451,6 @@ export abstract class EngineScenes extends EngineDerby {
     this.dressCar(car);
   }
 
-  /** The player's car parked on the garage's turntable, nose to +z, and the player's driver standing beside it. */
   private spawnGarage(): void {
     const car = this.carA;
     car.group.visible = true;
@@ -523,7 +486,6 @@ export abstract class EngineScenes extends EngineDerby {
     for (const p of this.poles) p.group.visible = false;
   }
 
-  /** One car parked at the origin facing +Z, everything else put away. */
   private parkSolo(): DeformableCar {
     this.ensureCars(Math.max(this.carCount, 1));
     const parked = this.carA;
@@ -607,7 +569,6 @@ export abstract class EngineScenes extends EngineDerby {
 
   /** Height the stack's orbit looks at, eased: the middle of the tallest car's roof (the rest of the pile follows a topple down). */
   private stackEye = 0;
-  /** The screen shape the opening shot was framed for (a portrait one stands the camera further back). */
   private stackPortrait = false;
 
   /** The stack's opening shot: far enough back for the finished tower (`stackShot`), further on a portrait screen, looking at the base car. */
@@ -629,7 +590,6 @@ export abstract class EngineScenes extends EngineDerby {
     return this.stackEye;
   }
 
-  /** A fresh crash: the clock back in approach at the user's time scale (or 1×), the last hit's readout and its once-a-crash FX cleared. */
   private restartCrash(): void {
     this.clock.phase = "approach";
     if (this.clock.userTimeScale != null) {
@@ -679,7 +639,6 @@ export abstract class EngineScenes extends EngineDerby {
   /** A derby car's footprint against the arena's prisms: the wall, the containers, the rails, the pads and the tyre berms (`derbyGround.contact`); the rises are the ground itself. */
   protected readonly derbyCollide = (car: DeformableCar, i: number, h: number): void => this.derbyGround.contact(car, i, this.derbyHits, h);
 
-  /** What a derby car's hit on a prop costs the scene: sparks and debris at the contact. */
   private readonly derbyHits: PropHits = {
     knock: () => {},
     fx: (at, n, closing) => {
@@ -691,7 +650,6 @@ export abstract class EngineScenes extends EngineDerby {
 
   protected readonly raceCollide = (car: DeformableCar, i: number, h: number): void => this.race.collide(car, i, h);
 
-  /** The fleet ramps' side and back faces; a hit can start the crash cinematic like any other. */
   private readonly rampHits: PropHits = {
     knock: () => {},
     fx: () => {},
@@ -727,14 +685,12 @@ export abstract class EngineScenes extends EngineDerby {
     },
   };
 
-  /** Put the slab, the lamp posts and the ramp balls where they are now, before a step's contacts read them (`rigs`). */
   protected syncRigs(): void {
     this.rigs.syncSlab(this.barrierUp ? this.barrier : null);
     this.rigs.syncPoles(this.poles, this.rigKnocked);
     this.rigs.syncBalls(this.balls, this.ballsUp);
   }
 
-  /** The corkscrew's walls hold a car on its floor. */
   protected readonly corkCollide = (car: DeformableCar): void => this.corkscrew.contact(car);
 
   protected stepDerby(dt: number): void {
@@ -749,16 +705,12 @@ export abstract class EngineScenes extends EngineDerby {
     if (status === "loop" && this.looping) this.randomizeAndReset();
   }
 
-  /**
-   * A takedown's boost for attacker `id` (`DerbyMatch.consumeBoosts`), by one rule for every driver: the seat's meter
-   * when the player drives that car, else the derby AI's (`DerbyBrain.addBoost`).
-   */
+  /** A takedown's boost for attacker `id`: the seat's meter when the player drives that car, else the derby AI's. */
   protected takedownBoost(id: number): void {
     if (id === this.seat.carIndex && this.seat.mode === "drive") this.seat.addBoost(BOOST.takedown);
     else this.derby.brain.addBoost(id, BOOST.takedown);
   }
 
-  /** `derby.step`'s per-car flags, refilled in place (the match copies what it keeps); grows once per new car. */
   private readonly derbyFlagPool: DerbyCarFlag[] = [];
   private derbyFlags(cars: readonly DeformableCar[]): readonly DerbyCarFlag[] {
     const flags = this.derbyFlagPool;
@@ -775,11 +727,7 @@ export abstract class EngineScenes extends EngineDerby {
     return flags;
   }
 
-  /**
-   * Fleet disc, once per frame after physics: `edgeAction` turns a car `FAKE_DEPTH` below the top into a
-   * falling fake (`beginFakeFall`), vaporizes it at `VAPOR_DEPTH` and brings the driven one back. A falling
-   * fake shrinks away over its last 4 m (also on a netplay client, which mirrors the host's events).
-   */
+  /** Fleet disc, once per frame after physics: `edgeAction` fakes, vaporizes or respawns a car; a falling fake shrinks over its last 4 m (also on a netplay client, which mirrors the host's events). */
   protected stepEdge(): void {
     if (activeGround() !== DISC_GROUND && activeGround() !== this.ramps) return;
     const cars = this.live();
@@ -798,11 +746,7 @@ export abstract class EngineScenes extends EngineDerby {
     if (this.looping && !this.net.client && !this.showLab && !this.showGarage && fleetEmptied(cars, this.vaporAt, this.elapsedWall)) this.randomizeAndReset();
   }
 
-  /**
-   * Car `i` bursts into smoke and leaves the sim (`on`): hidden, repaired and frozen where it vanished, so it
-   * costs no physics, skinning or draw calls. `off` puts it back as it stands. Netplay: the host sets it
-   * from `stepEdge`, a client mirrors the host's flag through here.
-   */
+  /** Car `i` bursts into smoke and leaves the sim (`on`): hidden, repaired and frozen where it vanished; `off` puts it back as it stands. A netplay client mirrors the host's flag through here. */
   setVaporized(i: number, on: boolean): void {
     const car = this.cars[i];
     if (!car || car.vaporized === on) return;
@@ -824,7 +768,6 @@ export abstract class EngineScenes extends EngineDerby {
     this.emitHud();
   }
 
-  /** Car `i` back on the disc (`respawnSlot`: on the bearing it fell from, facing the centre, clear of the others). */
   respawnOnDisc(i: number): void {
     const car = this.cars[i];
     if (!car) return;
@@ -835,5 +778,4 @@ export abstract class EngineScenes extends EngineDerby {
     this.dressCar(car);
     this.emitHud();
   }
-
 }
