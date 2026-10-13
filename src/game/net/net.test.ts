@@ -314,7 +314,10 @@ describe("given a client car that applies the host car's state from the wire", (
     const host = makeCar();
     runWall(40, 1, "front", { car: host, after: 0.5 });
     host.deform.popHub(host.deform.masses.find((m) => m.name === "hubFL")!);
-    for (let i = 0; i < 90; i++) host.afterContacts(1 / 60);
+    for (let i = 0; i < 90; i++) {
+      host.integrate(1 / 60);
+      host.afterContacts(1 / 60);
+    }
     const hostWheel = host.wheels[0]!.getWorldPosition(host.wheels[0]!.position.clone());
     assert.ok(hostWheel.distanceTo(host.group.position) > 0.5, "the host's wheel left the car");
 

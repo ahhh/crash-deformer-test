@@ -413,10 +413,6 @@ export class DeformableCar extends CarParts {
     if (this.endReach < Infinity && d.quietTime() > REARM_QUIET_S && Math.min(this.endAgo[0]!, this.endAgo[1]!) > END_WINDOW) this.endReach = Infinity;
     if (!this.doorParts[0]!.swing!.latched || !this.doorParts[1]!.swing!.latched) this.swingDoors(dt);
     else this.sampleMotion();
-    if (!d.massActive) return;
-    // The wreck's parts (and its popped wheels) are stepped once per slice, by `integrateWreck`.
-    this.nudgeWheels(dt);
-    this.ride(dt);
   }
 
   /**
@@ -444,7 +440,7 @@ export class DeformableCar extends CarParts {
 
   /**
    * A wreck is the rigid body's (`stepFree`): the masses' motion relative to the body is the crush (`moveRelative`), the body steps, and
-   * the masses are carried to where the body put them.
+   * the masses are carried to where the body put them. Its wheels, ride and loose parts step once per slice, here.
    */
   private integrateWreck(dt: number): void {
     const g = this.group;

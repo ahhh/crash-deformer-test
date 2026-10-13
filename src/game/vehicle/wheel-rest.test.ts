@@ -79,7 +79,10 @@ describe("given a parked car of each vehicle class, hit once so it is a wreck, w
         const touch = diagonal && CLASSES[cls].lift > 0.3 ? 0.35 : 0.03 + 0.12 * CLASSES[cls].lift;
         const tag = `${cls} minus ${lost.map((i) => NAMES[i]).join("+")}`;
         assert.ok(r.speed < 0.05, `${tag}: still moving at ${r.speed.toFixed(3)} m/s`);
-        assert.ok(r.drift < 0.003, `${tag}: body still settling after 4 s, moved ${(r.drift * 1000).toFixed(1)} mm in the last second`);
+        // The drawn body leans on its resting rigid body's slice-to-slice jitter, with a gain of cg / (track · ω²) (`car-load.ts`): up to
+        // 1 cm on a lifted body (the monster), a fraction of a millimetre on the others.
+        const still = CLASSES[cls].lift > 0.3 ? 0.01 : 0.003;
+        assert.ok(r.drift < still, `${tag}: body still settling after 4 s, moved ${(r.drift * 1000).toFixed(1)} mm in the last second`);
         assert.ok(r.low > -0.02, `${tag}: body ${(-r.low * 100).toFixed(1)} cm into the ground`);
         assert.ok(r.low < touch, `${tag}: body hovers ${(r.low * 100).toFixed(1)} cm over the ground`);
         // A diagonal pair lost leaves the body on the other diagonal's tyres: it tips about the line through them until one empty corner is
