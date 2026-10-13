@@ -41,7 +41,7 @@ export type MomentKind = "impact" | "hit" | "throw" | "takeoff";
 /**
  * At a `hit` (an impact of the clip's scope after its first): the previous impact's point in the frame, and whether the
  * camera changed since that impact (a cut: another rig, another shot, another crash-cam cut). `inFrame`: front of the eye,
- * inside the frame's margin and clear of the panels.
+ * inside `VIEW.margin` (inside the frame's edge when the held crash cam is on it, see the judge below) and clear of the panels.
  */
 export type Back = { cut: boolean; inFrame: boolean; ndcX: number; ndcY: number };
 
@@ -231,7 +231,9 @@ export async function reelViews(w: World, clips: readonly HighlightClip[], scene
         if (m.kind === "impact" || m.kind === "hit") {
           if (m.kind === "hit" && last) {
             const j = judge(camera, s, last.p, screen);
-            v.back = { cut: cam !== last.cam, inFrame: j.front && Math.abs(j.ndcX) <= VIEW.margin && Math.abs(j.ndcY) <= VIEW.margin && !j.covered, ndcX: j.ndcX, ndcY: j.ndcY };
+            // The context shot is fitted to keep both points inside `VIEW.margin`; the held crash cam keeps the place only when a cut sees the car, the earlier point and the later one (`heldCut`), else a lens that sees the car alone, so it is judged at the frame's edge.
+            const edge = rig === "crash" ? 1 : VIEW.margin;
+            v.back = { cut: cam !== last.cam, inFrame: j.front && Math.abs(j.ndcX) <= edge && Math.abs(j.ndcY) <= edge && !j.covered, ndcX: j.ndcX, ndcY: j.ndcY };
           }
           last = { cam, p };
         }

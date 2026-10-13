@@ -182,7 +182,7 @@ describe("given highlight reels from a ramming city race; staged head-ons, wall 
     const cuts = later.filter((v) => v.back?.cut);
     const lost = cuts.filter((v) => !v.back!.inFrame);
     t.diagnostic(`${later.length} later hits, ${cuts.length} after a camera change, the earlier point lost at ${lost.length}`);
-    for (const v of lost) t.diagnostic(`${v.scene} "${v.title}" hit at ${v.at.toFixed(2)} s by ${v.cam}: the earlier point at ndc ${v.back!.ndcX.toFixed(2)},${v.back!.ndcY.toFixed(2)} (${v.note})`);
+    for (const v of cuts) t.diagnostic(`${v.scene} "${v.title}" hit at ${v.at.toFixed(2)} s by ${v.cam}: the earlier point at ndc ${v.back!.ndcX.toFixed(2)},${v.back!.ndcY.toFixed(2)}${v.back!.inFrame ? "" : " LOST"} (${v.note})`);
     assert.ok(later.length >= 6 && cuts.length >= 1, `too few later hits to test: ${later.length} hits, ${cuts.length} after a camera change`);
     assert.deepEqual(lost.map((v) => `${v.scene} ${v.at.toFixed(2)}`), []);
   });

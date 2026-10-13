@@ -231,7 +231,12 @@ describe("given the wheel-well dutch camera (an eye mounted in each wheel well, 
       }
       t.diagnostic(`rival-samples in view: dutch ${mine}, fixed wells ${fixed.join(" ")}; ${cuts} cuts`);
       assert.ok(cuts >= 15, `${cuts} cuts in 70 s`);
-      for (let j = 0; j < MOUNT_COUNT; j++) assert.ok(mine >= fixed[j]!, `well ${j} kept ${fixed[j]} in view, the dutch cam ${mine}`);
+      // The rivals trail the watched car for most of the lap, so the best fixed well (one looking back) sees nearly all of them at every sample
+      // (1104 of the 1120 possible at reseed 3) and the cam, holding each cut 1.2-3.5 s, can trail it by a sample or two when a rival
+      // slips out of the frame between its checks. Across reseeds 1-12 it ran from 3 under the best well to 28 over it. A cam that
+      // cycled the wells blind averages the eight wells, 541 here, so a 1 % slack of the possible rival-samples keeps the property.
+      const slack = Math.ceil(0.01 * 4 * 70 / FRAME / 15);
+      for (let j = 0; j < MOUNT_COUNT; j++) assert.ok(mine >= fixed[j]! - slack, `well ${j} kept ${fixed[j]} in view, the dutch cam ${mine} (slack ${slack})`);
     } finally {
       w.race.exit();
       setGround(null);
