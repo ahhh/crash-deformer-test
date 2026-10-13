@@ -433,7 +433,11 @@ export class CrashEngine extends EngineGarage {
         if (!this.net.client) this.maybePreSlowmo(wallDt);
         easeTimeScale(this.clock, wallDt);
         simDt = wallDt * this.clock.timeScale * this.cine.timeWarp;
-        if (!this.net.client) this.pace.run(simDt, this.clock.timeScale * this.cine.timeWarp, sliceSpeed(cars), performance.now() + PACE_BUDGET_MS, this.slice);
+        if (!this.net.client) {
+          let fineNeeded = false;
+          for (let i = 0; i < cars.length; i++) if (cars[i]!.deform.massActive && cars[i]!.deform.crushing) fineNeeded = true;
+          this.pace.run(simDt, this.clock.timeScale * this.cine.timeWarp, sliceSpeed(cars), fineNeeded, performance.now() + PACE_BUDGET_MS, this.slice);
+        }
       }
       this.stepEdge();
       this.scheduleSkins(cars);

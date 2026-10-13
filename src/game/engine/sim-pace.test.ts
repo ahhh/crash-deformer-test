@@ -36,7 +36,7 @@ function drawn(hz: number, jitter: number, blend: boolean, scale = 1): Drawn {
   for (let f = 0; f < 3 * hz; f++) {
     const dt = (1 / hz) * (1 + jitter * (next() * 2 - 1));
     simTime += dt * scale;
-    pace.run(dt * scale, scale, FAST, Infinity, (h) => {
+    pace.run(dt * scale, scale, FAST, true, Infinity, (h) => {
       pose.begin(cars);
       car.group.position.z += V * h;
       car.group.rotation.y += SPIN * h;
@@ -115,7 +115,7 @@ function drawnRide(hz: number, blend: boolean): { worstHeight: number; worstTilt
   let simTime = 0;
   for (let f = 0; f < 3 * hz; f++) {
     simTime += 1 / hz;
-    pace.run(1 / hz, 1, FAST, Infinity, (h) => {
+    pace.run(1 / hz, 1, FAST, true, Infinity, (h) => {
       pose.begin(cars);
       body.position.y += BODY_RISE * h;
       body.rotation.x += BODY_TILT * h;
@@ -169,7 +169,7 @@ describe("given a frame that cannot afford all its steps (its time budget runs o
     const pace = new SimPacer();
     const adv = frames.map(({ dt, over }) => {
       let a = 0;
-      pace.run(dt, 1, FAST, over ? -Infinity : Infinity, (h) => (a += h));
+      pace.run(dt, 1, FAST, true, over ? -Infinity : Infinity, (h) => (a += h));
       return a;
     });
     return { adv, lost: pace.lost };
@@ -213,7 +213,7 @@ describe("given a head-on crash at 165 Hz frames, with or without the pose drawn
     let freed = 0;
     let skinned = 0;
     for (let f = 0; f < 165; f++) {
-      pace.run(1 / 165, 1, 22, Infinity, (h) => {
+      pace.run(1 / 165, 1, 22, true, Infinity, (h) => {
         pose.begin(cars);
         stepWorld(w, h);
         settleStep(cars, h, false);
@@ -353,7 +353,7 @@ function device(adaptive: boolean, stepMs: (t: number, n: number) => number, dra
   const log: { at: number; sim: number; h: number }[] = [];
   while (t < seconds * 1000) {
     const t0 = t;
-    pace.run((dt / 1000) * scale, scale, FAST, clock() + PACE_BUDGET_MS, (h) => {
+    pace.run((dt / 1000) * scale, scale, FAST, true, clock() + PACE_BUDGET_MS, (h) => {
       t += stepMs(t, n++);
       stepped += h;
       log.push({ at: t, sim: stepped, h });
@@ -430,6 +430,37 @@ describe("given the adaptive pacer, which steps the sim at 1/120 s on a device t
     assert.ok(cheapCoarse.speed > 0.99, `pinned coarse, ${cheapCoarse.speed}`);
     const free = device(true, () => 4.7, 9.4, 90, 8);
     assert.ok(free.pace.coarseSteps > 0 && free.speed > heavyFine.speed + 0.2, "unpinned: the adaptive pacer is back");
+  });
+});
+
+describe("given the pacer's fine-slice need (a crush window open on some car)", () => {
+  const fine = Math.fround(1 / 240);
+  const coarse = Math.fround(1 / 120);
+  /** The slices one 1/60 s frame runs under `pin` and `fineNeeded` on a pacer with no load. */
+  function slices(pin: boolean | null, fineNeeded: boolean): number[] {
+    const pace = new SimPacer();
+    pace.pin = pin;
+    const hs: number[] = [];
+    pace.run(1 / 60, 1, FAST, fineNeeded, Infinity, (h) => hs.push(h));
+    return hs;
+  }
+
+  it("when no crush window is open and nothing is pinned, then every step is the 1/120 s slice", () => {
+    const hs = slices(null, false);
+    assert.ok(hs.length > 0 && hs.every((h) => h === coarse), `slices ${hs.join(",")}`);
+  });
+
+  it("when a crush window is open and nothing is pinned, then every step is the fine slice", () => {
+    const hs = slices(null, true);
+    assert.ok(hs.length > 0 && hs.every((h) => h === fine), `slices ${hs.join(",")}`);
+  });
+
+  it("when the floor is pinned fine, then the steps are fine whether or not a window is open", () => {
+    assert.ok(slices(false, false).every((h) => h === fine));
+  });
+
+  it("when the floor is pinned coarse, then the steps are coarse even with a window open", () => {
+    assert.ok(slices(true, true).every((h) => h === coarse));
   });
 });
 

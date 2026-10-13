@@ -87,15 +87,18 @@ export class SimPacer {
   /**
    * One frame: `simDt` sim seconds (the frame's wall time at the time scale `scale`) in steps of `vmax`'s slice, each handed
    * to `step`. `deadline` (a `now()` ms) ends the loop once two steps have run, on a clock fine enough to time a step.
+   * `fineNeeded`: a crush window is open on some car, so quiet steps take the fine slice; otherwise 1/120 is the floor
+   * (handling is authored at 1/120, `vehicle-classes.test.ts`). `pin` overrides it.
    */
-  run(simDt: number, scale: number, vmax: number, deadline: number, step: (h: number) => void): void {
+  run(simDt: number, scale: number, vmax: number, fineNeeded: boolean, deadline: number, step: (h: number) => void): void {
     const k = Math.min(1, Math.max(scale, MIN_SCALE));
     if (this.pin !== null) this.coarse = this.pin;
     else if (this.adaptive && this.blind) this.coarse = true;
     else if (this.adaptive) this.choose(simDt / k, simDt / (physicsSlice(Infinity, vmax, FINE_SLICE) * k));
     // float32, as the highlight recorder stores it: a replay runs the live step.
     this.fine = Math.fround(physicsSlice(Infinity, vmax, FINE_SLICE) * k);
-    const h = this.coarse ? Math.fround(physicsSlice(Infinity, vmax, COARSE_SLICE) * k) : this.fine;
+    const fine = this.pin === false || (this.pin === null && fineNeeded && !this.coarse);
+    const h = fine ? this.fine : Math.fround(physicsSlice(Infinity, vmax, COARSE_SLICE) * k);
     this.owed += simDt;
     let steps = 0;
     let t = this.now();
@@ -115,7 +118,7 @@ export class SimPacer {
     }
     this.steps = steps;
     this.total += steps;
-    if (this.coarse) this.coarseSteps += steps;
+    if (!fine) this.coarseSteps += steps;
     if (this.owed > EPS) {
       this.lost += this.owed;
       this.cut++;

@@ -537,7 +537,7 @@ export function copIntoSide(mps: number, coarse: boolean): SideHit {
   let overlapM = 0;
   let quiet = 0;
   for (let t = 0; t < 10 && quiet < 1.5; t += FRAME) {
-    pacer.run(FRAME, 1, sliceSpeed(w.cars), Infinity, (h) => {
+    pacer.run(FRAME, 1, sliceSpeed(w.cars), true, Infinity, (h) => {
       w.fine = pacer.fine;
       stepWorld(w, h);
       for (const car of w.cars) {

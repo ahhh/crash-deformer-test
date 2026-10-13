@@ -271,10 +271,10 @@ function tap(pace: SimPacer, parts: BenchParts): Tap {
       return log;
     },
   };
-  pace.run = (simDt, scale, vmax, deadline, step): void => {
+  pace.run = (simDt, scale, vmax, fineNeeded, deadline, step): void => {
     const t0 = performance.now();
     const lost0 = pace.lost;
-    run.call(pace, simDt, scale, vmax, deadline, step);
+    run.call(pace, simDt, scale, vmax, fineNeeded, deadline, step);
     t.simMs += performance.now() - t0;
     t.simS += simDt - (pace.lost - lost0);
   };

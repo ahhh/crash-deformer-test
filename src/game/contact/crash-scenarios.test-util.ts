@@ -200,7 +200,7 @@ export function tickWorld(w: CrashWorld, wallDt = FRAME, pace?: SimPacer): void 
       car.stepBreakage(h);
     }
   };
-  if (pace) pace.run(simDt, w.clock.timeScale, vmax, Infinity, step);
+  if (pace) pace.run(simDt, w.clock.timeScale, vmax, true, Infinity, step);
   else {
     w.acc = Math.min(0.05, w.acc + simDt);
     let steps = 0;

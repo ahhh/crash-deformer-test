@@ -161,7 +161,7 @@ export function frame(w: World, state: { acc: number }, slice?: (h: number) => v
     fixedStep(w, h);
     settleStep(cars, h, false);
   };
-  if (pace) pace.run(FRAME, 1, vmax, Infinity, step);
+  if (pace) pace.run(FRAME, 1, vmax, true, Infinity, step);
   else {
     state.acc = Math.min(0.05, state.acc + FRAME);
     let steps = 0;
