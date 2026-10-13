@@ -786,10 +786,10 @@ export class CrashEngine extends EngineGarage {
       this.view.frameDrive(followed, wallDt, this.playing);
       return;
     }
-    // Following (spectating) off the rigs: the chosen spectator cam; the orbit falls through.
+    // Following (spectating): the chosen spectator cam, on the rigs too (their default is the orbit, which falls through).
     if (this.seat.mode === "global") this.view.spec = null;
     const spec = this.view.specView(this.race.chase);
-    if (followed && followed.group.visible && !this.rigScene && this.view.frameSpectate(followed, spec, this.specScene, wallDt, this.playing)) return;
+    if (followed && followed.group.visible && this.view.frameSpectate(followed, spec, this.specScene, wallDt, this.playing)) return;
     const look = this.view.look;
     if (followed && followed.group.visible) {
       // Over the car's own height: a race course climbs hills and bridges.

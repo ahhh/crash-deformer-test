@@ -1,6 +1,6 @@
 import { Fragment, type RefObject } from "react";
 import * as Popover from "@radix-ui/react-popover";
-import { BrickWall, ChevronDown, ChevronUp, CircleDot, CircleHelp, Pause, Play, RotateCcw, SlidersHorizontal, TriangleRight } from "lucide-react";
+import { BrickWall, ChevronDown, ChevronUp, CircleDot, CircleHelp, Pause, Play, RotateCcw, SlidersHorizontal, TriangleRight, Video } from "lucide-react";
 import { DerbyBoard, DoorPanel, LabPanel, PistonPanel, RangePanel, StackPanel } from "@/components/hud-panels";
 import { GaragePanel } from "@/components/garage-panel";
 import { HUD_SECTIONS_KEY, HudSections } from "@/components/hud-sections";
@@ -238,7 +238,7 @@ export function Hud(props: HudProps) {
         {state.race ? (
           <SpectateBar race={state.race} pad={state.pad !== null} cam={state.cam && CAM_LABEL[state.cam]} onCommand={raceCommand} onCam={() => engine.current?.cycleCamera()} />
         ) : null}
-        {!focus && (state.seat !== "global" || state.pad) && !state.race?.spectating ? <DriveHint state={state} touch={touch} /> : null}
+        {!focus && (state.seat !== "global" || state.pad) && !state.race?.spectating ? <DriveHint state={state} touch={touch} engine={engine} /> : null}
         {/* The Lab's control is the flick on the view itself, the garage's the pickers and the can: no stick, no car buttons. */}
         {touch && !state.lab && !state.garage ? <TouchControls {...props} /> : null}
         {focus && state.race ? (
@@ -354,8 +354,8 @@ function Readout({ label, value, unit, className }: { label: string; value: stri
 /** The reset entry of a seat hint's key list ("R respawn", "D-pad ↓ recover"): what glows while the car needs a reset. */
 const RESET_KEY = /^(R|D-pad ↓) (respawn|recover)$/;
 
-/** Seat keys and the controller label, inked straight onto the view above the dock so it never covers a control. Touch screens drop the key list: their buttons carry captions. */
-function DriveHint({ state, touch }: { state: CrashHudState; touch: boolean }) {
+/** Seat keys and the controller label, inked straight onto the view above the dock so it never covers a control. Touch screens drop the key list: their buttons carry captions (the View one is on the thumb pad). Watching shows the View button: the camera cycle, named for the view it shows. */
+function DriveHint({ state, touch, engine }: { state: CrashHudState; touch: boolean; engine: HudProps["engine"] }) {
   const { title, keys } = seatHint(state);
   const glow = resetGlow(state);
   return (
@@ -364,6 +364,12 @@ function DriveHint({ state, touch }: { state: CrashHudState; touch: boolean }) {
         {title}
         {state.pad ? <span className="hud-label ml-2 text-fg/80">{state.pad} connected</span> : null}
       </p>
+      {!touch && state.cam ? (
+        <Button variant="ghost" className="hud-ink pointer-events-auto -ml-2 h-8 gap-1.5 px-2 text-fg/80 hover:bg-surface/60 hover:text-fg" aria-label="Camera view" aria-keyshortcuts="V" title={`Camera view · ${state.pad ? "Y" : "V"}`} onMouseDown={(e) => e.preventDefault()} onClick={() => engine.current?.cycleCamera()}>
+          <Video />
+          <span className="text-xs">View · {CAM_LABEL[state.cam]}</span>
+        </Button>
+      ) : null}
       {touch ? null : (
         <p className="text-xs leading-snug text-fg/80">
           {keys.split(" · ").map((key, i) => (

@@ -394,6 +394,11 @@ export abstract class EngineScenes extends EngineDerby {
     this.stage.ground.scale.setScalar(this.showCorkscrew ? 3 : 1);
     // The Lab's, the garage's and the derby arena's art replace the pad.
     for (const o of this.studio) o.visible = !this.showLab && !this.showGarage && !this.derbyMode;
+    // A rig owns its car (the press and rams move it, the corkscrew's spawn speed coasts it): a reset hands it back from the driver, whose pedals would unpark it and brake the run.
+    if (this.rigScene && !this.showStack && this.seat.mode === "drive") {
+      this.seat.esc();
+      this.emitHud();
+    }
     if (this.showCompactor) {
       this.parkCompactor();
       this.finishResetCommon();

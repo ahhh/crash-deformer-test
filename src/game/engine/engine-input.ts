@@ -715,10 +715,10 @@ export abstract class EngineInput extends EngineRigs {
     this.emitHud();
   }
 
-  /** View (V / T / Y, the HUD camera button): the driven car's chase view, or the followed car's spectator cam (not on the rigs). */
+  /** View (V / T / Y, the HUD camera button): the driven car's chase view, or the followed car's spectator cam (the rigs' too: the orbit is their default). */
   cycleCamera(): void {
     if (this.seat.mode === "drive") this.seat.cycleView();
-    else if (this.seat.mode === "follow" && !this.rigScene) this.view.cycleSpec(this.race.chase);
+    else if (this.seat.mode === "follow") this.view.cycleSpec(this.race.chase);
     this.emitHud();
   }
 
