@@ -16,14 +16,6 @@ import { FACES, faceFollow, IMPRINT_NONE } from "./load-crush.ts";
 import { PushBudget } from "./push-budget.ts";
 import { hypot3, hypot2 } from "../kernel/physics-core.js";
 
-/**
- * Burnout-style streamed deformation.
- *
- * Cages are 8-corner FFD volumes that shear, hinge, and accordion — not
- * rigid AABBs. Crumple-zone masses keep moving into the contact plane while
- * the passenger cell is what SAT actually separates.
- */
-
 /** Numbers a `simState` block spends on the rig’s scalar fields (`simScalarsOut`: 47 fields, one double each). */
 export const SIM_SCALAR_NUMBERS = 47;
 
@@ -131,23 +123,17 @@ export interface Beam {
   restDir: THREE.Vector3;
 }
 
-/** Masses the solver reads by role every step; resolved once in the constructor. */
 type KeyMass = "cell" | "roof" | "engineL" | "engineR" | "axleR" | "doorL" | "doorR" | "hubFL" | "hubFR" | "hubRL" | "hubRR" | "bumperFL" | "bumperFR" | "bumperRL" | "bumperRR";
 
-/**
- * The soft body's state and build: every field, the constructor (cages, sensors, masses, beams, lattice and
- * cluster skin tables). Layers stack `DeformRig` → `DeformHit` → `DeformState` → `DeformContact` →
- * `DeformSolve` → `StreamedDeformation` (one class split by context; `StreamedDeformation` is the one anything
- * constructs).
- */
+/** The soft body's state and build. Layers stack `DeformRig` → `DeformHit` → `DeformState` → `DeformContact` → `DeformSolve` →
+ *  `StreamedDeformation` (one class split by context; the last is what anything constructs). */
 export abstract class DeformRig {
   readonly cageCount: number;
   readonly sensorCount: number;
   dirty = false;
   /** True after this frame's skin() — panels skip computeVertexNormals otherwise. */
   skinnedThisFrame = false;
-  /** Owner's per-frame LoD verdict: the car is off-screen or tiny, so skip the vertex skin
-   *  (the cage/shape solve still runs). */
+  /** Owner's per-frame LoD verdict: the car is off-screen or tiny, so skip the vertex skin (the cage/shape solve still runs). */
   skinDeferred = false;
   /** A skin was skipped since the mesh was last written — `flushSkin` before the car is seen. */
   skinOwed = false;
@@ -241,9 +227,7 @@ export abstract class DeformRig {
   protected readonly pose = new Float64Array(15);
   /** `yawMomentum`'s held angular momentum: [0] clampLocal's, [1] separateAlong's, [2] stepShapeMatch's, [3] the slide drag's (`stepMassSlice`, `dragGround`). */
   protected readonly spinHeld = new Float64Array(4);
-  /** `measureStroke` output. */
   protected readonly strokeOut = new Float64Array(1);
-  /** The current hit is a re-armed one (`rearmHit`), not the crash's first. */
   protected rearmed = false;
   /** `elapsed` of the last throttle input (`notifyPower`). */
   protected lastPower = -0;
@@ -262,7 +246,6 @@ export abstract class DeformRig {
   protected beams: Beam[];
   protected readonly at: Record<KeyMass, MassNode>;
   protected readonly byName: Map<MassName, MassNode>;
-  /** Hub → mount spring pairs. */
   protected readonly suspension: readonly (readonly [MassNode, MassNode])[];
   protected readonly cageByPart: Map<BodyPartName, Cage>;
   protected _totalMass = 1;
@@ -280,9 +263,8 @@ export abstract class DeformRig {
   }
 
   /**
-   * The turn rate (rad/s) the wreck's position corrections made and its body's spin lacks: the planted write-back's over the last timed
-   * `followGroup`, and a driven wreck's steer (held `DRIVE_TURN_HOLD` after `applyDrive` set it). A readout, never `car.angular`; a car's
-   * yaw rate is `DeformableCar.yawRate`.
+   * The turn rate (rad/s) the wreck's position corrections made and its body's spin lacks: the planted write-back's over the last
+   * timed `followGroup`, plus a driven wreck's steer (held `DRIVE_TURN_HOLD` after `applyDrive`). A readout, never `car.angular`.
    */
   get keptSpin(): number {
     const driven = this.drivetrainAlive && this.elapsed - this.keptTurn[2]! < DRIVE_TURN_HOLD ? this.keptTurn[1]! : 0;
@@ -304,10 +286,8 @@ export abstract class DeformRig {
   protected frameVy = 0;
   /** The slice's position corrections (pair pushes, mass-sphere shifts, wall translations): one net budget. */
   protected readonly push = new PushBudget();
-  /**
-   * `elapsed` at the start of the world slice being stepped (`beginSlice`), the `push` window of everything in it;
-   * negative outside one (the sim clock keys it). A double from the start: a Smi field's first double write changes the maps.
-   */
+  /** `elapsed` at the start of the world slice being stepped (`beginSlice`), the `push` window of everything in it; negative
+   *  outside one. A double from the start: a Smi field's first double write changes the maps. */
   protected sliceAt = -1.5;
   /** The slice's length (s) and the faster of the touching cars in it (m/s): what the drift cap (`settleDrift`) grows with. */
   protected sliceDt = 1 / 60;
@@ -329,7 +309,6 @@ export abstract class DeformRig {
   buckle = DEFAULT_BUCKLE;
   mode: DeformMode = "shape";
   protected clusters: ShapeCluster[] = [];
-  /** Per-cluster absorption (its owner cage's), fixed at build time. */
   protected clusterAbsorb = new Float64Array(0);
   protected clusterOwner: BodyPartName[] = [];
   protected shapeParticles: ShapeParticle[] = [];
@@ -363,33 +342,27 @@ export abstract class DeformRig {
   protected skinRest: { x: number; y: number; z: number }[] = [];
   protected skinLocal: { x: number; y: number; z: number }[] = [];
   protected skinMassN: number[] = [];
-  /**
-   * A5 skin anchors: per skin point (vertices, then cage corners) up to RES_SLOTS parent masses
-   * (×3 offsets into `massPos`), their weights, and their weighted rest centroid; `massPos` is the
-   * masses' local positions at the last bake.
-   */
+  /** A5 skin anchors: per skin point (vertices, then cage corners) up to RES_SLOTS parent masses (×3 offsets into `massPos`),
+   *  their weights and weighted rest centroid; `massPos` is the masses' local positions at the last bake. */
   protected resJ = new Int32Array(0);
   protected resW = new Float64Array(0);
   protected resC = new Float64Array(0);
   protected massPos = new Float64Array(0);
-  /** Netplay: skin inputs as of the last bake (`bakeLocalSkin`), read by `readNetState`. Kept apart
-   *  because the post-contact shape-rest rebase resets every cluster's `skinM` under a frozen skin. */
+  /** Netplay: skin inputs as of the last bake (`bakeLocalSkin`), read by `readNetState`: the post-contact shape-rest rebase resets every cluster's `skinM` under a frozen skin. */
   protected netSkinXf = new Float64Array(0);
   protected readonly netImpact = Float64Array.of(0, 0, 0, 0, 0, 0, 0, 0, 0, IMPRINT_NONE, 0, 0);
   protected netPopped = 0;
   protected netFlags = 0;
   /**
    * Load crush (load-crush.ts): each face's crush depth (m), the depth already baked into the masses (`bakeLoadCrush`),
-   * how much each mass follows each face (rest-only), and a changed-since-the-skin-read mark. Typed arrays, not scalar
-   * fields, so the solver-state layout (`simState`) stays what it was. `imprint`: the plane the roof was last pressed to
-   * (`IMPRINT_NONE` until a load crushes it), which cuts the drawn skin and the top other cars stand on alike.
+   * how much each mass follows each face (rest-only), and a changed-since-the-skin-read mark; typed arrays keep the
+   * `simState` layout. `imprint`: the plane the roof was last pressed to (`IMPRINT_NONE` until a load crushes it).
    */
   readonly crush = new Float64Array(FACES);
   protected readonly crushBaked = new Float64Array(FACES);
   readonly imprint = Float64Array.of(IMPRINT_NONE, 0, 0);
   protected readonly loadW: Float64Array;
   protected readonly loadDirty = new Uint8Array(1);
-  /** The style's rig overrides, kept (a shared reference) for `rebuildRunStructures`. */
   private readonly rig: RigOverrides;
 
   constructor(geometry: THREE.BufferGeometry, rig: RigOverrides = {}) {
@@ -483,14 +456,12 @@ export abstract class DeformRig {
   }
 
   /**
-   * Every per-run scalar, vector and buffer to its construction value: the constructor's last step, and `reset`'s
-   * with `rebuildRunStructures`, so a reset car runs exactly like a fresh one (a race replayed on the same cars,
-   * netplay). Settings (`squash`, `buckle`, `mode`, `killTravel`, `wreckEnergy`, `frameCrush`, `wheelsDetach`),
-   * helpers and the rest-only tables stay.
-   * Fields declared `-0` (here, and the masses' and sensors' in their literals) hold a double from construction.
-   * A Smi field's first double write changes the maps: each race car's first crash, first re-arm and first drive
-   * as a wreck deoptimised 60–100 physics functions mid-race, which then ran unoptimised for seconds.
-   * The declarations keep those `-0`s; the sentinels below go on over them.
+   * Every per-run scalar, vector and buffer to its construction value: the constructor's last step, and `reset`'s with
+   * `rebuildRunStructures`, so a reset car runs exactly like a fresh one. Settings (`squash`, `buckle`, `mode`, `killTravel`,
+   * `wreckEnergy`, `frameCrush`, `wheelsDetach`), helpers and the rest-only tables stay.
+   * Fields declared `-0` (here, and the masses' and sensors' in their literals) hold a double from construction: a Smi
+   * field's first double write changes the maps, which deoptimised 60–100 physics functions mid-race on each car's
+   * first crash, re-arm and drive as a wreck.
    */
   protected initRunState(): void {
     this.dirty = false;
@@ -565,9 +536,8 @@ export abstract class DeformRig {
   }
 
   /**
-   * After `clampLocal`: where each hub stands in the frame, for the planted anchor (`measurePose`). A planted hub is not
-   * written back, its `local` is its pin (`rest` + shove) and `hubStand` keeps the point `followGroup` read it at (its
-   * world, 0.1–0.5 m off the pin); any other hub stands at its clamped local.
+   * After `clampLocal`: where each hub stands in the frame, for the planted anchor (`measurePose`). A planted hub's `local`
+   * is its pin (`rest` + shove), so `hubStand` keeps the point `followGroup` read it at (0.1–0.5 m off the pin).
    */
   protected settleHubStand(pinned: boolean): void {
     for (let mi = 0; mi < this.masses.length; mi++) {
@@ -579,10 +549,7 @@ export abstract class DeformRig {
     }
   }
 
-  /**
-   * Rest-only skin tables: cluster weights per vertex and per cage corner, the parent masses of
-   * every skin point (A5), and the hub that plants each arch vertex.
-   */
+  /** Rest-only skin tables: cluster weights per vertex and cage corner, the parent masses of every skin point (A5), the hub that plants each arch vertex. */
   private buildSkinWeights(): void {
     const n = this.vertexCount;
     const points = n + this.cages.length * 8;
@@ -611,18 +578,16 @@ export abstract class DeformRig {
       m = Math.max(m, 1e-8);
       return { x: x / m, y: y / m, z: z / m };
     });
-    // D1: skin in the cabin section (the chassisCell cage's z span, above its floor) follows only
-    // the clusters that hold the cell mass, so A-pillar and footwell skin cannot ride the crushed
-    // nose into the cabin. Within CELL_FACE_BLEND of the section's front or rear face up to
-    // CELL_FACE_SHARE of the nearest other cluster blends back in, so the pillar foot still creases.
+    // D1: skin in the cabin section (the chassisCell cage's z span, above its floor) follows only the clusters that
+    // hold the cell mass, so A-pillar and footwell skin cannot ride the crushed nose into the cabin. Within
+    // CELL_FACE_BLEND of the span's front or rear face up to CELL_FACE_SHARE of the nearest other cluster blends back in.
     const span = this.cageByPart.get("chassisCell")!;
     const cellMass = this.masses.indexOf(this.at.cell);
     const holdsCell = this.clusters.map((c) => c.idx.includes(cellMass));
     const inCell = (x: number, y: number, z: number): boolean => z >= span.min.z && z <= span.max.z && y >= span.min.y;
-    // A5 parents: the RES_K nearest non-hub masses by 1/(d² + RES_SOFT), less the (RES_K+1)th's
-    // weight so a parent fades out before it is swapped (no seam where the nearest set changes).
-    // D1 again: a cabin point takes cabin masses only, plus the cell-face share of the nearest
-    // other mass. resC is the parents' weighted rest centroid.
+    // A5 parents: the RES_K nearest non-hub masses by 1/(d² + RES_SOFT), less the (RES_K+1)th's weight so a
+    // parent fades out before it is swapped (no seam where the nearest set changes). A cabin point takes
+    // cabin masses only (D1), plus the cell-face share of the nearest other mass.
     const body = this.masses.flatMap((m, j) => (m.hub ? [] : [j]));
     const cabinBody = body.filter((j) => inCell(this.masses[j]!.rest.x, this.masses[j]!.rest.y, this.masses[j]!.rest.z));
     const outside = body.filter((j) => !cabinBody.includes(j));
@@ -779,7 +744,6 @@ export abstract class DeformRig {
     return o + SIM_SCALAR_NUMBERS;
   }
 
-  /** The scalar fields restored from `buf` (`simScalarsOut`). */
   protected simScalarsIn(buf: Float64Array, o: number): number {
     this.crushAmount = buf[o]!;
     this.massActive = buf[o + 1]! !== 0;

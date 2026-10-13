@@ -33,20 +33,15 @@ const HUB_OVERRUN_MPS = 3;
 
 const _a = new THREE.Vector3();
 const _n = new THREE.Vector3();
-/**
- * `clampMass`'s per-call doubles: [0] ix, [1] iz, [2] maxAway, [3] maxCrush, [4] stroke. Passed as arguments to
- * the out-of-line call, all five were boxed per mass.
- */
+/** `clampMass`'s per-call doubles: [0] ix, [1] iz, [2] maxAway, [3] maxCrush, [4] stroke (as arguments to the out-of-line call all five were boxed per mass). */
 const _clamp = new Float64Array(5);
 /** `sampleGround`'s query point, and the height and grip of its last `readGround` (no boxed doubles cross the call). */
 const _pq = new Float64Array(PQ_SIZE);
 const _read = new Float64Array(2);
 const READ_H = 0;
 const READ_GRIP = 1;
-/**
- * How far (m, plan) fore and aft of a wreck's hub `sampleGround` also reads what its tyre can rest on, and how far (m) the
- * tyre's arc stands there over its bottom: R − √(R² − d²), its whole radius at d = R.
- */
+/** How far (m, plan) fore and aft of a wreck's hub `sampleGround` also reads what its tyre can rest on, and how far (m) the
+ *  tyre's arc stands there over its bottom: R − √(R² − d²), its whole radius at d = R. */
 const TREAD_FORE = TYRE_R;
 const TREAD_DROP = TYRE_R - Math.sqrt(TYRE_R * TYRE_R - TREAD_FORE * TREAD_FORE);
 
@@ -61,9 +56,9 @@ function readGround(ground: Ground, grip: boolean): void {
 const SHAPE_REF_HZ = 240;
 /** Largest goal step per SHAPE_REF_HZ slice (m): a 33.6 m/s pull limit. */
 const SHAPE_MAX_STEP = 0.14;
-/** Sim seconds a fed contact keeps the solver in contact mode: two 60 Hz frames. With one, the free
- *  solver (4 passes at α 0.64 at squash 0.32) closed a 100 km/h head-on's remaining shape gap in the
- *  slice after the tyres stopped both cars: bumpers 0.056 m with every mass at rest (limit 0.050). */
+/** Sim seconds a fed contact keeps the solver in contact mode: two 60 Hz frames. With one, the free solver (4 passes at α 0.64
+ *  at squash 0.32) closed a 100 km/h head-on's remaining shape gap in the slice after the tyres stopped both cars: bumpers
+ *  0.056 m with every mass at rest (limit 0.050). */
 const CONTACT_HOLD = 2 / 60;
 
 /** `clampMass`'s vertical travel cap (m): roof (more once a deep crush is on, and its load crush `sunk` already taken) and cabin floor, hubs, the rest. */
@@ -79,18 +74,14 @@ function maxLift(m: MassNode, deep: boolean, sunk: number): number {
         : 0.11;
 }
 
-/**
- * The mass solver: shape clamp, turn and momentum guards, beams, shape matching, the cabin fold, mass slices, ground and suspension.
- */
 export abstract class DeformSolve extends DeformContact {
 
   protected clampLocal(group: THREE.Object3D): void {
     const ix = this.impactInward.x;
     const iz = this.impactInward.z;
     const maxAway = 0.025 + this.squash * 0.04;
-    // A squeeze's relaxed shape limits stay until reset: clamping a squeezed shape back to the one-ended
-    // limits when the squeeze ended popped the dents out (fire("all"): bumperFL 0.49 → 0.30 m in 1 s).
-    // Only the squeeze's rules (origin pin, no planting, no re-arm) end with it.
+    // A squeeze's relaxed shape limits stay until reset: clamping back to the one-ended limits when the squeeze ended popped the
+    // dents out (fire("all"): bumperFL 0.49 → 0.30 m in 1 s). Only its rules (origin pin, no planting, no re-arm) end with it.
     if (this.bidirectional) this.squeezeShape = true;
     if (this.deepCrush) this.deepShape = true;
     const squeeze = this.squeezeShape;
@@ -105,9 +96,9 @@ export abstract class DeformSolve extends DeformContact {
     const sideHit = Math.abs(ix) > Math.abs(iz);
     this.yawMomentum(0, false);
     const pinned = !this.deepCrush && this.quietTime() > PLANT_QUIET;
-    // A squeeze's plates pin the shape in the world frame and planted tyres pin a quiet wreck: both keep
-    // the plain write-back. Undoing its turn on a planted wreck turned the body against its hubs each
-    // call and let a capped door drift 36–118 µm off its cap (left piston 60–80 km/h).
+    // A squeeze's plates pin the shape in the world frame and planted tyres pin a quiet wreck: both keep the plain write-back.
+    // Undoing its turn on a planted wreck turned the body against its hubs each call and let a capped door drift 36–118 µm off
+    // its cap (left piston 60–80 km/h).
     const unturn = !squeeze && !pinned;
     if (!squeeze) this.holdTurn();
     _clamp[0] = ix;
@@ -133,10 +124,9 @@ export abstract class DeformSolve extends DeformContact {
       eL.world.copy(eL.local).applyMatrix4(group.matrixWorld);
       eR.world.copy(eR.local).applyMatrix4(group.matrixWorld);
     }
-    // The write-back reshapes the wreck toward the frame; it must not turn it. Read off an axis that a
-    // shove bent (engine → axle), the frame turned and the clamp turned the whole cloud after it with
-    // no torque: derby seed 3 c4 0.45 rad in 0.15 s, seed 4 c8 0.78 rad, ΔL = 0. The frame follows the
-    // cloud on the next read instead.
+    // The write-back reshapes the wreck toward the frame; it must not turn it. Read off an axis a shove bent (engine → axle), the
+    // frame turned and the clamp turned the whole cloud after it with no torque (derby seed 3 c4 0.45 rad in 0.15 s, seed 4 c8
+    // 0.78 rad, ΔL = 0). The frame follows the cloud on the next read instead.
     if (unturn) this.undoTurn();
     else if (!squeeze) this.carryTurn();
     // The clamp moves positions only: writing back a crushing body (its front masses slower than its
@@ -222,10 +212,9 @@ export abstract class DeformSolve extends DeformContact {
       // stroke is the struck end's total (rearmHit), so a node already crushed along it gets less.
       const cabin = m.name === "cell" || m.name === "roof";
       let cap = cabin ? (deep ? 0.72 : 0.12) : Math.min(maxCrush * (0.38 + 0.72 * cw), stroke);
-      // A side door's crush is its travel against the cell, not against the frame: the rigid body owns the wreck's pose, so the
-      // cell rides inward in the frame during the hit, and a frame-absolute cap and set cut the door's crush by the cell's travel.
-      // A door past its cap is packed on the cell: what the face pushes it past the cap goes to the cell (to the cabin's own cap),
-      // not back into the face, which pushed it in again after every clamp (the 50 km/h wall's door read 0.299 m, band 0.12-0.28).
+      // A side door's crush is its travel against the cell, not the frame: the cell rides inward in the frame during the hit, so a
+      // frame-absolute cap and set cut the door's crush by the cell's travel. What the face pushes a door past its cap goes to the
+      // cell (to the cabin's own cap), not back into the face, which pushed it in again every clamp (50 km/h wall: door 0.299 m, band 0.12-0.28).
       const door = sideHit && (m.name === "doorL" || m.name === "doorR");
       let into = 0;
       if (door) {
@@ -299,11 +288,9 @@ export abstract class DeformSolve extends DeformContact {
     m.world.copy(m.local).applyMatrix4(group.matrixWorld);
   }
 
-  /**
-   * The engine block's z travel (`dz`) under a frontal hit: the mounts hold it (ENGINE_SLACK past earlier hits'
-   * set, `bz`) until the crushed nose packs against it; the packed nose then shoves it back, as far as this hit's
-   * stroke reaches. A floor at the stroke's reach let a 43 km/h hit creep the block 0.045 m with 0.58 m of nose left.
-   */
+  /** The engine block's z travel (`dz`) under a frontal hit: the mounts hold it (ENGINE_SLACK past earlier hits' set, `bz`) until
+   *  the crushed nose packs against it; the packed nose then shoves it back as far as this hit's stroke reaches. A floor at the
+   *  stroke's reach let a 43 km/h hit creep the block 0.045 m with 0.58 m of nose left. */
   private engineMountDz(m: MassNode, dz: number, bz: number, stroke: number): number {
     const nose = Math.min(this.at.bumperFL.local.z, this.at.bumperFR.local.z);
     const pushed = nose - ENGINE_PACK_GAP - m.rest.z;
@@ -425,9 +412,8 @@ export abstract class DeformSolve extends DeformContact {
         : 0.32 + this.squash * 0.38
       : goalAlpha(this.squash);
     const iters = contacting ? 2 : stiffnessIters(this.squash);
-    // alphaRef is the per-iteration pull at the SHAPE_REF_HZ slice: as a time constant
-    // (x += (1 − e^{−h/τ})(g − x), XPBD's first-order form) the pull per sim second holds
-    // at any slice length, so slow-mo and refresh rate leave the stiffness alone.
+    // alphaRef is the per-iteration pull at the SHAPE_REF_HZ slice; as a time constant (x += (1 − e^{−h/τ})(g − x)) the pull
+    // per sim second holds at any slice length, so slow-mo and refresh rate leave the stiffness alone.
     const alpha = 1 - Math.pow(1 - alphaRef, dt * SHAPE_REF_HZ);
     const maxStep = SHAPE_MAX_STEP * dt * SHAPE_REF_HZ;
     const ix = this.impactInward.x;
@@ -473,10 +459,9 @@ export abstract class DeformSolve extends DeformContact {
           // Plates already pin the bumpers; don't let shape-match shove them deeper.
           // Cabin / rails must still be allowed to yield once the plates pass the hubs.
           if (hub.bumper && Math.abs(gz) < Math.abs(p.z)) gz = p.z;
-          // The roof's squeeze goal keeps its height in the car body's frame. Kept at its height in the world, a pressed car pitched
-          // 0.045 rad had the roof's goal moved 60 mm a frame along the road, which the clamp returned along the body's own axes,
-          // leaving 2.7 mm down the body's up each frame. That sank the held roof 112 mm. With every particle's goal kept in the
-          // body frame, the rails folded 0.193 m instead of 0.213 m at the maximum.
+          // The roof's squeeze goal keeps its height in the car body's frame. Kept in the world, a car pressed at 0.045 rad pitch had the goal
+          // moved 60 mm a frame along the road; the clamp returned it along the body's axes, sinking the held roof 112 mm (2.7 mm a frame).
+          // With every goal kept in the body frame the rails folded 0.193 m instead of 0.213 m at the maximum.
           gy = hub.name === "roof" ? p.y - ((gx - p.x) * upX + (gz - p.z) * upZ) / upY : p.y;
         } else {
           const along = (gx - p.x) * ix + (gz - p.z) * iz;
@@ -499,12 +484,10 @@ export abstract class DeformSolve extends DeformContact {
         p.z += az;
       }
     }
-    // Internal goals exert no net torque. Yaw is always removed (no hub, wheel or ground restores it, so
-    // overlapping plastic rests would otherwise turn the wreck); once nothing pushes the body (no fed contact, no
-    // face holding particles) pitch goes too: left in, the front clusters' nose-up fit (17 deg after a 50 km/h wall)
-    // lifted the wing and bumper 0.12 m above their seat while `clampLocal` pulled the cabin masses back, and a quiet
-    // wreck holds them there. Roll stays: the planted hubs' restoring roll is in the correction, and a side shove's
-    // spin is real motion that removal turned into a permanent opposite-signed tilt (the far side 0.07-0.10 m off).
+    // Internal goals exert no net torque. Yaw is always removed (nothing restores it, so overlapping plastic rests would turn
+    // the wreck); once nothing pushes the body pitch goes too: left in, the front clusters' nose-up fit (17 deg after a 50 km/h
+    // wall) lifted the wing and bumper 0.12 m above their seat, and a quiet wreck holds them there. Roll stays: the planted
+    // hubs restore it, and a side shove's spin is real motion that removal turned into a permanent tilt (far side 0.07-0.10 m off).
     this.removeNetSpin(comX / comM, comY / comM, comZ / comM, contacting || this.faceContacts > 0);
     if (!contacting) {
       let comX1 = 0,
@@ -542,11 +525,9 @@ export abstract class DeformSolve extends DeformContact {
   }
 
   /**
-   * Takes the net turn out of this step's shape-match correction (`startX/Y/Z` to the particles now) about the
-   * centroid `(cx, cy, cz)`: a small-angle `ω = I⁻¹ Σ m r × Δ` (inertia tensor solved against the correction's
-   * angular momentum), then each particle takes the yaw and pitch part of `-ω × r`: roll is the planted hubs'
-   * to restore and a side shove's to keep. While the body is pushed (`pushed`) only the turn about up goes: the
-   * wall's, the face's or the other car's push is the external torque on pitch.
+   * Takes the net turn out of this step's shape-match correction (`startX/Y/Z` to the particles now) about the centroid
+   * `(cx, cy, cz)`: a small-angle `ω = I⁻¹ Σ m r × Δ`, then each particle takes the yaw and pitch part of `-ω × r` (roll is the
+   * planted hubs' to restore and a side shove's to keep). While the body is `pushed` only the turn about up goes: the push is the external torque on pitch.
    */
   private removeNetSpin(cx: number, cy: number, cz: number, pushed: boolean): void {
     let lx = 0,
@@ -650,9 +631,8 @@ export abstract class DeformSolve extends DeformContact {
     const live = this.live();
     if (this.mode === "shape") {
       if (live) {
-        // Shape matching moves positions only, so over the masses' velocities each correction moved Σ m r × v: a car shoved
-        // against a wall went 0.9 → 7.5 rad/s with the matching alone adding 6400 kg·m²/s in 1.2 s (derby seed 8, c6).
-        // Its goals are internal: the angular momentum it moved is handed back as a rigid turn, as clampLocal's is.
+        // Shape matching moves positions only, so each correction over the masses' velocities moved Σ m r × v: a car shoved against a wall
+        // went 0.9 → 7.5 rad/s (6400 kg·m²/s in 1.2 s, derby seed 8 c6). Its goals are internal: the momentum is handed back as a rigid turn.
         this.yawMomentum(2, false);
         this.stepShapeMatch(dt);
         this.yawMomentum(2, true);
@@ -715,15 +695,13 @@ export abstract class DeformSolve extends DeformContact {
     }
   }
 
-  /** A course's ground (hills, bridge decks; 0 and grip 1 on the flat pad) under every dynamic mass on its own
-   *  layer, where it stands now, and the grip where there is ground: one read under each mass. An attached hub's is
-   *  what its tyre rests on, the highest ground within its radius: the read under it and one `TREAD_FORE` fore and aft
-   *  along its rolling plane (the heading), each lowered by the tyre's arc there. Read under its centre alone, a wreck's
-   *  hub 2 cm short of a wedge's high end, its tyre in the end's face, read the gap's floor 1.2 m down: the band's top
-   *  over the hubs held the frame 0.25 m under its cell, and the anchor's read stepping onto the wedge snapped it there
-   *  in one slice (19.7 m/s). The fore and aft points are read only where the highest the ground stands within
-   *  `TREAD_FORE` of the hub (`staticTop`), lowered by `TREAD_DROP`, is above the centre's read: elsewhere neither can
-   *  win. The grip is read once, at the read that wins: the centre's, or a side's again. */
+  /** A course's ground (hills, bridge decks; 0 and grip 1 on the flat pad) under every dynamic mass on its own layer, and the
+   *  grip where there is ground. An attached hub's is what its tyre rests on, the highest ground within its radius: the read
+   *  under it and one `TREAD_FORE` fore and aft along its heading, each lowered by the tyre's arc there. The centre alone
+   *  read a wedge's gap floor 1.2 m down under a hub 2 cm short of its high end, holding the frame 0.25 m under its cell
+   *  until the anchor's read stepping onto the wedge snapped it up in one slice (19.7 m/s). The side points are read only
+   *  where `staticTop` within `TREAD_FORE` of the hub, lowered by `TREAD_DROP`, is above the centre's read. The grip is read
+   *  once, at the read that wins. */
   protected sampleGround(floor: Float64Array, grip: Float64Array | null): void {
     const ground = activeGround();
     const withGrip = grip !== null;
@@ -767,8 +745,7 @@ export abstract class DeformSolve extends DeformContact {
     }
   }
 
-  /** A3: the block is one casting — engineL/engineR keep their rest spacing and share their
-   *  velocity along it (mass-weighted), whatever the crumple does around them. */
+  /** A3: the block is one casting: engineL/engineR keep their rest spacing and share their velocity along it (mass-weighted). */
   private holdEngineBlock(): void {
     const a = this.at.engineL;
     const b = this.at.engineR;
