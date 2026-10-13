@@ -13,7 +13,7 @@ Status: idea → probed (measured in node) → lane (an agent is landing it in i
 | A5 | Tread: lazy slopes (gridAt NEED_ALL for every candidate; only the winner's normal is used) | ~4 M cellSlopes per 1500 frames: small | exact | measured small, parked |
 | A6 | Pre-filter the per-asker tops list by the owner rule (22.9 M owner-rejects after the box test) | ~0.06 ms/frame | exact | parked |
 | A7 | Per-car cached candidate list (statics+solids+tops) in a swept box padded a few steps ahead, refilled only when the car leaves it; one box test per step skips the whole point loop when nothing can touch (Carmageddon `GetFacesInBox`/`CollCheck`) | unmeasured; would cut `seek`'s per-point `find(statics)+find(solids)` | exact if the box is a true bound | idea |
-| A8 | WASM port of the point-query loop (seek/offer/gridAt) | unmeasured | exact by construction | idea |
+| A8 | WASM port of the point-query loop (seek/offer/gridAt) | the raster + plan-field port (Phase 2.9, bit-identical) measured aftermath 0.979/0.986 (bar 0.95): not landed | exact by construction | measured, parked |
 | A9 | Correctness: non-tops `readPoints` gate and all-clear test use statics only, ignoring armed solids (rows missed over prop/wall tops; count unmeasured in HEAD) | fix costs ~4 % (x3/x4 probes) | fix (sim) | open |
 
 ## B. Cage refit on wrecks (15 % fleet, 3–5 % city)

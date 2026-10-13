@@ -102,6 +102,17 @@ Node city32 (aggression 1): 801 ms/sim-s; 27 wrecks; readPoints 17 µs inclusive
 | read chain (c98aed7d, 7edb9359) | 0.917–0.979 | 0.911–0.961 | 0.920–0.990 | noise | yes (0 bad hits / 142 k; 0 bad rows / 43 k) |
 | **Batch: main 7edb9359 vs ecbc560e** (provisional: interleaved, load 1.9–2.9, one arm order with ecbc560e first) | **0.871–0.880** (452 → ~395 ms/sim-s) | 0.90–0.95 | **0.868–0.870** | **17.4/17.2 → 13.9/14.4 (0.80–0.84); aftermath 27.7/26.7 → 21.7/22.5** | car digests equal on all rows and the fleet |
 | **Phase 1 (REPLAY 68): main bbf470cc vs 0c8dd5c6** (worker box, load 1.0–1.2, both arm orders, 3 runs each) | 1.012–1.045 (base 612–630 ms/sim-s on the worker) | 1.020–1.122 | 0.999–1.060 | RAG=0: 19.70/19.96 → 19.40/19.54 (0.98); aftermath 30.51/30.85 → 30.21/30.38 | city16 and a0c16 digests equal (the gained solid rows meet nothing there); a1c32 and fleet differ by design. The a0c16 cost (up to +12 %) is the per-point `solidTop` asks of 1.3: 1.23 % more points read on city16 and 1.46 % on a1c32, 0 lost. |
+| 2.2a wreck sleep (resting pile: 32 cars, 30 s real time, wreckage kept, last two thirds) | — | — | — | 16.24/16.15 → 12.85/12.50 ms at the chunk; 16.1 → 5.0 ms (0.31) with the moving-top rule, 32 of 32 asleep | sim (REPLAY 69) |
+| 2.2b wreck points (stride 2), reverted | 0.905–0.919 / 0.965–0.971 by arm order (bar 0.95) | — | — | aftermath 30.8 → 29.1 (0.944, bar 0.92) | sim |
+| 2.6 AI difficulty | hard: `same true`, 0.97–1.03; easy: 0.85–0.90 | — | — | — | hard exact |
+| 2.1 tread arcs (STEPS 9; 6 and 8 broke engine-lab's house of cards), reverted | — | — | 0.834–0.882 | mean 19.31/19.04 → 18.25/18.09 (0.945, bar 0.92); aftermath 0.915 | sim |
+| 2.3 coarse default | — | — | — | `PIN=auto` vs `PIN=fine` 1.00 (bar 0.90; lands per Assumptions) | sim (REPLAY 69) |
+| 2.8 EDT ring box | 0.96–1.03 `same true` | `same true` | `same true` | aftermath 25.6/25.8 → 25.5 (0.99), digest equal | yes |
+| 2.8 `REFIT_EPSILON` 2.5 cm, reverted (engine-lab 30 m/s throw) | — | — | — | aftermath 25.6 → 23.1 (0.90) | sim |
+| 2.4 proxy refit throttle, reverted | — | — | — | RAG=1 aftermath 0.98/0.99 (bar 0.95) | car digests equal |
+| 2.5 still tops for parts, reverted | 0.967–1.033 (bar 0.97) | — | — | resting pile 4.83 → 3.57 ms (0.74); probe: 3898 kept-asleep steps would have read a top row (bar 0) | car digests equal |
+| 2.9 WASM raster + plan field, dropped (leads A8) | — | — | — | aftermath 0.979/0.986 (bar 0.95) | yes (bit-identical) |
+| **Landing: Phase 2 (2.2a, 2.6, 2.3, 2.8 EDT) + Phase 4 minus 4.6 vs main da075e56** (worker, load 1.0–1.4, both arm orders) | 0.986–1.056 | 0.941–1.025 (`same true`) | 0.978–1.066 (`same true`) | RAG=0 0.99; RAG=1 aftermath 27.3 → 24.0 (0.88); resting pile 16.1 → 5.0 ms (0.31), 32 of 32 asleep | sim (REPLAY 69) |
 
 Phase 1 fleet settle (1.1; 32 cars, seed 4242, 12000 frames = 2.84 sim-s, RAG=0, worker): 0c8dd5c6 last hit at 1.67 s, a wreck still gliding at 3.81 m/s at 2.83 s; bbf470cc last hit at 1.62 s, every wreck under 0.5 m/s from 1.75 s (0.13 s after it), the fastest at 0.13 m/s at the end. Bar (< 0.5 m/s within 3 s of the last hit) holds.
 
