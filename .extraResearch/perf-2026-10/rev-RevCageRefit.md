@@ -45,7 +45,7 @@
 ## 2. Answers and waste (counters)
 
 **How the counters were taken**
-- Probe tree: `~/crash-wt/bis/probe-RevCageRefit`, built by `/tmp/rcr/probe.mjs` + `/tmp/rcr/probe2.mjs` (sources: local://rcr-probe.mjs, local://rcr-probe2.mjs).
+- Probe tree: `~/crash-wt/bis/probe-RevCageRefit`, built by `/tmp/rcr/probe.mjs` + `/tmp/rcr/probe2.mjs` (sources: rcr-probe.mjs, rcr-probe2.mjs).
 - Fleet run: fleet5 32 cars, 1500 frames, seed 4242, digest 795525135, unchanged by the probe.
 - City run: `/tmp/rcr/cdrive.mjs`, the city16 row with SECS=40.
 - Wreck-seconds = sum of `dt` in stepBreakage while massActive.
@@ -125,7 +125,7 @@
    - Expected: about −48 % of rasterise + plan + outline ≈ (1778+1151+307) × 0.48 ≈ 1.55 s of 27.6 s ≈ **5.6 % of the fleet frame**, and ~8 % of the Chrome aftermath [INFERENCE from the shares; not timed].
    - Cost: a cage stands up to 2.5 cm off between fits (half the 5 cm lattice step; the doc bar at car-cage.ts:914–916 is 1 cm).
    - Prove: fleet + race-row A/B, plus the car-cage, stack-crush and contact tests.
-2. **EDT restricted to what can change** (exact). Built in throwaway tree `~/crash-wt/bis/rcr-edt` by `/tmp/rcr/edt.mjs` (local://rcr-edt.mjs); typechecks clean.
+2. **EDT restricted to what can change** (exact). Built in throwaway tree `~/crash-wt/bis/rcr-edt` by `/tmp/rcr/edt.mjs` (rcr-edt.mjs); typechecks clean.
    - transformGrid takes (ci0, ci1, i0, i1, j0, j1).
    - toCovered: column pass only over covered columns; row pass full.
    - toUncovered: only over the covered box ± 1.
@@ -186,9 +186,9 @@ Say if the owner prefers the bigger, sim-changing win: REFIT_EPSILON → CAGE_ST
 ## Artifacts
 - Profiles: `/tmp/rcr/x7-fleet.cpuprofile`, `/tmp/rcr/x7-city.cpuprofile`, `/tmp/rcr/mprof/*.cpuprofile` (microbench, line ticks via `/tmp/rcr/lines.cjs`).
 - Scripts:
-  - probe: local://rcr-probe.mjs, rcr-probe2.mjs
-  - span cut: local://rcr-span.mjs
-  - EDT cut: local://rcr-edt.mjs
-  - microbench: local://rcr-micro.mjs
-  - A/B runner: local://rcr-ab.sh
+  - probe: rcr-probe.mjs, rcr-probe2.mjs
+  - span cut: rcr-span.mjs
+  - EDT cut: rcr-edt.mjs
+  - microbench: rcr-micro.mjs
+  - A/B runner: rcr-ab.sh
 - Throwaway trees: bis/probe-RevCageRefit, bis/rcr-span, bis/rcr-spanplan, bis/rcr-edt.

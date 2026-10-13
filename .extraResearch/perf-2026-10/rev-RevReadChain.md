@@ -20,7 +20,7 @@ The box was loaded the whole time (another session's e2e run). Every run below w
 - In the fleet, the read chain's cost is the ground queries, not the copies.
 
 **Node city16, HEAD alone** (load 2.4→3.2):
-`flock … env ROOTS=x7=…/cost-x7 CARS=16 POLICE=1 AGG=1 SECS=40 WARM=20 TRACK=city PROF=/tmp/rrc/city16-x7.cpuprofile node --experimental-strip-types scratch-CostProfile3/drive.mjs`. Analysed with `/tmp/rrc/an.cjs` (`local://an.cjs`). 20 sim-s profiled, 532 ms/sim-s.
+`flock … env ROOTS=x7=…/cost-x7 CARS=16 POLICE=1 AGG=1 SECS=40 WARM=20 TRACK=city PROF=/tmp/rrc/city16-x7.cpuprofile node --experimental-strip-types scratch-CostProfile3/drive.mjs`. Analysed with `/tmp/rrc/an.cjs` (`an.cjs`). 20 sim-s profiled, 532 ms/sim-s.
 
 | function | inclusive ms/sim-s | self ms/sim-s | % |
 |---|---|---|---|
@@ -43,7 +43,7 @@ Who calls measure: startStep→readStrain 66 %, trackCrush→readStrain 15 %, gl
 - readStrain: 0. The fleet runs no recorder.
 
 ## 2. Calls per wreck per step (240 Hz)
-Probe: `local://rrc-probe-patch.mjs` + `rrc-probe-patch2.mjs` on throwaway `bis/rrc-cnt`, then `drive.mjs MODE=count`. Probe digests equal the baseline.
+Probe: `rrc-probe-patch.mjs` + `rrc-probe-patch2.mjs` on throwaway `bis/rrc-cnt`, then `drive.mjs MODE=count`. Probe digests equal the baseline.
 
 City16 (20 sim-s, 96926 wreck-steps, load 4.9, which does not affect counts). Each line is per wreck-step:
 - stepFree 1.00, loadPoints 1.00, readPoints 1.00 (from stepFree; loose parts are extra), wheelsAt 1.00 (= 4 `wheelContact`).
@@ -96,7 +96,7 @@ a1c32 (load 2.1–2.3): measure 3.0 M calls in 20 s, glass 524809, wreck-steps 1
 - `++` it in `simState` when `write` (:652).
 - `++` it after `restoreInto` in `rebuildRunStructures` (deform-rig.ts:479).
 - In engine-record, `readStrain(car, out, at, i)` keeps per slot `strainRow` (Float32, MAX_CARS×18), `strainSerial`, `strainCar`. It re-reads the 18 `cageStrain` only when `strainCar[i] !== car || strainSerial[i] !== car.deform.cornerSerial`, then copies the row out. Pass `i` from :258 and :597.
-- Prototype: `local://rrc-strain-patch.mjs` (tree `bis/rrc-proto2`; probe tree `bis/rrc-cnt2`).
+- Prototype: `rrc-strain-patch.mjs` (tree `bis/rrc-proto2`; probe tree `bis/rrc-cnt2`).
 
 **Gain:** in-process interleaved 3-arm profile at city16 (load 4.04→4.88):
 `ROOTS=x7=cost-x7,lp=rrc-proto,st=rrc-proto2 … PROF=/tmp/rrc/abc.cpuprofile`, per arm with `FULL=1 node an.cjs abc.cpuprofile '^readStrain .*<tree>'`.
@@ -122,7 +122,7 @@ a1c32 (load 2.1–2.3): measure 3.0 M calls in 20 s, glass 524809, wreck-steps 1
 - In loadPoints, after `refitCage`/`cageLift`, keep a memo per car: serial, fields, lift (compare with `Object.is`), wreck, bellyFrom, reach, x/y/z/absent arrays.
 - On a hit: `POINT_X/Y/Z.set(memo.x/y/z)`, `BELLY_ABSENT.set`, `_s[S_POINT_REACH] = memo.reach`, return `bellyFrom`.
 - On a miss: run as now, then store.
-- Prototype: `local://rrc-proto-patch.mjs` (tree `bis/rrc-proto`; WeakMap keyed by car, allocates on a miss).
+- Prototype: `rrc-proto-patch.mjs` (tree `bis/rrc-proto`; WeakMap keyed by car, allocates on a miss).
 - The lane should reuse the arrays (reallocate only if `end` changes, i.e. a panel came off) so a miss allocates nothing.
 
 **Gain:**
@@ -148,7 +148,7 @@ Folding `centredTop` (:1323) into the allClear loop (:1471), since both are rota
 Tree: `git -C …/crash-deformer-test worktree add ~/crash-wt/bis/lane-ReadChainMemo HEAD`, plus the node_modules symlink.
 
 **Commit 1, strain row cache (cut 1):**
-- Edit `deform-rig.ts` (field, plus the bump in `rebuildRunStructures`), `streamed-deform.ts` (bumps in `solveCages` and in `simState` when writing) and `engine-record.ts` (readStrain slot cache). Text as in `local://rrc-strain-patch.mjs`, without the probe branch.
+- Edit `deform-rig.ts` (field, plus the bump in `rebuildRunStructures`), `streamed-deform.ts` (bumps in `solveCages` and in `simState` when writing) and `engine-record.ts` (readStrain slot cache). Text as in `rrc-strain-patch.mjs`, without the probe branch.
 - Keep `CageStrain.measure` as it is. cage-measure.test.ts changes corners directly, and the glass still goes through it.
 
 **Commit 2, loadPoints memo (cut 2):** car-air.ts only. The memo arrays are reused; no per-hit allocation.

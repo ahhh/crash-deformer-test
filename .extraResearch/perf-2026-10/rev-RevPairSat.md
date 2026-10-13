@@ -28,10 +28,10 @@ City live: resolveCarPair 1.1 % of busy, so this hotspot only matters in crashes
 | └ outlineNormal | 191 | 0.13 |
 | bandsMeet (350 of it from markApproaches) | 426 (1.5 %) (refresh 296) | 0.28 |
 | resolveCarPair minus satCars | 684 (feedOverlap 177, exchangePair 71, pushApart 69, faceSpeeds 63) | 0.46 |
-Splits come from `/tmp/rps-pc.cjs` (by caller) and `/tmp/rps-pcallee.cjs` (by callee): copies of `local://pc.cjs` and `local://pcallee.cjs`.
+Splits come from `/tmp/rps-pc.cjs` (by caller) and `/tmp/rps-pcallee.cjs` (by callee): copies of `pc.cjs` and `pcallee.cjs`.
 
 ## 2. Counts (answers to the questions)
-I injected counters into a throwaway copy with `local://rps-patch.mjs` + `local://rps-patch2.mjs`. The digest was unchanged with counters in (795525135).
+I injected counters into a throwaway copy with `rps-patch.mjs` + `rps-patch2.mjs`. The digest was unchanged with counters in (795525135).
 Fleet command: `flock …/ab.lock env ROOT=/tmp/rps-cnt CARS=32 FRAMES=1500 SEED=4242 node --experimental-strip-types fleet5.mjs`.
 City command: `flock …/ab.lock env ROOTS=c=/tmp/rps-cnt CARS=16 POLICE=1 AGG=1 SECS=40 WARM=20 TRACK=city MODE=count node --experimental-strip-types --import /tmp/rps-n.mjs drive.mjs`; counts include the warm-up.
 
@@ -60,7 +60,7 @@ City command: `flock …/ab.lock env ROOTS=c=/tmp/rps-cnt CARS=16 POLICE=1 AGG=1
 - **Allocation per pair:** none. satCars, deepestIn and resolveCarPair use module scratch (pair-contact.ts:17-30, 259-264, 335, 375; sat.ts:17, 85-87). GC is 69 ms per run (0.2 %).
 
 ## 3. Waste and ranked cuts (all three prototyped, all exact)
-Prototype tree: `~/crash-wt/bis/rps-proto` (cp of cost-x7 + `local://rps-proto.mjs`; 100 changed lines in 3 files; `tsc --noEmit` clean).
+Prototype tree: `~/crash-wt/bis/rps-proto` (cp of cost-x7 + `rps-proto.mjs`; 100 changed lines in 3 files; `tsc --noEmit` clean).
 Profile: same command with ROOT=rps-proto, PROF=/tmp/rps-proto.cpuprofile, load 2.27. stepWorld is 21.2 s in both profiles.
 
 **C1. Memoise `bandAround` per fit** (sat.ts:142).
@@ -80,7 +80,7 @@ Profile: same command with ROOT=rps-proto, PROF=/tmp/rps-proto.cpuprofile, load 
 - Waste: the column pass runs the full Felzenszwalb–Huttenlocher transform (a division per element) on a 0/FAR2 image. For binary input the result is just (distance to the nearest seed in the column)², or FAR2 when the column has no seed.
 - Change: `seedColumns(nu, nv, covered, inside, g)` does a forward and backward sweep and writes `g` directly, which also replaces the init loop. `transformGrid` keeps only its row loop (`transformRows`).
 - Exact: integer squared distances, and FH is exact on integer data.
-- Microbench `local://edt-bench.mjs` (verbatim copies of the old code): 502 masks (300 car-like, 200 random, empty, full), **0 float mismatches**. Positive control (one injected off-by-one): 1498 mismatches. Time per plan, interleaved in one process: old 171/174/153 µs vs new 121/123/108 µs, **ratio 0.70** (load 4.47).
+- Microbench `edt-bench.mjs` (verbatim copies of the old code): 502 masks (300 car-like, 200 random, empty, full), **0 float mismatches**. Positive control (one injected off-by-one): 1498 mismatches. Time per plan, interleaved in one process: old 171/174/153 µs vs new 121/123/108 µs, **ratio 0.70** (load 4.47).
 - Measured in the fleet profile: transformGrid 1085 ms → transformRows 616 + seedColumns 260 = 876 ms.
 
 **C1+C2+C3 together:**
@@ -102,7 +102,7 @@ Profile: same command with ROOT=rps-proto, PROF=/tmp/rps-proto.cpuprofile, load 
 ## 4. Recommended first lane: land C1+C2+C3 as prototyped
 Brief:
 1. Make your worktree as in the contract.
-2. Apply the changes in `~/crash-wt/bis/rps-proto` (`diff -ru cost-x7/src rps-proto/src`; or `node /tmp/rps-proto.mjs <tree>`, a copy of `local://rps-proto.mjs`) to:
+2. Apply the changes in `~/crash-wt/bis/rps-proto` (`diff -ru cost-x7/src rps-proto/src`; or `node /tmp/rps-proto.mjs <tree>`, a copy of `rps-proto.mjs`) to:
    - cage-outline.ts: `CageOutline` gets `xLo/xHi/zLo/zHi`, `bands/bandStamp/epoch/cage` and `band()`.
    - sat.ts `deepestIn`: corner broadphase before `planField()`; `outlineOf(b).band(...)`; drop the now-unused `bandAround` import.
    - car-cage.ts: `seedColumns` + `transformRows` replace `transformGrid` and the init loop in `planFieldOf`.

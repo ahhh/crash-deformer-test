@@ -100,9 +100,9 @@ Node city32 (aggression 1): 801 ms/sim-s; 27 wrecks; readPoints 17 µs inclusive
 | pair contact (c0f161e3) | — | — | — | `deepestIn` 2435/2470 → 1657/1576 ms per run; mean 14.7/14.9 → 14.1/14.0 | yes (0 wrong rejects / 124 k) |
 | loose double-step (c75bca24) | 0.93 / 1.00 by arm order (lane's rows) | — | — | — | NO: debris only (REPLAY 67); car digests same |
 | read chain (c98aed7d, 7edb9359) | 0.917–0.979 | 0.911–0.961 | 0.920–0.990 | noise | yes (0 bad hits / 142 k; 0 bad rows / 43 k) |
-| **Batch: main 7edb9359 vs ecbc560e** (interleaved, load 1.9–2.9) | **0.871–0.880** (452 → ~395 ms/sim-s) | 0.90–0.95 | **0.868–0.870** | **17.4/17.2 → 13.9/14.4 (0.80–0.84); aftermath 27.7/26.7 → 21.7/22.5** | car digests equal on all rows and the fleet |
+| **Batch: main 7edb9359 vs ecbc560e** (provisional: interleaved, load 1.9–2.9, one arm order with ecbc560e first) | **0.871–0.880** (452 → ~395 ms/sim-s) | 0.90–0.95 | **0.868–0.870** | **17.4/17.2 → 13.9/14.4 (0.80–0.84); aftermath 27.7/26.7 → 21.7/22.5** | car digests equal on all rows and the fleet |
 
-Against the morning build 7cf2c6f9 (601 ms/sim-s on city16) main is therefore ≈ 0.80 in node: 601 → ~395 ms/sim-s. Still 1.74× the pre-plan 227.
+Against the morning build 7cf2c6f9 (601 ms/sim-s on city16) main is therefore ≈ 0.80 in node (provisional): 601 → ~395 ms/sim-s. Still 1.74× the pre-plan 227.
 
 Whole-suite disagreement probe for the surface index (old full scan beside the index on every `offerAll`, 3555 tests): 0 of 5 665 837 353 queries.
 
