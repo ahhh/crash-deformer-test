@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import * as THREE from "three";
 import { applyDrive, type DriveInput } from "./car-drive.ts";
 import { layOnGround } from "./car-air.ts";
+import { LOAD_FEEL } from "./car-load.ts";
 import { DeformableCar } from "./car.ts";
 import { assignClass, VEHICLE_CLASS_IDS, type VehicleClassId } from "./vehicle-classes.ts";
 import { paint } from "./test-support.ts";
@@ -86,6 +87,16 @@ describe("given a car driven on the road, whose drawn body squats, dives and lea
       const r = left[left.length - 1]!.roll;
       assert.ok(r > 2 && peak(left, "roll") <= ROLL_MAX, `left turn rolls ${r.toFixed(2)}°`);
       assert.ok(Math.abs(right[right.length - 1]!.roll + r) < 0.05, `right turn rolls ${right[right.length - 1]!.roll.toFixed(2)}°`);
+    });
+
+    it(`when a ${cls} slides under the handbrake at full lock, then its body rolls more than the same slide with no drift lean, within ${ROLL_MAX * 1.6}°`, () => {
+      const run = () => Math.abs(peak(drive(cls, 15, () => ({ throttle: 0.3, steer: 1, ebrake: true }), 1), "roll"));
+      const lean = LOAD_FEEL.driftLean;
+      LOAD_FEEL.driftLean = 0;
+      const flat = run();
+      LOAD_FEEL.driftLean = lean;
+      const slide = run();
+      assert.ok(slide > flat + 0.1 && slide <= ROLL_MAX * 1.6, `no lean ${flat.toFixed(2)}°, lean ${slide.toFixed(2)}°`);
     });
   }
 

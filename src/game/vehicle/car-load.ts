@@ -13,6 +13,9 @@ function tanh(x: number): number {
 const AXLE = WHEEL_POS[0]![2];
 const TRACK = Math.abs(WHEEL_POS[0]![0]);
 
+/** Drawn-pose feel knobs (mutable: the debug panel sets them live). `driftLean`: extra drawn roll in a slide, a share of the class cap at full slide; the body leans into the drift. */
+export const LOAD_FEEL = { driftLean: 0.6 };
+
 /**
  * Per class: height of the centre of gravity over the ground (m), and the most the drawn body pitches (squat / dive)
  * and rolls under load transfer (deg). The spring model alone gives a sedan 2.3° of pitch at 1 g and a monster 15°;
@@ -72,7 +75,7 @@ export class LoadTransfer {
    * One slice: ground pose `e` (a matrixWorld's elements, current), `air` while no wheel is on the ground (no load),
    * spring stiffness per unit mass `k` (ω², 1/s²) of class `cls`.
    */
-  step(e: ArrayLike<number>, dt: number, air: boolean, cls: VehicleClassId, k: number): void {
+  step(e: ArrayLike<number>, dt: number, air: boolean, cls: VehicleClassId, k: number, slide = 0): void {
     const x = e[12]!;
     const z = e[14]!;
     const vx = this.seen > 0 ? (x - this.px) / dt : 0;
@@ -107,7 +110,7 @@ export class LoadTransfer {
     // Per wheel a spring k m/4 carries ΔF = m a h / (2 L) (axle) or m a h / (2 T) (side): Δ = 2 a h / (L k) with
     // L the wheelbase and T the track; the springs' own scale is saturated at the class's limit.
     const capP = AXLE * Math.tan(c.pitch * RAD);
-    const capR = TRACK * Math.tan(c.roll * RAD);
+    const capR = TRACK * Math.tan(c.roll * RAD * (1 + LOAD_FEEL.driftLean * slide));
     const p = alongRoad(capP * tanh((along * c.cg) / (AXLE * k * capP)), e[9]!, c.pitch * RAD);
     const r = alongRoad(capR * tanh((side * c.cg) / (TRACK * k * capR)), e[1]!, c.roll * RAD);
     // Front and the +x side rise under +along and +side; the rear and the −x side sink.

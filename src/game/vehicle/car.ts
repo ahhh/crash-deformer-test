@@ -772,7 +772,7 @@ export class DeformableCar extends CarParts {
     const lift = bodyLift(CLASSES[cls].lift, upY);
     let gone = 0;
     for (let i = 0; i < 4; i++) if (this.looseWheels[i]!.loose) gone |= 1 << i;
-    this.suspension.step(this.group, this.wheels, cls, lift, !this.crashed || this.deform.massActive, air, gone, this.wheelHit, dt, this.deform.massActive);
+    this.suspension.step(this.group, this.wheels, cls, lift, !this.crashed || this.deform.massActive, air, gone, this.wheelHit, dt, this.deform.massActive, this.drive.slide);
   }
 
   /** The class body the ride moves (`null` for a car with no class), found once. */
