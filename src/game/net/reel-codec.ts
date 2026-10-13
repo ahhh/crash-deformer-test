@@ -109,10 +109,11 @@ import { makeSnapshot, MAX_NET_CARS, MSG, NET_VERSION, readEjection, readSnapsho
  * rigs under a point, a car's roof grid follows every refit of its cage (an opened lid or risen roof reaches the tops gate), and a popped
  * wheel launches from a once-per-slice spin; 69: a wreck at rest sleeps (its rigid step skipped until a moving car, an applied pedal, a
  * written velocity or a moved solid wakes it; a keyframe carries its rest timer) and a quiet step takes the 1/120 slice unless a crush
- * window is open, so a replayed pile settles and steps differently.
+ * window is open, so a replayed pile settles and steps differently; 70: a car taken out of the world leaves no roof behind (a resting
+ * loose part was woken by the roof of a car the step's list had dropped).
  * A saved clip also records `NET_VERSION` (its snapshots' layout).
  */
-const REPLAY_VERSION = 69;
+const REPLAY_VERSION = 70;
 /** Bounds a decoder enforces (a clip is ≤ 13 s at ≤ 300 steps/s, ≤ 15 keyframes). */
 const MAX_STEPS = 8192;
 const MAX_KEYS = 64;

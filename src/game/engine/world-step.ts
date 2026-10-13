@@ -171,6 +171,7 @@ export function stepWorld(w: World, dt: number): void {
     cars[ci]!.group.updateWorldMatrix(false, false);
     w.surfaces.sync(ci, cars[ci]!);
   }
+  w.surfaces.retire(n);
 
   for (let i = 0; i < slices; i++) {
     if (w.beforeSlice?.(h)) continue;

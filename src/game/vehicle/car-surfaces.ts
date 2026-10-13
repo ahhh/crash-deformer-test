@@ -409,4 +409,9 @@ export class CarSurfaces extends Surface {
     if (car.falling || car.vaporized || e[5]! < UPRIGHT) this.disable(i);
     else this.clipBox(i, e[12]!, e[14]!, REACH);
   }
+
+  /** A step's list holds `n` cars: the roofs of slots `n` and up are of cars no longer in the world, and answer nothing until `sync` sets them again. */
+  retire(n: number): void {
+    for (let i = n; i < this.count; i++) if (this.inPlay(i)) this.disable(i);
+  }
 }

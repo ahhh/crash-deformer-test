@@ -268,4 +268,17 @@ describe("given a sedan hit once so it is a wreck, on level ground", () => {
     for (let f = 0; f < 2 * 60; f++) tick(w, cars);
     assert.ok(cars[0]!.group.position.z < z0 - 0.05, `the sleeper was not shoved: moved ${(cars[0]!.group.position.z - z0).toFixed(3)} m`);
   });
+
+  it("when a sleeping wreck lies beside the roof of a car the list then drops (survival takes a cop out), then the step does not throw and the sleeper stays asleep for 2 s", () => {
+    // Slot 2's roof is patch 2: a list cut to two cars synced nothing past slot 1, so that roof kept its last box, and the sleeper's `stirNear` indexed `cars[2]`.
+    const cars = [struck("sedan", 0), struck("sedan", 20), struck("sedan", 3)];
+    const w = newWorld(cars);
+    assert.ok(frames(w, cars, 10 * 60, () => cars.every((c) => c.asleep)) > 0, `the three never all slept (${cars.map((c) => c.asleep).join("/")})`);
+    const kept = cars.slice(0, 2);
+    w.cars = kept;
+    for (let f = 0; f < 2 * 60; f++) {
+      tick(w, kept);
+      assert.ok(kept[0]!.asleep, `the sleeper woke ${f} frames after the car beside it left`);
+    }
+  });
 });

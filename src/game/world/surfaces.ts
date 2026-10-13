@@ -1523,9 +1523,9 @@ function stirIn(s: Surface | null, x: number, z: number, r: number, skip: number
     const i = all ? k : s.dyn[k]!;
     const owner = s.q[i * Q_STRIDE + Q_OWNER]!;
     if (skip >= 0 && owner === skip) continue;
-    if (cars !== null && owner >= 0 && !cars[owner]!.moving) continue;
     const o = i * P_STRIDE;
-    if (x + r >= P[o + P_MINX]! && x - r <= P[o + P_MAXX]! && z + r >= P[o + P_MINZ]! && z - r <= P[o + P_MAXZ]!) return true;
+    if (x + r < P[o + P_MINX]! || x - r > P[o + P_MAXX]! || z + r < P[o + P_MINZ]! || z - r > P[o + P_MAXZ]!) continue;
+    if (cars === null || owner < 0 || cars[owner]!.moving) return true;
   }
   return false;
 }
