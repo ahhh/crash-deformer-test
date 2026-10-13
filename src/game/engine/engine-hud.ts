@@ -129,6 +129,8 @@ export abstract class EngineHud extends EngineWarm {
       fxDensity: this.fxDensity,
       musicVolume: this.musicVolume,
       engineVolume: this.engineVolume,
+      trackSerial: this.audio.trackSerial,
+      nowPlaying: this.audio.nowPlaying,
       carCount: this.carCount,
       speedMin: this.speedMin,
       speedMax: this.speedMax,

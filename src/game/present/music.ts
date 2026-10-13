@@ -1,6 +1,9 @@
 import { loadManifest, trackUrl, type MusicTrack } from "./music-manifest.ts";
 import { firstTrack, nextTrack } from "./playlist.ts";
 
+/** The element's event for "this track's file loaded far enough to play" (fires once per source, not on a resume). */
+const STARTED_EVENT = "loadedmetadata";
+
 /**
  * The soundtrack: one streaming `<audio>` element (nothing is decoded into a buffer) routed into the music bus. The track list
  * is the music folder's `manifest.json` (docs/DEPLOY.md); it is fetched the first time the music plays, so a game that never
@@ -26,6 +29,11 @@ export class MusicPlayer {
     this.failures++;
     if (this.failures < this.tracks.length) this.startTrack(nextTrack(this.index, this.tracks.length));
   };
+  /** Tracks whose file loaded far enough to play, counted in `serial` (a file that fails is no "now playing"). */
+  private started = 0;
+  private readonly onStarted = (): void => {
+    this.started++;
+  };
 
   constructor(context: AudioContext, destination: AudioNode, base: string) {
     this.base = base;
@@ -35,6 +43,7 @@ export class MusicPlayer {
     this.element.preload = "none";
     this.element.addEventListener("ended", this.onEnded);
     this.element.addEventListener("error", this.onError);
+    this.element.addEventListener(STARTED_EVENT, this.onStarted);
     this.source = context.createMediaElementSource(this.element);
     this.source.connect(destination);
   }
@@ -60,10 +69,22 @@ export class MusicPlayer {
     this.element.pause();
   }
 
+  /** Counts the tracks that have started playing (0 before the first): a change is "a new song began", for the now-playing toast. */
+  get serial(): number {
+    return this.started;
+  }
+
+  /** "Artist – Title" of the current track, "" before the first. */
+  get nowPlaying(): string {
+    const track = this.tracks[this.index];
+    return track ? `${track.artist} – ${track.title}` : "";
+  }
+
   dispose(): void {
     this.wanted = false;
     this.element.removeEventListener("ended", this.onEnded);
     this.element.removeEventListener("error", this.onError);
+    this.element.removeEventListener(STARTED_EVENT, this.onStarted);
     this.element.pause();
     this.element.removeAttribute("src");
     this.element.load();

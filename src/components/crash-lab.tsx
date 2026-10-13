@@ -6,6 +6,7 @@ import { useDeepLinkJoin } from "@/components/use-deep-link-join";
 import type { CrashEngine } from "@/game/engine/engine";
 import { runBenchPage } from "@/components/bench-run";
 import { EngineContext } from "@/components/engine-context";
+import { NowPlaying } from "@/components/now-playing";
 import { SubmissionToast } from "@/components/submission-toast";
 import { BuildLabel, UpdateNotice } from "@/components/update-notice";
 import { autoReloadAsked, isBenchPage } from "@/game/engine/bench-loop";
@@ -107,6 +108,7 @@ export function CrashLab() {
         <BuildLabel />
         <UpdateNotice newer={deployed} />
         <SubmissionToast />
+        <NowPlaying hud={hud} />
       </main>
     </EngineContext.Provider>
   );

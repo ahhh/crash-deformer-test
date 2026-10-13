@@ -81,6 +81,15 @@ export class GameAudio {
     return this.context !== null;
   }
 
+  /** Songs started so far (0 before the first) and the current one's "Artist – Title": the engine publishes both to the HUD's now-playing toast. */
+  get trackSerial(): number {
+    return this.music?.serial ?? 0;
+  }
+
+  get nowPlaying(): string {
+    return this.music?.nowPlaying ?? "";
+  }
+
   /** Builds the context and graph on the first call (a user gesture); later calls resume it. */
   unlock(): void {
     if (this.context) {

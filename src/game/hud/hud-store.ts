@@ -101,6 +101,9 @@ export type CrashHudState = {
   /** Music bus level (`present/audio-mix.ts` caps it at `MUSIC_MAX_GAIN`) and engine bus level, both 0..1 sliders. */
   musicVolume: number;
   engineVolume: number;
+  /** The soundtrack: songs started so far (a change shows the now-playing toast) and the current one's "Artist – Title". Display only, not settings. */
+  trackSerial: number;
+  nowPlaying: string;
   /** Cinematic FX quality tier (F). */
   fxTier: FxTier;
   /** The tier is the automatic one (`present/auto-fx.ts`); a manual pick turns it off. */
@@ -228,6 +231,8 @@ export const INITIAL_HUD: CrashHudState = {
   audioOn: false,
   musicVolume: 0.35,
   engineVolume: 0.8,
+  trackSerial: 0,
+  nowPlaying: "",
   fxTier: "minimal",
   fxAuto: true,
   fxLoading: false,

@@ -25,7 +25,6 @@ import type { CrashHudState } from "@/game/hud/hud-store";
 import { formatSpeed } from "@/game/hud/speed-units";
 import type { RaceCommand } from "@/game/match/types";
 import { benchHoldsCommand } from "@/game/hud/submit-rules";
-import { SURVIVAL } from "@/game/match/survival";
 import { SOLO_SCENES } from "@/game/scenes/scene-id";
 import { cn } from "@/lib/utils";
 
@@ -175,38 +174,8 @@ export function Hud(props: HudProps) {
               {state.race.survival ? "Survival" : state.race.mode === "campaign" ? "Campaign" : "Race"} · <span className="text-fg">{state.race.trackName || "Pick a course"}</span>
             </p>
           </header>
-        ) : (
-          <header className="hud-ink min-w-0 max-sm:min-h-11">
-            <p className="hud-label idle:hidden">Streamed deformation</p>
-            <h1 className="font-display text-2xl font-semibold leading-tight tracking-tight idle:text-lg idle:opacity-70">Crush Stream</h1>
-            <p className="mt-0.5 hidden max-w-xs text-xs leading-snug text-fg/80 sm:block phone-landscape:hidden idle:hidden">
-              {state.race
-                ? state.race.survival
-                  ? `Survival. One car, the cops dropped in more and more. Last as long as you can; held slow beside one for ${SURVIVAL.bustTime} s and you are busted.`
-                  : `Circuit race${state.race.trackName ? ` on ${state.race.trackName}` : ""}. ${state.race.noReset ? "No resets: a wreck is out, the last car running wins." : "Wrecks respawn on the racing line after 3 s."}`
-                : state.derby
-                  ? "Demolition derby. Engine kill is a disable. Last car with a living block wins."
-                  : state.showCompactor
-                    ? "One car, two steel plates. They close square to the chassis — bumper, wheel-well, then the cage."
-                    : state.showPistons
-                      ? "One parked car, eight rams: corners at 45°, mids square to each side. 1–8 fire one, 0 fires all."
-                      : state.showDoors
-                        ? "One parked car, one ram down its side. A clips the mirror, B forces the open door past its stop, C swings it shut."
-                        : state.range
-                          ? "One car, 100 km/h, into a hood-height wall. The driver goes over it; the signs count the metres."
-                        : state.showCorkscrew
-                          ? "One car into a twisting channel at a spawn speed: too slow rolls back, then half a roll onto the roof, a full roll back onto its wheels, a roll and a half."
-                          : state.stack
-                            ? "Cars dropped one at a time onto a base car. Each roof carries the weight above it: the panel reads the load and the crush."
-                          : state.lab
-                            ? "Toy cars on a giant workbench. Put a finger on a car and swipe along the bench: it leaves at the swipe's speed and angle."
-                          : state.carCount <= 2
-                            ? "Cars lock onto the pad. Control particles shape-match the mesh — Müller 2005, with the lattice still a toggle."
-                            : `${state.carCount} cars on the pad. Same crumple rules, now a pile-up.`}
-            </p>
-          </header>
-        )}
-        {/* The one online entry sits right under the title, so it never needs a guessed offset. The solo clip view returned above; the results reel and bench pages have none. */}
+        ) : null}
+        {/* The one online entry sits at the top left, under the race title when there is one. The solo clip view returned above; the results reel and bench pages have none. */}
         {onlineShown && state.race?.reel == null ? <OnlineEntry engine={engine} race={state.race} /> : null}
       </div>
 
