@@ -29,6 +29,14 @@ Harness: `scratch-CostProfile3/drive.mjs` (headless race, arms alternate 1-sim-s
 
 Desktop Chrome fleet 32 (seed 4242): impact 135 fps, slow-mo 46 fps, aftermath 10 fps (p50 103 ms). Owner's own fleet tab (c9dc4f9): 57 fps, pacer coarse, 16 sim-s dropped.
 
+Desktop Firefox, 2560×1600, bench strip loop (fps / sim ms per sim-s). Both sets ran with this box's own work on the same PC, so neither is clean: 2ece5e8 (03:34–03:41Z) under lanes and probes; c5e5cba loop 1 (13:34–13:41Z) before a lane's headless survival runs started (13:42Z), loops 2–3 under them (city falls 109.5 → 93.5 → 79.1 fps across the three).
+
+| Build | bench (28 cars) | city (32) | dam-spine (22) |
+|---|---|---|---|
+| 2ece5e8 (Phase 1 + 5) | 66.2 / 834 | 68.4 / 692 | 74.0 / 724 |
+| c5e5cba (Phase 2 + 4), loop 1 | 117.1 / 370 | 109.5 / 526 | 206.8 / 412 |
+| c5e5cba, loops 2–3 | 117.0, 114.5 / 386, 386 | 93.5, 79.1 / 544, 594 | 114.7, 115.6 / 437, 431 |
+
 ## 3. Desktop Chrome profile, fleet 32-car aftermath (1 s window 12–13 s, frames 78–103 ms; build 7cf2c6f9 = tree cost-w4, line numbers are that tree's)
 
 Top self time:
