@@ -12,8 +12,7 @@ Targets: phone 90 fps (11.1 ms), desktop 240 fps at 2K (4.17 ms). Today: desktop
 - **Boundaries.** Sim code stays in `world/`, `contact/`, `vehicle/`, `deform/`; presentation in `present/`; input in `engine-input.ts`/`drive-input.ts`; no world→vehicle imports; no per-frame allocation (physics-alloc test); no `any`/`unknown`; knobs named and commented once.
 - **Parallelism.** Lanes within a phase run concurrently when they touch disjoint files (named per chunk). Phase 4 camera/input lanes run concurrently with Phase 2/3 lanes at any time (no shared files).
 
-## Phase 0. Foundations (exact, no owner decision needed) [landed; push after the b44cdc80 gate]
-
+## Phase 0. Foundations (exact, no owner decision needed) [landed and pushed: c43c0d86, gate 3675 tests / 0 fail]
 
 | # | Chunk | Gain | State |
 |---|---|---|---|
@@ -91,7 +90,7 @@ Desktop Chrome city: `WebGLRenderer.render` 2.0 ms of a 6.5 ms CPU frame; 304 dr
 
 | Phase | Concurrent lanes (disjoint files) |
 |---|---|
-| 1 | 1.1 engine `fixedStep` + car-air driving rule · 1.3 surfaces gates (car-air readPoints gate, surfaces wheelContact FOOT_TOP/edgeIn) · 1.4 engine-ragdoll glassTouch · 1.5 vehicle-classes tests · 1.2b car-core spinWheels / suspension double step |
+| 1 | 1.1 engine `fixedStep` + car-air driving rule, then 1.3 in the same lane (both edit `car-air.ts`; 1.3 also `surfaces.ts` wheelContact FOOT_TOP/edgeIn) · 1.4 engine-ragdoll glassTouch · 1.5 vehicle-classes tests · 1.2b car-core spinWheels / suspension double step |
 | 2 | 2.1 surfaces tread footprint · 2.2 car-air/world-step wreck sleep + point budget (after 1.1) · 2.4 engine-ragdoll/ragdoll-proxy refit rate · 2.5 loose-step wake/retire · 2.6 race-ai/cop-brain/traffic think rate + HUD setting · 2.8 car-cage EDT restriction (after 0.4) |
 | 3 | 3.1 car-parts/present batch · 3.2 car-materials shared paint · 3.3 pnpm patch three (browser A/B by Main) |
 | 4 | 4.1/4.2 drive-input · 4.3/4.4/4.9 engine-camera + spring · 4.5/4.6 car-drive (after 2.6) · 4.7 HUD · 4.8 engine-record metric |
