@@ -1,7 +1,7 @@
 import { describe, it, mock } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { loadManifest, musicBase, trackUrl } from "./music-manifest.ts";
+import { creditLines, loadManifest, musicBase, trackUrl } from "./music-manifest.ts";
 
 const BASE = "/crush/music/";
 const REFERENCE = JSON.parse(readFileSync(new URL("../../../public/music/manifest.json", import.meta.url), "utf8"));
@@ -90,5 +90,26 @@ describe("given the committed reference manifest (public/music/manifest.json)", 
   it("when Syntact is credited, then it has no Watch link (the source attribution's was cut off)", () => {
     const syntact = (REFERENCE.tracks as (typeof TRACK)[]).find((t) => t.file === "syntact-ego.mp3")!;
     assert.equal(syntact.links.map((l) => l.label).join(), "Free Download/Stream");
+  });
+});
+
+describe("given a track's credit lines, as the attribution text gives them", () => {
+  const testCases = [
+    { file: "aspyer-overdrive.mp3", lines: ["Song: Aspyer - Overdrive [NCS Release]", "Music provided by NoCopyrightSounds", "Free Download/Stream: http://ncs.io/A_Overdrive", "Watch: http://ncs.lnk.to/A_OverdriveAT/youtube"] },
+    { file: "luke-alexander-ride-with-me.mp3", lines: ["Song: Luke Alexander - RIDE WITH ME [NCS Release]", "Music provided by NoCopyrightSounds", "Free Download/Stream: http://ncs.io/RWM", "Watch: http://ncs.lnk.to/RWMAT/youtube"] },
+    { file: "syntact-ego.mp3", lines: ["Song: Syntact - Ego [NCS Release]", "Music provided by NoCopyrightSounds", "Free Download/Stream: http://ncs.io/Ego"] },
+    { file: "manshn-code.mp3", lines: ["Song: MANSHN - Code [NCS Release]", "Music provided by NoCopyrightSounds", "Free Download/Stream: http://ncs.io/Code"] },
+  ];
+  for (const c of testCases) {
+    it(`when ${c.file} is credited, then its ${c.lines.length} lines read as the attribution (a link follows its label)`, () => {
+      const track = (REFERENCE.tracks as (typeof TRACK)[]).find((t) => t.file === c.file)!;
+      const read = creditLines(track).map((line) => (line.url === null ? line.text : `${line.text} ${line.url}`));
+      assert.equal(read.join("\n"), c.lines.join("\n"));
+    });
+  }
+  it("when a line is a link, then only the label lines carry a url", () => {
+    const lines = creditLines(TRACK);
+    assert.equal(lines[0]!.url, null);
+    assert.equal(lines[1]!.url, "http://ncs.io/A_Overdrive");
   });
 });

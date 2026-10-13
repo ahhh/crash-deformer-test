@@ -95,7 +95,7 @@ Top left: the standings with gaps. Top right: lap, position, the race time besid
 | Pistons: fire one ram (clockwise from front-left) / all eight | 1–8 / 0 | | piston panel |
 | Doors: fire A / B / C, open or shut the door, swap side | 1–3, 4, 5 | | door panel |
 | Fullscreen | (the browser's own F11) | | Fullscreen |
-| Key list | | | ? |
+| Key list; its **Credits** button opens the credits dialog (the soundtrack's attribution from the music folder's manifest, the engine sound's MIT notice; Esc or Close dismisses it) | | | ? |
 | Multiplayer | | | Net |
 | Play online (join the best open race, else host), live races list, Join / Host, Leave (race mode, top-left under the title) | | | Play online, "N live", Join, Host, Leave |
 

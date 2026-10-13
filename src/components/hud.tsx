@@ -1,7 +1,8 @@
-import { Fragment, type RefObject } from "react";
+import { Fragment, useRef, useState, type RefObject } from "react";
 import * as Popover from "@radix-ui/react-popover";
 import { BrickWall, ChevronDown, ChevronUp, CircleDot, CircleHelp, Pause, Play, RotateCcw, SlidersHorizontal, TriangleRight, Video } from "lucide-react";
 import { DerbyBoard, DoorPanel, LabPanel, PistonPanel, RangePanel, StackPanel } from "@/components/hud-panels";
+import { CreditsDialog } from "@/components/credits-dialog";
 import { GaragePanel } from "@/components/garage-panel";
 import { HUD_SECTIONS_KEY, HudSections } from "@/components/hud-sections";
 import { RaceOverlay, RaceStandings, RaceViewToggle, SpectateBar } from "@/components/race-hud";
@@ -509,27 +510,50 @@ function Dock(props: HudProps & { raceCommand: (cmd: RaceCommand) => void; setti
 }
 
 function KeyHelp({ className, glow }: { className?: string; glow: boolean }) {
+  const [keysOpen, setKeysOpen] = useState(false);
+  const [creditsOpen, setCreditsOpen] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   return (
-    <Popover.Root>
-      <Popover.Trigger asChild>
-        <Button variant="ghost" className={cn(BAR_BUTTON, className)} aria-label="Keyboard shortcuts" title="Keys">
-          <CircleHelp />
-        </Button>
-      </Popover.Trigger>
-      <Popover.Portal>
-        <Popover.Content
-          side="top"
-          align="end"
-          sideOffset={8}
-          collisionPadding={8}
-          className="z-50 w-80 max-w-[calc(100vw-1rem)] rounded-lg bg-surface p-3 text-fg shadow-[var(--shadow-border)]"
-        >
-          <KeyList title="Scene" keys={SCENE_KEYS} glowKey={glow ? "R" : undefined} />
-          <KeyList title="Cars & camera" keys={CAMERA_KEYS} className="mt-3" />
-          <p className="mt-2 text-xs text-muted">Reversing steers like a real car: left swings the tail left.</p>
-        </Popover.Content>
-      </Popover.Portal>
-    </Popover.Root>
+    <>
+      <Popover.Root open={keysOpen} onOpenChange={setKeysOpen}>
+        <Popover.Trigger asChild>
+          <Button ref={triggerRef} variant="ghost" className={cn(BAR_BUTTON, className)} aria-label="Keyboard shortcuts" title="Keys">
+            <CircleHelp />
+          </Button>
+        </Popover.Trigger>
+        <Popover.Portal>
+          <Popover.Content
+            side="top"
+            align="end"
+            sideOffset={8}
+            collisionPadding={8}
+            className="z-50 w-80 max-w-[calc(100vw-1rem)] rounded-lg bg-surface p-3 text-fg shadow-[var(--shadow-border)]"
+          >
+            <KeyList title="Scene" keys={SCENE_KEYS} glowKey={glow ? "R" : undefined} />
+            <KeyList title="Cars & camera" keys={CAMERA_KEYS} className="mt-3" />
+            <p className="mt-2 text-xs text-muted">Reversing steers like a real car: left swings the tail left.</p>
+            <Button
+              variant="ghost"
+              className="mt-2 h-8 px-2 text-xs"
+              onClick={() => {
+                setKeysOpen(false);
+                setCreditsOpen(true);
+              }}
+            >
+              Credits
+            </Button>
+          </Popover.Content>
+        </Popover.Portal>
+      </Popover.Root>
+      {/* Beside the popover, so it outlives the popover closing; closing it puts focus back on the ? button. */}
+      <CreditsDialog
+        open={creditsOpen}
+        onClose={() => {
+          setCreditsOpen(false);
+          triggerRef.current?.focus();
+        }}
+      />
+    </>
   );
 }
 

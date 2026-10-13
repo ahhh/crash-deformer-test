@@ -42,6 +42,14 @@ export function trackUrl(base: string, track: MusicTrack): string {
   return `${base}${track.file}`;
 }
 
+/** One line of a track's credit: plain text, or a label with the link it names (`url`). */
+type CreditLine = { text: string; url: string | null };
+
+/** A track's credit as the attribution gives it, in order: its text lines as they are, then each `label:` with its link. */
+export function creditLines(track: MusicTrack): CreditLine[] {
+  return [...track.attribution.map((text) => ({ text, url: null })), ...track.links.map((link) => ({ text: `${link.label}:`, url: link.url }))];
+}
+
 /** Fetches and validates `<base>manifest.json`. Rejects when it is missing, not JSON or not a manifest (the caller warns and plays no music). */
 export async function loadManifest(base: string): Promise<readonly MusicTrack[]> {
   const response = await fetch(`${base}${MANIFEST_FILE}`, { cache: "no-cache" });

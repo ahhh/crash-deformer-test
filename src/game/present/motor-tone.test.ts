@@ -2,7 +2,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { REV_IDLE, VEHICLE_CLASS_IDS, type VehicleClassId } from "../vehicle/vehicle-classes.ts";
-import { accelLoad, channelGains, damageTone, MOTOR_OUTPUT_GAIN, motorLoad, motorRev, motorRpm, TONE_COUNT, toneMessage, toneMessages, toneOptions } from "./motor-tone.ts";
+import { accelLoad, channelGains, damageTone, MOTOR_OUTPUT_GAIN, MOTOR_SOUND_CREDIT, motorLoad, motorRev, motorRpm, TONE_COUNT, toneMessage, toneMessages, toneOptions } from "./motor-tone.ts";
 
 const EPS = 1e-9;
 const SAMPLE_RATE = 48000;
@@ -238,3 +238,12 @@ describe("given the damage stages", () => {
     }
   });
 });
+
+describe("given the engine sound's credit", () => {
+  it("when the credit is compared with the vendored licence, then the licence carries its copyright notice and the MIT name", () => {
+    const licence = readFileSync(new URL("../../../kernels/motor/LICENSE", import.meta.url), "utf8");
+    assert.ok(licence.includes(MOTOR_SOUND_CREDIT.notice));
+    assert.ok(licence.includes("MIT"));
+  });
+});
+

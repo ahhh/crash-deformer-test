@@ -11,6 +11,16 @@ export const MOTOR_OUTPUT_GAIN = 0.5;
 /** Seconds a dead or stalled engine takes to wind down to rpm 0. */
 export const DIE_DOWN_S = 0.8;
 
+/** The engine sound's credit (MIT licence): the credits dialog shows it. The same licence text ships in `kernels/motor/LICENSE`. */
+export const MOTOR_SOUND_CREDIT = {
+  name: "engine-sound-generator",
+  author: "Antonio-R1",
+  url: "https://github.com/Antonio-R1/engine-sound-generator",
+  license: "MIT",
+  licenseUrl: "https://github.com/Antonio-R1/engine-sound-generator/blob/main/LICENSE",
+  notice: "Copyright (c) 2021-2022 Antonio-R1",
+} as const;
+
 /** The generator's waveguide lengths are in samples at this rate (the upstream demo's); other rates scale them. */
 const TONE_SAMPLE_RATE = 44100;
 /** Reflection factors the generator's demo uses for every class: open ends reflect little, closed ends nearly all. */
