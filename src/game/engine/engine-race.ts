@@ -12,8 +12,11 @@ import { SURFACES } from "../world/catalog.ts";
 import { PoliceBrain } from "../ai/police.ts";
 import { HunterBrain } from "../ai/hunter.ts";
 import type { AiCar } from "../ai/derby-ai.ts";
-import { copyDrive, onSurface } from "../ai/race-ai.ts";
+import { copyDrive, onSurface, surfaceAt } from "../ai/race-ai.ts";
 import { AI_DIFFICULTIES } from "../ai/constants.ts";
+import { brakeCueAt } from "../ai/brake-cue.ts";
+import { projectPath, type TrackPath } from "../world/track.ts";
+import { carClass, classStats } from "../vehicle/vehicle-classes.ts";
 import { DRAFT, RaceSession } from "../match/session.ts";
 import { CAMPAIGN } from "../world/tracks/index.ts";
 import {
@@ -592,6 +595,14 @@ export class RaceDirector extends RaceWatch {
     propContact(car, i, this.solids, this.knocked, this.propHits, h);
   }
 
+  /** The braking cue for car `id` on the main loop: its forward speed against what the planned braking allows for a corner ahead. No allocation. */
+  private brakeCue(id: number, car: DeformableCar, path: TrackPath): boolean {
+    const p = car.group.position;
+    const pr = projectPath(path, p.x, p.z, this.seg[id]!, this.proj);
+    const along = car.velocity.x * car.fwdFlat.x + car.velocity.z * car.fwdFlat.z;
+    return brakeCueAt(path, classStats(carClass(car)), pr.s, along, surfaceAt(path, pr.k).grip);
+  }
+
   /** End of a physics step of `dt` s, which the world ran on the schedule `shape` (`World.shape`): rules step, deaths, respawns. */
   step(dt: number, shape: number): void {
     const s = this.session;
@@ -749,6 +760,7 @@ export class RaceDirector extends RaceWatch {
             }
           : null,
         ...carGauge(car),
+        brakeCue: this.brakeCue(id, car, s.track.path),
         boost: this.meterOf(id),
         chase: c !== undefined && c.status === "racing" && (cops > 0 || c.stopped > 0) ? { cops: Math.max(1, cops), hold: Math.min(1, c.stopped / s.bustTime), left: Math.max(0, s.bustTime - c.stopped) } : null,
         // R / D-pad ↓ acts unless `requestRespawn` refuses it (a menu is up, spectating) or the rules do (no-reset race, not racing); holding it acts wherever `holdReset` does: a no-reset race too, not Survival.

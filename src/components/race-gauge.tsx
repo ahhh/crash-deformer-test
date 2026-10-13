@@ -137,7 +137,7 @@ export function DriveCluster({ view, boostable }: { view: RaceView; boostable: b
         <DialFace />
         <path d={arc(100, DMG_FROM, DMG_TO)} className="stroke-fg/20" strokeWidth="6" strokeLinecap="round" fill="none" />
         {view.damage > 0.01 ? <path d={arc(100, DMG_FROM, dmgTo)} className={dmgTone} strokeWidth="6" strokeLinecap="round" fill="none" /> : null}
-        <text x={C} y="112" textAnchor="middle" fontSize="46" className="fill-fg font-semibold" aria-label="Speed">
+        <text x={C} y="112" textAnchor="middle" fontSize="46" className="fill-fg font-semibold data-[brake]:fill-signal-amber" aria-label="Speed" data-brake={view.brakeCue ? "1" : undefined}>
           {formatSpeed(view.speedKph / KPH_PER_MS, unit)}
         </text>
         <text x={C} y="127" textAnchor="middle" fontSize="10" letterSpacing="1.5" className="fill-fg/70 uppercase">

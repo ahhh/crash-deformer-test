@@ -118,7 +118,7 @@ export function Gauge({ view, corner, spectated = false }: { view: RaceView; cor
           <p className="grid size-7 place-items-center self-center rounded-md text-lg font-semibold leading-none shadow-[var(--shadow-border)]" aria-label="Gear">
             {view.gear === 0 ? "R" : view.gear}
           </p>
-          <p className="text-3xl font-semibold leading-none tracking-tight" aria-label="Speed">
+          <p className="text-3xl font-semibold leading-none tracking-tight data-[brake]:text-signal-amber" aria-label="Speed" data-brake={view.brakeCue ? "1" : undefined}>
             {formatSpeed(view.speedKph / KPH_PER_MS, unit)}
             <span className="ml-0.5 text-xs font-medium text-fg/70">{unit}</span>
           </p>

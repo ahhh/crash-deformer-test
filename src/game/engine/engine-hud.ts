@@ -49,6 +49,7 @@ export abstract class EngineHud extends EngineWarm {
       id,
       racer: null,
       ...carGauge(viewed),
+      brakeCue: false,
       boost: this.meterOf(id),
       chase: null,
       canReset: drives && this.mayRecover(viewed),

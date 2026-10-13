@@ -39,9 +39,9 @@ export function copyDrive(from: DriveInput, to: DriveInput): void {
 
 /** Corner margin: plan every turn as if this share of its radius, so a car keeps this share of its class's
  *  full-lock yaw rate and lateral grip in hand. */
-const CORNER_MARGIN = 0.8;
+export const CORNER_MARGIN = 0.8;
 /** Planned braking: this share of the car's class brake. */
-const PLAN_BRAKE = 0.5;
+export const PLAN_BRAKE = 0.5;
 /** The guard counts on this share of the class brake: a steered or locked car sheds less of it than `applyDrive` asks (a hit at 0.9 came from braking at the limit). */
 const GUARD_BRAKE = 0.72;
 /** Look this far (m) ahead for traffic. */
@@ -113,11 +113,11 @@ const ARG_AHEAD_IDX = 9; // arc length (m) of the point `pointAhead` returns
 const ARG_DT_IDX = 10; // the step (s)
 const ARG_COUNT = 11;
 
-function surfaceAt(path: TrackPath, k: number): Surface {
+export function surfaceAt(path: TrackPath, k: number): Surface {
   return SURFACES[SURFACE_IDS[path.surface[k]!]!];
 }
 
-function sampleAt(path: TrackPath, s: number): number {
+export function sampleAt(path: TrackPath, s: number): number {
   const segs = path.closed ? path.count : path.count - 1;
   const u = Math.floor((s / path.length) * segs);
   return path.closed ? ((u % path.count) + path.count) % path.count : clamp(u, 0, path.count - 1);
