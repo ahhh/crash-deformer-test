@@ -104,10 +104,13 @@ import { makeSnapshot, MAX_NET_CARS, MSG, NET_VERSION, readEjection, readSnapsho
  * further in, and a guarded racer is off the gas while it brakes and brakes for any closing past a nudge once inside the contact zone;
  * 66: a body point near a car top is read only when it could reach that top or a solid within the slice, so a replayed pile-up's slices
  * are cut finer at other moments; 67: a wreck's torn parts and popped wheels are stepped once per slice (they were stepped twice, so
- * their debris moved at twice sim time), so a replayed wreck's debris falls and slides at half the rate it did.
+ * their debris moved at twice sim time), so a replayed wreck's debris falls and slides at half the rate it did; 68: a crashed car nobody
+ * drives rolls on its drive's idle pedals (it rolled with no tyre friction), the wreck gate and the tyre footprint count props, walls and
+ * rigs under a point, a car's roof grid follows every refit of its cage (an opened lid or risen roof reaches the tops gate), and a popped
+ * wheel launches from a once-per-slice spin.
  * A saved clip also records `NET_VERSION` (its snapshots' layout).
  */
-const REPLAY_VERSION = 67;
+const REPLAY_VERSION = 68;
 /** Bounds a decoder enforces (a clip is ≤ 13 s at ≤ 300 steps/s, ≤ 15 keyframes). */
 const MAX_STEPS = 8192;
 const MAX_KEYS = 64;
