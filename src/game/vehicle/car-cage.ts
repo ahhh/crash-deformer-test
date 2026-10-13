@@ -814,6 +814,8 @@ function rasterise(style: CageStyle, f: CageFields, panelOn: Uint8Array, cutY: n
 /** Stand-in squared distance of a node with none to measure from (no covered node, or none uncovered). */
 const FAR2 = 1e12;
 const scratch = { n: 0, f: new Float64Array(0), d: new Float64Array(0), v: new Int32Array(0), z: new Float64Array(0), a: new Float64Array(0), b: new Float64Array(0) };
+/** The covered nodes' extent `[ci0, ci1, cj0, cj1]` of the last plan field. */
+const coveredBox = new Int32Array(4);
 
 /** One line of the exact squared-distance transform (Felzenszwalb and Huttenlocher 2012): `d` ← min over q of (p - q)² + f[q]. */
 function transformLine(n: number, f: Float64Array, d: Float64Array, v: Int32Array, z: Float64Array): void {
@@ -843,14 +845,31 @@ function transformLine(n: number, f: Float64Array, d: Float64Array, v: Int32Arra
 /**
  * `g` ← the column pass of the squared-distance transform (in steps) of the binary image whose seeds are the nodes with
  * `(covered === 1) === inside`: each node's squared distance to the nearest seed in its column, `FAR2` where the column has none.
- * What `transformLine` gives a 0/`FAR2` column, by two sweeps.
+ * What `transformLine` gives a 0/`FAR2` column, by two sweeps. With `box`, it also gets the seeds' extent `[ci0, ci1, cj0, cj1]`
+ * (columns, rows; `ci1 < 0` when there is no seed).
  */
-function seedColumns(nu: number, nv: number, covered: Uint8Array, inside: boolean, g: Float64Array): void {
+function seedColumns(nu: number, nv: number, covered: Uint8Array, inside: boolean, g: Float64Array, box: Int32Array | null): void {
+  if (box !== null) {
+    box[0] = nu;
+    box[1] = -1;
+    box[2] = nv;
+    box[3] = -1;
+  }
   for (let i = 0; i < nu; i++) {
     let last = -1;
+    let first = -1;
     for (let j = 0, k = i; j < nv; j++, k += nu) {
-      if ((covered[k] === 1) === inside) last = j;
+      if ((covered[k] === 1) === inside) {
+        last = j;
+        if (first < 0) first = j;
+      }
       g[k] = last < 0 ? FAR2 : (j - last) * (j - last);
+    }
+    if (box !== null && first >= 0) {
+      if (i < box[0]!) box[0] = i;
+      box[1] = i;
+      if (first < box[2]!) box[2] = first;
+      if (last > box[3]!) box[3] = last;
     }
     last = -1;
     for (let j = nv - 1, k = j * nu + i; j >= 0; j--, k -= nu) {
@@ -860,12 +879,13 @@ function seedColumns(nu: number, nv: number, covered: Uint8Array, inside: boolea
   }
 }
 
-/** `g` (nu × nv, `seedColumns`' column pass) ← the row pass: the squared distance transform done. */
-function transformRows(nu: number, nv: number, g: Float64Array, s: typeof scratch): void {
-  for (let j = 0; j < nv; j++) {
-    for (let i = 0; i < nu; i++) s.f[i] = g[j * nu + i]!;
-    transformLine(nu, s.f, s.d, s.v, s.z);
-    for (let i = 0; i < nu; i++) g[j * nu + i] = s.d[i]!;
+/** `g` (nu × nv, `seedColumns`' column pass) ← the row pass over rows `j0..j1` and nodes `i0..i1` (each row's sub-range is its own line): the squared distance transform done there. */
+function transformRows(nu: number, g: Float64Array, s: typeof scratch, j0: number, j1: number, i0: number, i1: number): void {
+  const n = i1 - i0 + 1;
+  for (let j = j0; j <= j1; j++) {
+    for (let i = 0; i < n; i++) s.f[i] = g[j * nu + i0 + i]!;
+    transformLine(n, s.f, s.d, s.v, s.z);
+    for (let i = 0; i < n; i++) g[j * nu + i0 + i] = s.d[i]!;
   }
 }
 
@@ -890,10 +910,15 @@ function planFieldOf(style: CageStyle, f: CageFields): Float32Array {
   }
   const toCovered = scratch.a;
   const toUncovered = scratch.b;
-  seedColumns(nu, nv, f.covered, true, toCovered);
-  seedColumns(nu, nv, f.covered, false, toUncovered);
-  transformRows(nu, nv, toCovered, scratch);
-  transformRows(nu, nv, toUncovered, scratch);
+  const box = coveredBox;
+  seedColumns(nu, nv, f.covered, true, toCovered, box);
+  seedColumns(nu, nv, f.covered, false, toUncovered, null);
+  transformRows(nu, toCovered, scratch, 0, nv - 1, 0, nu - 1);
+  if (box[1]! >= 0) {
+    // Outside the covered nodes' extent every node is uncovered (0, as `seedColumns` leaves it) and the ring around the extent is
+    // all uncovered, so no node inside has a nearer uncovered node beyond the ring: the row pass runs over the ring box alone.
+    transformRows(nu, toUncovered, scratch, Math.max(0, box[2]! - 1), Math.min(nv - 1, box[3]! + 1), Math.max(0, box[0]! - 1), Math.min(nu - 1, box[1]! + 1));
+  }
   for (let k = 0; k < n; k++) {
     f.plan[k] = f.covered[k]! === 1 ? -(Math.sqrt(toUncovered[k]!) - 0.5) * step : (Math.sqrt(toCovered[k]!) - 0.5) * step;
   }
