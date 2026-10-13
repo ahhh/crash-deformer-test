@@ -17,6 +17,8 @@ type DriveIntent = {
   analogWheel: boolean;
   analogGas: boolean;
   analogBrake: boolean;
+  /** Both keyboard wheel keys are down: the wheel holds where it is (A + D). */
+  wheelLock: boolean;
 };
 
 export function blankIntent(): DriveIntent {
@@ -29,6 +31,7 @@ export function blankIntent(): DriveIntent {
     analogWheel: false,
     analogGas: false,
     analogBrake: false,
+    wheelLock: false,
   };
 }
 
@@ -75,8 +78,10 @@ export function gameKey(e: Pick<KeyboardEvent, "defaultPrevented" | "ctrlKey" | 
 export function readIntent(keys: ReadonlySet<string>, pad: PadState | null, out: DriveIntent): DriveIntent {
   const kGas = keys.has("KeyW") || keys.has("ArrowUp") ? 1 : 0;
   const kBrake = keys.has("KeyS") || keys.has("ArrowDown") ? 1 : 0;
-  const kWheel =
-    (keys.has("KeyA") || keys.has("ArrowLeft") ? 1 : 0) - (keys.has("KeyD") || keys.has("ArrowRight") ? 1 : 0);
+  const left = keys.has("KeyA") || keys.has("ArrowLeft");
+  const right = keys.has("KeyD") || keys.has("ArrowRight");
+  const kWheel = (left ? 1 : 0) - (right ? 1 : 0);
+  out.wheelLock = left && right;
   const p = pad && pad.connected ? pad : null;
   const pWheel = p ? -p.lx : 0;
   const pGas = p ? p.rt : 0;
@@ -109,7 +114,9 @@ function slew(cur: number, target: number, rate: number, dt: number): number {
 export function shapeDrive(intent: DriveIntent, feel: DriveFeel, along: number, dt: number, out: DriveInput): DriveInput {
   const w = intent.wheel;
   if (intent.analogWheel) feel.wheel = slew(feel.wheel, w, FEEL.steerPad, dt);
-  else {
+  else if (intent.wheelLock) {
+    /* both keys held: the wheel stays where it is */
+  } else {
     const outward = w !== 0 && Math.sign(w) === Math.sign(feel.wheel || w) && Math.abs(w) > Math.abs(feel.wheel);
     feel.wheel = slew(feel.wheel, w, outward ? FEEL.steerIn : FEEL.steerOut, dt);
   }

@@ -28,6 +28,8 @@ A tap shorter than one frame still registers (the press is latched until the nex
 | Brake, then reverse once stopped | S / ↓ | LT / L2 (analog) | stick down |
 | Steer, relative to the car. Reversing steers like a real car: left backs the tail to the left | A / ←, D / → | left stick | stick left / right |
 | Handbrake (sharper turn, slows the car) | Space | A / Cross | Handbrake (hold) |
+| Hold the wheel where it is (both keys down; releasing both centres it) | A + D | | |
+| Drift start: tap the brake under 0.25 s with the wheel past 0.6 at speed; the handbrake pulses 0.1 s | S (tap) while steering | LT (tap) | |
 | Boost (drains under gas, recharges, fills on a derby takedown) | Shift | X / Square | Boost (hold) |
 | Camera: chase → far chase → hood cam | V / C / T | Y / Triangle | View |
 | Look back from the car while held; release returns at once | ` (Backquote) | R3 (click the right stick) | Rear (hold) |

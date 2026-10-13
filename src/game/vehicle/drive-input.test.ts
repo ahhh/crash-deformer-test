@@ -67,6 +67,22 @@ describe("given a driver steering with the keyboard", () => {
     assert.equal(shaped(["KeyA", "KeyD"], 5, 0.4).out.steer, 0);
   });
 
+  it("when A is held to lock and D joins it for 0.3 s, then the wheel holds where it was, and releasing both centres it within 0.2 s", () => {
+    const feel = { wheel: 0, gas: 0, brake: 0, brakeHeld: 0, pulse: 0 };
+    const out = idleDrive();
+    const run = (k: string[], s: number) => {
+      const intent = readIntent(new Set(k), null, blankIntent());
+      for (let t = 0; t < s - 1e-9; t += 1 / 120) shapeDrive(intent, feel, 5, 1 / 120, out);
+    };
+    run(["KeyA"], 0.4);
+    const held = feel.wheel;
+    assert.ok(held > 0.99);
+    run(["KeyA", "KeyD"], 0.3);
+    assert.ok(Math.abs(feel.wheel - held) < 1e-9, `wheel ${feel.wheel}`);
+    run([], 0.2);
+    assert.equal(feel.wheel, 0);
+  });
+
   it("when the keys are released after A was held for 0.5 s at 5 m/s, then the wheel re-centres in under 0.2 s, faster than it wound on", () => {
     const { feel, intent } = shaped(["KeyA"], 5, 0.5);
     readIntent(new Set(), null, intent);
