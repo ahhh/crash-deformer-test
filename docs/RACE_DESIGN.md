@@ -253,6 +253,9 @@ race rules, so fleet and derby never see it. The HUD shows a small "Draft" tag b
 Numbers by feel: 2 m keeps a bumper-to-bumper shove out, 15 m is about 0.35 s at top speed; ±1.5 m is a car width; 5 % per
 2 s is a full meter after 40 s glued to a bumper; ×1.02 is 4 km/h at 200 km/h: a slow close on the car ahead.
 
+A clean drift also tops up the player's meter (`BOOST.drift`, `DriverSeat.input`): 12 % per second of slide, counted up to 2.5 s,
+paid when the slide ends, and only if no contact fell within `driftClean` = 0.5 s of it. The AI's meters get no such reward.
+
 ## Ground, surfaces, decks
 
 ```ts

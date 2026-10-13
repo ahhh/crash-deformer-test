@@ -394,7 +394,8 @@ function driveMasses(masses: readonly DriveMass[], turn: Float64Array): boolean 
   return true;
 }
 
-export const BOOST = { full: 1.6, recharge: 4.5, takedown: 0.4 };
+/** `drift`: a clean slide pays this share of the meter per second of drift, up to `driftCap` s, when no contact fell inside `driftClean` s of it. */
+export const BOOST = { full: 1.6, recharge: 4.5, takedown: 0.4, drift: 0.12, driftCap: 2.5, driftClean: 0.5 };
 
 /** One slice of a boost meter (0–1): it drains over `BOOST.full` s while boosting, refills over `BOOST.recharge` s otherwise. The seat, the race AI and the derby AI all keep their meters by it. */
 export function chargeBoost(level: number, boosting: boolean, dt: number): number {
@@ -454,6 +455,8 @@ export class DriverSeat {
   view: SeatView = "third";
   carIndex = -1;
   boost = 1;
+  /** Seconds the driven car has been sliding (paid out as boost when a clean slide ends). */
+  private driftS = 0;
   /** This frame's merged keyboard + pad intent. */
   readonly intent = blankIntent();
   private readonly feel: DriveFeel = { wheel: 0, gas: 0, brake: 0, brakeHeld: 0, pulse: 0 };
@@ -531,7 +534,12 @@ export class DriverSeat {
   }
 
   /** Shaped input for one physics slice of the driven car (pooled: read it before the next call). */
-  input(car: Pick<DeformableCar, "velocity" | "fwdFlat">, dt: number): DriveInput {
+  input(car: Pick<DeformableCar, "velocity" | "fwdFlat" | "drive" | "deform">, dt: number): DriveInput {
+    if (car.drive.drift > 0.05) this.driftS += dt;
+    else if (this.driftS > 0) {
+      if (car.deform.quietTime() > BOOST.driftClean) this.boost = topUpBoost(this.boost, BOOST.drift * Math.min(this.driftS, BOOST.driftCap));
+      this.driftS = 0;
+    }
     const along = car.velocity.x * car.fwdFlat.x + car.velocity.z * car.fwdFlat.z;
     shapeDrive(this.intent, this.feel, along, dt, this.out);
     this.out.boost = this.out.boost && this.boost > 0.02;

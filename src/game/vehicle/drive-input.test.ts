@@ -211,7 +211,8 @@ describe("given a DriverSeat (the player's control mode: watching the whole fiel
     assert.equal(s.mode, "follow");
     assert.equal(s.sample(new Set(["KeyW", "ShiftLeft"]), null), true);
     assert.equal(s.mode, "drive");
-    const car = { velocity: new THREE.Vector3(), fwdFlat: new THREE.Vector3(0, 0, 1) };
+    const car = new DeformableCar(PAINT, new THREE.Scene());
+    car.spawnFacing(0, 0, 0, 0);
     let input = s.input(car, H);
     for (let t = 0; t < 0.3; t += H) input = s.input(car, H);
     assert.equal(input.throttle, 1);
@@ -389,5 +390,34 @@ describe("given a keydown event the game must decide whether to take", () => {
     assert.equal(key({ tagName: "DIV", isContentEditable: true }), false);
     assert.equal(key({ tagName: "INPUT", type: "range" }), true);
     assert.equal(key({ tagName: "BUTTON" }), true);
+  });
+});
+
+describe("given a driver who slides the car with the handbrake", () => {
+  /** 30 m/s, a seat holding 0.3 boost: the handbrake pulse (`pulse`) starts the slide, A+W holds it 1.2 s, then W alone ends it; `hit` strikes the car while it is held. */
+  function slide(pulse: string[], hit: boolean): number {
+    const r = rigAt("third", 30);
+    r.seat.boost = 0.3;
+    hold(r, pulse, 0.3);
+    hold(r, pulse.length > 1 ? ["KeyW", "KeyA"] : ["KeyW"], 1.0);
+    if (hit) {
+      r.car.group.updateMatrixWorld(true);
+      const at = r.car.group.position.clone().addScaledVector(r.car.forward, 2.05);
+      at.y = 0.4;
+      r.car.applyImpact(at, r.car.forward.clone().negate(), 3, 3);
+    }
+    hold(r, ["KeyW"], 1.5);
+    return r.seat.boost;
+  }
+
+  it("when the slide ends with no contact near it, then the meter gains at least 0.15 over the same run without a slide", () => {
+    const slid = slide(["Space", "KeyA"], false);
+    const straight = slide(["KeyW"], false);
+    assert.ok(slid >= straight + 0.15, `slid ${slid.toFixed(3)} straight ${straight.toFixed(3)}`);
+  });
+
+  it("when a contact falls inside the slide's last 0.5 s, then it earns nothing", () => {
+    const hit = slide(["Space", "KeyA"], true);
+    assert.ok(hit <= 0.3 + 1e-9, `boost ${hit.toFixed(3)}`);
   });
 });
