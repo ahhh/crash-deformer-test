@@ -13,16 +13,16 @@ const VOICE_PEAK_LIMIT = 0.5;
 const db = (x: number): number => 20 * Math.log10(x);
 
 describe("given the engine law", () => {
-  it("when the pedal is up versus wide open at the same revs, then coast sits 10-16 dB under full load", () => {
+  it("when the pedal is up versus wide open at the same revs, then coast sits 6-10 dB under full load (the lift is heard, the lifted engine is not lost)", () => {
     for (const rev of REVS) {
       const gap = engineLawDb(rev, 1) - engineLawDb(rev, 0);
-      assert.ok(gap >= 10 && gap <= 16, `rev ${rev}: wide open is ${gap.toFixed(1)} dB over coast`);
+      assert.ok(gap >= 6 && gap <= 10, `rev ${rev}: wide open is ${gap.toFixed(1)} dB over coast`);
     }
   });
 
-  it("when the engine runs from idle coast to redline wide open, then the range is about 30 dB and redline wide open is the 0 dB reference", () => {
+  it("when the engine runs from idle coast to redline wide open, then the range is about 18 dB (the M5's idle at its top, -18 dB) and redline wide open is the 0 dB reference", () => {
     const range = engineLawDb(1, 1) - engineLawDb(REV_IDLE, 0);
-    assert.ok(Math.abs(range - 30) <= 2, `idle to redline is ${range.toFixed(1)} dB`);
+    assert.ok(Math.abs(range - 18) <= 1, `idle to redline is ${range.toFixed(1)} dB`);
     assert.equal(engineLawDb(1, 1), 0);
   });
 

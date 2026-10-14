@@ -3,18 +3,21 @@ import { approach } from "./audio-mix.ts";
 
 /**
  * How loud an engine is as the gauge's revs and the pedal's load change: BMW M5 Active Sound Design's shape (load is the dominant
- * control: quiet at idle and cruise, a steep rise past half load, a plateau at full) at the spans real cars measure (docs/ARCHITECTURE.md,
- * "Engine loudness"). The level is in dB under a redline at full load, which is the voice's `MOTOR_OUTPUT_GAIN` peak (-12 dBFS).
+ * control: quiet at idle and cruise, a steep rise past half load, a plateau at full), at spans compressed for play. The level is in dB
+ * under a redline at full load, which is the voice's `MOTOR_OUTPUT_GAIN` peak (-12 dBFS).
  */
 
-/** Full load over coast at the same rpm: real cars run 10-16 dB (wide open throttle over closed throttle). */
-const LOAD_SPAN_DB = 12;
+/** Full load over coast at the same rpm. Real cars run 10-16 dB; games compress it (8 dB keeps a lifted engine audible beside the music). */
+const LOAD_SPAN_DB = 8;
 /** The M5 load curve, as shares of the span: nothing under `LOAD_KNEE`, `LOAD_MID_SHARE` (8 of the M5's 22 dB) at half load, all of it at 1. */
 const LOAD_KNEE = 0.15;
 const LOAD_MID = 0.5;
 const LOAD_MID_SHARE = 8 / 22;
-/** Real cars gain about 6 dB per doubling of rpm; idle (about 12% of the redline's rpm) to redline is 3 doublings, so 12 + 18 = 30 dB idle-to-redline. */
-const RPM_DB_PER_DOUBLING = 6;
+/**
+ * dB per doubling of rpm. Real cars gain about 6 (a 30 dB idle-to-redline span), which left idle inaudible at the default slider; 3.3 over
+ * the 3 doublings from idle (about 12% of the redline's rpm) plus the load span puts idle coast at -18 dB, the top of the M5's idle range.
+ */
+const RPM_DB_PER_DOUBLING = 3.3;
 const IDLE_RPM_SHARE = 0.12;
 /** The load term eases in with this time constant (s) when the pedal goes down (the M5's 50-150 ms attack) and out with this one when it lifts. */
 const ATTACK_TAU_S = 0.1;

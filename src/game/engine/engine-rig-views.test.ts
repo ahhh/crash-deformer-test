@@ -41,6 +41,8 @@ describe("given the real engine in a rig scene, watching its car", () => {
     Object.assign(engine["renderer"], { render() {}, compile() {}, compileAsync: () => Promise.resolve() });
     await engine.ready;
     engine.fadeScenes = false;
+    // The rig car's spawn speed is drawn from the speed range at a random scene seed (10-32 m/s): a slow draw loses more than 10% in a second to rolling drag, which the 0.9 coast bars read as a stall. A fixed 24 m/s coasts the same every run.
+    engine.setSpeedRange(24, 24);
     // The pacer's step timing is wall clock: a loaded box makes a frame run past its deadline and give sim time up (the car coasts slow).
     // A clock that reads 1 µs later each time (far from the deadline, real now + 8 ms, for any run this long) is not blind, so every frame steps its whole time.
     let tick = 0;

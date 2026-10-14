@@ -32,7 +32,7 @@ the front-left corner, seen from above.
   that slows it. It retracts (1.6 m/s) once the car stops it, the contact
   lets go for 50 ms, or the face reaches 0.9 m past the paint (end stop).
 - **Contact** is the shared striker contact (`external-contact.ts`
-  `bodyContact`, docs/CONTACT_PARITY.md), the same code as the press plates
+  `bodyContact`, [`CONTACT_PARITY.md`](CONTACT_PARITY.md)), the same code as the press plates
   and the Doors ram, in the head's rest frame: every particle velocity is
   shifted by −(face speed), then `StreamedDeformation.projectOutOfBox` (the
   head is the box: depth 0.3 m along the axis, half the face width across)
@@ -102,7 +102,7 @@ already moves the skin (see the last section).
 
 ## Expectations and their anchors
 
-Real-world anchors (NCAP full-frontal and IIHS side tests, `docs/CRUSH_CALIBRATION.md`): frontal crush at 56 km/h is
+Real-world anchors (NCAP full-frontal and IIHS side tests, [`CRUSH_CALIBRATION.md`](CRUSH_CALIBRATION.md)): frontal crush at 56 km/h is
 350–550 mm dynamic / 250–450 mm static and scales with speed, so at 32 km/h EBS 0.14–0.26 m static, ≤ 0.31 m dynamic;
 IIHS side test (1500 kg barrier, 50 km/h) ≈ 0.15–0.25 m B-pillar intrusion; footwell / A-pillar Good < 5 cm. Side shots
 flatten at the door band (`doorL/R` bands max 0.278 m).

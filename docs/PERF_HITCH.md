@@ -1,7 +1,7 @@
 # Race hitching
 
 What makes a frame long in a race, the guards that keep each cause out, and how to measure a hitch. Design pillar:
-no hitching (`docs/DESIGN_PILLARS.md`).
+no hitching ([`DESIGN_PILLARS.md`](DESIGN_PILLARS.md)).
 
 ## Measuring
 
@@ -38,7 +38,7 @@ no hitching (`docs/DESIGN_PILLARS.md`).
   instanced casters their own depth material, so three never re-selects a program between plain and instanced draws.
 - `npm run check:programs` plays the sandbox (fleet crash with cracked glass, drive, night / wet, every FX tier but Ultra, every
   scene, debug views) and a race on every course, and fails if any program links after the boot warm-up or between a
-  race's green light and its end. Ultra links its programs on its first pick, by design (`docs/CINEMATIC.md`).
+  race's green light and its end. Ultra links its programs on its first pick, by design ([`CINEMATIC.md`](CINEMATIC.md)).
 
 **The `minimal` tier** (the default, `INITIAL_HUD.fxTier`; `?fx=` sets it) renders straight to the canvas: no HDR target,
 bloom, grade, vignette, grain or blur. It keeps every effect that needs no post (tyre marks, tyre smoke, slip sparks, shake,
@@ -46,7 +46,7 @@ FOV kick, hit-stop, crash-cam cuts) and draws sparks and glass plain. Order `off
 marks, smoke, hit-stop and crash cam.
 
 **Distance detail** (`present/car-detail.ts`, `DetailGovernor`): past a car's rung its small non-shadow parts leave the
-camera's layer and only the body draws (`docs/CINEMATIC.md`).
+camera's layer and only the body draws ([`CINEMATIC.md`](CINEMATIC.md)).
 
 **Crash path warm-up.** `warmCrashPath` (`engine/world-step.ts`) runs two throwaway crashes through `stepWorld` during the
 boot warm-up, so V8 has compiled the crush path before the first real crash; cold, a race's first pile-up ran it
@@ -56,7 +56,7 @@ bit-identical.
 ### GC during races
 
 Race GC pauses (30–64 ms) are driven by physics allocation. `contact/physics-alloc.test.ts` bounds the heap growth of a
-warmed 24-car pile-up per frame, and the hot-path rules (`docs/ARCHITECTURE.md` H1–H4) keep per-step code allocation-free.
+warmed 24-car pile-up per frame, and the hot-path rules ([`ARCHITECTURE.md`](ARCHITECTURE.md) H1–H4) keep per-step code allocation-free.
 Measure allocation with the sampling heap profiler, including objects already collected.
 
 **Not causes** (measured per frame): HUD React, FX emitters, tyre marks, lamp lights, skinning, texture uploads.

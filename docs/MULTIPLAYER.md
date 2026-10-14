@@ -148,7 +148,7 @@ most one snapshot per rendered frame, so a host below 30 fps sends at its frame 
 - **Private room**: a code typed into the online entry's panel (`[A-Z0-9]`, ≤ 12) or, left empty, generated: 8
   characters from `crypto.getRandomValues` over a 32-character alphabet (40 bits), so live rooms
   can't be found by guessing (the old 4 characters from `Math.random` were ~1.7 M codes). The form
-  is in the online entry's panel (Host / Join, link "Internet (WebRTC)" or "This browser (tabs)"). The room's code is shown big with "Copy link" (and "Share" where the browser has it): `origin + BASE_URL + #room=CODE` (plus `&tx=bc` for tabs), the share hash (docs/CONTROLS.md), which joins on load; the older `?net=join&room=CODE` still joins too (`useDeepLinkJoin`, once per page load, in any scene, bench pages included). `?net=host&room=CODE`
+  is in the online entry's panel (Host / Join, link "Internet (WebRTC)" or "This browser (tabs)"). The room's code is shown big with "Copy link" (and "Share" where the browser has it): `origin + BASE_URL + #room=CODE` (plus `&tx=bc` for tabs), the share hash ([`CONTROLS.md`](CONTROLS.md#shareable-url)), which joins on load; the older `?net=join&room=CODE` still joins too (`useDeepLinkJoin`, once per page load, in any scene, bench pages included). `?net=host&room=CODE`
   only fills in the panel (hosting takes a click). A link's code (query or `#`) is uppercased as the field does, and
   one the field would refuse (a `pub-…` name, longer than 12) is ignored, so a crafted link can't
   make a visitor host a public room or poll a dead code forever. Every net URL is built from `import.meta.env.BASE_URL`, so
@@ -403,7 +403,7 @@ two agree. With one human there is no team (`RaceHud.team` is null) and every ru
 - **Survival:** a private room's host picks the Survival scene and every peer seated at that moment starts it (`setSeats` before
   `enter`), abreast on the start anchor (`humanSlot`). Each cop hunts the nearest human still free (`HunterBrain`), each human is
   busted or wrecked by the per-car rules, a fallen human spectates, and the run ends when none is free: its time is the team's.
-  The pack scales with the humans (`HUNT.perHuman`, docs/SURVIVAL.md). A peer who joins mid-run spectates; Retry seats the peers
+  The pack scales with the humans (`HUNT.perHuman`, [`SURVIVAL.md`](SURVIVAL.md)). A peer who joins mid-run spectates; Retry seats the peers
   the room has now.
 - **Campaign:** the host owns the one `Campaign`; its table rides the race snapshot (`campaign`, `standings`: a guest follows the
   host's standings screen). The round counts, and the table moves on, when the event's team result is a win; otherwise Next

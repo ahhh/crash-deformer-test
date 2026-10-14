@@ -128,7 +128,7 @@ Determinism (same machine, `determinism.mjs` + `hull-cost.ts det`): every varian
 | criterion | (a) own model | (b) Rapier |
 |---|---|---|
 | E1 owner ramp cases, E2 stack drive | wheel contact on `Solid` answers; closes both | wheels would still need our rays (4.5-15x slower measured) or Rapier's raycast vehicle (the old eval: creeps 2.4-13 cm in 3 s, 6-30 cm in 10 s) |
-| E3 press, E4 piston, E5 door (response) | closes: one `bodyContact` path | closes none: detection is not where they differ (`CONTACT_PARITY.md`: EBS, `bidirectional`, sphere vs slab) |
+| E3 press, E4 piston, E5 door (response) | closes: one `bodyContact` path | closes none: detection is not where they differ ([`CONTACT_PARITY.md`](CONTACT_PARITY.md): EBS, `bidirectional`, sphere vs slab) |
 | E6/E7 car as road, ramp, corkscrew | the cage is the body; fields follow crush | boxes (B) = today's shapes; faithful shape needs D/E at 0.79-2.9 ms/slice @32 |
 | shape you see | cage skinned from the drawn mesh | convex fit of it, concavities lost (D) or 5-8 pieces (E) |
 | cost @ derby-32, one slice | section 6: ~0.1 ms steady, ~0.2-0.3 ms while 8 cars deform [INFERENCE from micro] | B 0.27, D 0.79, E5 2.1 ms plus contact reads 23-153 KB/slice garbage |
@@ -139,7 +139,7 @@ Determinism (same machine, `determinism.mjs` + `hull-cost.ts det`): every varian
 
 ## 5. Staged migration (each stage: one lane, own REPLAY/NET bump, calibration re-run)
 
-Gates re-run per stage: crash calibration (`npm run sweep`, `CRUSH_CALIBRATION.md:466-473`), `vehicle/ejection-matrix`, `ejection-slope`, `world/solid-parity`, `engine/replay-fidelity`, `world/race-replay`, `contact/physics-alloc`, `slice-budget`, `pair-hook`, the ground-fit drop matrix, fleet-ramps D1/D2, wreck-slope, stack tests, net tests, `engine-bench` headless 10/24/32.
+Gates re-run per stage: crash calibration (`npm run sweep`, [`CRUSH_CALIBRATION.md`](CRUSH_CALIBRATION.md)), `vehicle/ejection-matrix`, `ejection-slope`, `world/solid-parity`, `engine/replay-fidelity`, `world/race-replay`, `contact/physics-alloc`, `slice-budget`, `pair-hook`, the ground-fit drop matrix, fleet-ramps D1/D2, wreck-slope, stack tests, net tests, `engine-bench` headless 10/24/32.
 
 | stage | change | deletes | equivalences closed (tolerance) | notes |
 |---|---|---|---|---|
@@ -152,7 +152,7 @@ Gates re-run per stage: crash calibration (`npm run sweep`, `CRUSH_CALIBRATION.m
 
 ## 6. Per-step cost
 
-Measured (node, this box, load 5-8; `micro.ts`, `raster-micro.mjs`): `heightAt` on the ramps 0.022 us, `support()` 0.14 us, `settle()` 0.6 us flat / **70.8 us on a ramp edge** (twice per slice below 6 m/s), `stepAir` 2.0 us per car-slice (45 points, 4 passes, no allocation). Cage: refit 96 vertices from masses 1.0-1.2 us; raster of 154 triangles into top+bottom 10 cm fields 26 us (73.6 us at 5 cm; 35 us for 330 triangles); 45 probe points against a field 0.9 us. Whole-step context (PERF_BENCH.md headless): fleet-32 1.97 ms p50 (p95 15.06), derby-24 3.48 ms p50; pair SAT loops at derby-32 2.607 ms/frame (`RAPIER_EVAL.md:136-137`).
+Measured (node, this box, load 5-8; `micro.ts`, `raster-micro.mjs`): `heightAt` on the ramps 0.022 us, `support()` 0.14 us, `settle()` 0.6 us flat / **70.8 us on a ramp edge** (twice per slice below 6 m/s), `stepAir` 2.0 us per car-slice (45 points, 4 passes, no allocation). Cage: refit 96 vertices from masses 1.0-1.2 us; raster of 154 triangles into top+bottom 10 cm fields 26 us (73.6 us at 5 cm; 35 us for 330 triangles); 45 probe points against a field 0.9 us. Whole-step context ([`PERF_BENCH.md`](PERF_BENCH.md) headless): fleet-32 1.97 ms p50 (p95 15.06), derby-24 3.48 ms p50; pair SAT loops at derby-32 2.607 ms/frame (`RAPIER_EVAL.md:136-137`).
 
 | stage | added / removed per car-slice | derby-32 per 60 Hz frame (1 slice; x4 at contact slicing) | phone (x4) [INFERENCE] |
 |---|---|---|---|
@@ -264,7 +264,7 @@ What exists after Stage 1, what it replaced and what it leaves. Sections 10.1-10
 - **Queries are plain functions over the typed arrays** (no `this`, no allocation): `pointContact(x, z, y, skip, out)` (the store: the active static surface and the armed roofs), `contactIn(surface, ...)` (one surface alone: what `Ground`'s wrappers use) and `wheelContact(hub, axes, scale, skip, out)`. `out` is `HIT_SIZE` (12) doubles: `C_H` the height (for a wheel: the rise it needs to clear, `-Infinity` with nothing under it), `C_NX..C_NZ` the unit up-normal, `C_GRIP`, `C_SURF` (an index into `SURFACE_IDS`), `C_OWNER` (-1 the world, else the car's slot), `C_ARG` (the patch; for a wheel the footprint index), `C_AUX`, and for a wheel `C_PX..C_PZ`, the footprint point that sets the rise. A surface is under a point when it is at most its patch's reach above the asking height (`STEP_UP` for a deck or a kerb), so a bridge over a road answers by who asks from one rule; the asking car's own roof is skipped (`skip`), and so is the roof of a car whose origin is higher.
 - **`wheelContact`** sweeps the tyre's footprint, nine points (the crown's arc ±0.5 rad, both shoulders, the arc at ±45°), each asked at its own height; `out[C_H]` is the greatest rise any of them needs, so a wheel riding up a lip rises continuously as its arc meets the edge, not when its hub crosses it.
 - **`Ground extends Surface`**; `heightAt`, `normalAt`, `frictionAt`, `surfaceIndex` and `surfaceAt` are one-line readings of `contactIn`. Registered today: `FLAT_GROUND` (one plane, ±1e7 m), `DISC_GROUND` (one round plane, radius 48 m), `TrackGround` (the baked field as one unbounded patch with its crease, and a deck patch per bridge-deck segment), `Corkscrew` (the flat pad and the floor baked to a 5 cm grid), `FleetRamps` (the disc, the slab's top and three strips per wedge, each strip with its own reach) and `CarSurfaces`. The six literal test grounds are `Surface` subclasses registering a patch.
-- **`CarSurfaces extends Surface`**: car i's roof is patch i, a plate per body style (0.1 m grid, built once) whose frame and node factors `sync` rewrites in place each slice (no allocation; its world box is rewritten with it). `take`, `note`, `commit`, `press` keep the per-slice face budgets of the load crush (`docs/LOAD_CRUSH.md`); `restsOn` is set from them.
+- **`CarSurfaces extends Surface`**: car i's roof is patch i, a plate per body style (0.1 m grid, built once) whose frame and node factors `sync` rewrites in place each slice (no allocation; its world box is rewritten with it). `take`, `note`, `commit`, `press` keep the per-slice face budgets of the load crush ([`LOAD_CRUSH.md`](LOAD_CRUSH.md)); `restsOn` is set from them.
 - **Solids for bodies that collide by shape** (the ragdoll's Rapier world) read the same patches: `Surface.meshes` are triangle solids that are not height fields (the corkscrew's channel), and `setSolid(i, false)` marks a patch that gives only heights (the fleet's slab top, which moves with the slab and which the ragdoll proxies by its own kinematic body; the corkscrew's floor grid, whose solid is its mesh).
 
 ### 11.2 The car, `vehicle/car-air.ts`, `vehicle/car.ts`, `vehicle/car-drive.ts`
