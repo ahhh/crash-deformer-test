@@ -52,6 +52,10 @@ export function centroid(out: THREE.Vector3, cars: readonly DeformableCar[]): TH
 
 /** A hit's closing speed (m/s) to shake: none under `from` (a nudge), full at `full` (a head-on at speed). */
 const JOLT = { from: 2, full: 20 };
+/** The shake's three axes (across, up, roll) in rad/s: 9.1, 7.3 and 5.7 Hz, out of step so the motion never repeats on a beat. */
+const SHAKE_RAD_S = [2 * Math.PI * 9.1, 2 * Math.PI * 7.3, 2 * Math.PI * 5.7] as const;
+/** Trauma lost per wall second: a full jolt is gone in a third of a second (drawn as trauma squared, it reads as a short burst). */
+export const SHAKE_DECAY_PER_S = 3.2;
 
 /** An orbit shot (`frameReset`): look point (x and z 0 unless given), distance and pitch. The one-car rigs' is `SOLO_SHOT`. */
 type OrbitShot = { lookY: number; radius: number; pitch: number; lookX?: number; lookZ?: number };
@@ -253,13 +257,14 @@ export class ChaseCamera {
   }
 
   /**
-   * A hit on the followed car: `speed` m/s of velocity change adds shake (the orbit is not re-aimed), none under `JOLT.from`,
-   * full (before `CHASE.shake`) at `JOLT.full`, in between a straight ramp (trauma squared draws, so a tap is a nudge). No shake in reduced motion.
+   * A hit on the followed car: `speed` m/s of velocity change raises the shake to its own level (the orbit is not re-aimed), none under
+   * `JOLT.from`, full (before `CHASE.shake`) at `JOLT.full`, a straight ramp between (trauma squared draws, so a tap is a nudge). Hits never
+   * stack: a pile grinding on the car every frame holds one hit's shake, it does not pin it at full. No shake in reduced motion.
    */
   jolt(speed: number): void {
     if (this.reduceMotion) return;
     const t = THREE.MathUtils.clamp((speed - JOLT.from) / (JOLT.full - JOLT.from), 0, 1);
-    this.trauma = Math.min(1, this.trauma + CHASE.shake * t);
+    this.trauma = Math.max(this.trauma, Math.min(1, CHASE.shake * t));
   }
 
   /** Ease toward the orbit around `look`; `spinRate` rad/s auto-rotates unless dragging or reduced motion. */
@@ -447,11 +452,12 @@ export class ChaseCamera {
   private shake(scale: number): void {
     if (this.trauma <= 0) return;
     const s = this.trauma * this.trauma * scale;
-    const t = performance.now() * 0.017;
+    // Seconds: the shake runs at 6-9 Hz, a readable jolt (it ran near 100 Hz, which beat against the frame rate as a strobing flicker).
+    const t = performance.now() / 1000;
     // Across the view (the Battlefront 2 "orbit" shake, masterclass 40:05): the car near the eye shakes, the road far ahead holds still, and a hit never pulses the eye toward or away from the car.
-    this.camera.translateX(Math.sin(t * 37.1) * s * 0.28);
-    this.camera.translateY(Math.cos(t * 29.4) * s * 0.18);
-    this.camera.rotateZ(Math.sin(t * 21.2) * s * 0.025);
+    this.camera.translateX(Math.sin(t * SHAKE_RAD_S[0]) * s * 0.14);
+    this.camera.translateY(Math.cos(t * SHAKE_RAD_S[1]) * s * 0.09);
+    this.camera.rotateZ(Math.sin(t * SHAKE_RAD_S[2]) * s * 0.01);
   }
 
   /** Orbit angle / radius / pitch from the camera's current place around `look`. */

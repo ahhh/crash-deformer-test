@@ -444,7 +444,7 @@ describe("given the chase camera and a hit on the car it follows", () => {
     return camera.position.distanceTo(rest);
   };
 
-  it("when the car is hit at 1, 4, 15 and 40 m/s, then a nudge adds nothing, a hard hit adds trauma by a straight ramp from 2 to 20 m/s, and trauma never passes 1", () => {
+  it("when the car is hit at 1, 4, 15 and 40 m/s, then a nudge adds nothing, a hard hit raises trauma by a straight ramp from 2 to 20 m/s, and trauma never passes 1", () => {
     const { view } = make();
     view.jolt(1);
     assert.equal(view.trauma, 0, "1 m/s");
@@ -455,6 +455,33 @@ describe("given the chase camera and a hit on the car it follows", () => {
     assert.ok(Math.abs(view.trauma - 13 / 18) < 1e-12, `15 m/s ${view.trauma}`);
     view.jolt(40);
     assert.equal(view.trauma, 1, "40 m/s on top of that");
+  });
+
+  it("when a pile grinds on the car with a 10 m/s hit every frame for a second, then the shake holds that one hit's level instead of climbing to full", () => {
+    const { view } = make();
+    for (let f = 0; f < 60; f++) view.jolt(10);
+    assert.ok(Math.abs(view.trauma - 8 / 18) < 1e-12, `trauma ${view.trauma} after 60 hits`);
+  });
+
+  it("when the eye's sideways shake is sampled every millisecond for a second, then it swings at most 12 times a second (a jolt, not a strobing flicker)", (t) => {
+    let ms = 0;
+    t.mock.method(performance, "now", () => ms);
+    const { camera, view, look } = rig("global");
+    view.look.copy(look);
+    for (let f = 0; f < 120; f++) view.orbit(DT, 0, false);
+    const rest = camera.position.clone();
+    const right = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0);
+    let crossings = 0;
+    let prev = 0;
+    for (ms = 0; ms < 1000; ms++) {
+      camera.position.copy(rest);
+      view.trauma = 1;
+      view.orbit(0, 0, true);
+      const side = camera.position.clone().sub(rest).dot(right);
+      if (ms > 0 && Math.sign(side) !== Math.sign(prev) && side !== 0) crossings++;
+      prev = side;
+    }
+    assert.ok(crossings <= 24, `${crossings} sign changes in 1 s (${crossings / 2} Hz)`);
   });
 
   it("when the orbit shakes, then the eye moves across the view and never along it, so the road far ahead holds still", (t) => {
@@ -470,7 +497,7 @@ describe("given the chase camera and a hit on the car it follows", () => {
     const calm = frame(0);
     const shaken = frame(0.7);
     const d = shaken.at.clone().sub(calm.at);
-    assert.ok(d.length() > 0.05, `the eye moved ${d.length().toFixed(3)} m`);
+    assert.ok(d.length() > 0.02, `the eye moved ${d.length().toFixed(3)} m`);
     assert.ok(Math.abs(d.dot(calm.dir)) < 1e-9, `${d.dot(calm.dir)} m of it along the view`);
   });
 
@@ -504,7 +531,7 @@ describe("given the chase camera and a hit on the car it follows", () => {
     const chase = shaken("third", 0.7);
     const far = shaken("far", 0.7);
     const hood = shaken("first", 0.7);
-    assert.ok(chase > 0.05 && far > 0.05, `chase ${chase.toFixed(3)} m, far ${far.toFixed(3)} m`);
+    assert.ok(chase > 0.02 && far > 0.02, `chase ${chase.toFixed(3)} m, far ${far.toFixed(3)} m`);
     assert.ok(hood > 0.01 && Math.abs(hood / chase - CHASE.shakeHood) < 0.02, `hood ${hood.toFixed(3)} m is ${(hood / chase).toFixed(3)} of the chase's`);
     const calm = shaken("third", 0);
     assert.ok(calm < chase / 20, `no trauma moves the settled eye ${calm.toFixed(4)} m against the shake's ${chase.toFixed(3)} m`);

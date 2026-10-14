@@ -27,7 +27,7 @@ import { GameAudio } from "../present/game-audio.ts";
 import { FX_REACH } from "../present/witness.ts";
 import { RagdollSystem } from "../present/engine-ragdoll.ts";
 import { throwComing } from "../present/ragdoll-trigger.ts";
-import { ChaseCamera, centroid, type SpecScene } from "../present/engine-camera.ts";
+import { ChaseCamera, centroid, SHAKE_DECAY_PER_S, type SpecScene } from "../present/engine-camera.ts";
 import { activeGround, NO_FLOOR } from "../world/ground.ts";
 import { armTops } from "../world/surfaces.ts";
 import { CompactorPress, JerseyBarrier, type ContactHit } from "../scenes/engine-props.ts";
@@ -437,7 +437,7 @@ export class CrashEngine extends EngineGarage {
         this.impactLight.intensity = Math.max(0, this.impactLightLife * 90);
       }
       this.shakeOnHits();
-      this.view.trauma = Math.max(0, this.view.trauma - wallDt * 1.6);
+      this.view.trauma = Math.max(0, this.view.trauma - wallDt * SHAKE_DECAY_PER_S);
       if (this.barrierUp) this.barrier.step(simDt);
       const fxDt = simDt;
       // The bits land on the ground and the cars' tops of the world this frame stepped, the replay's while a clip plays (`landOn`).
