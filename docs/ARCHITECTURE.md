@@ -200,6 +200,14 @@ compressor, a peak limiter and a -1 dBFS ceiling (`MASTER_GLUE`, `MASTER_LIMITER
 The crash hit (`IMPACT` in `audio-mix.ts`) is a 65 Hz sine thump under a dark noise band (300 Hz, soft 12 ms attack, 0.5 s decay) on an impact bus at 0.42 (-3 dB from
 the old 0.6); the bus also feeds a ~1 s stereo noise-impulse convolver (lowpassed at 1.8 kHz, wet 0.45) into the master, so a hit sits in a room beside the engines and music.
 The race menus (setup, pause) carry the Sound, Music and Engines rows, since their modal covers the settings panel.
+Engine loudness (`engine-law.ts`): a voice's level follows how a real car's audible level moves with load and revs (BMW M5 Active Sound
+Design: load is the dominant control). `engineLawDb(rpmFrac, load)` is the target in dB under a redline at full load (which keeps the
+voice's -12 dBFS peak at `MOTOR_OUTPUT_GAIN`): 6 dB per doubling of rpm, plus the M5's load curve (flat under 0.15, 8 of 22 dB at half
+load, the rest at 1) scaled to a 12 dB coast-to-wide-open span, so idle coast sits 30 dB under redline wide open. The worklet's own
+level wanders +-4 dB with rpm and ignores its throttle parameter, so `NATURAL_DB` holds each class's measured RMS on a 9-point rev grid
+(`motor-level.test-util.ts` renders it) and `engineLawGain` is law minus natural: the combined output follows the law, and a redline at
+full load gets gain 1. `MotorSound.driveVoice` aims each voice's fade gain at `MOTOR_OUTPUT_GAIN x engineLawGain` every tick, with the load
+eased by `easeLoad` (0.1 s attack, 0.3 s release time constants); a misfire dip is a share of that level and holds the per-tick level off while it lasts.
 
 **Scenes** (`scenes/scene-id.ts` `SCENE_IDS`, one at a time via `setScene`): fleet (default, with the barrier, ramp balls
 and jump ramps as props), press, pistons, doors, corkscrew, stack, derby, race, range, survival. A pick fades through the

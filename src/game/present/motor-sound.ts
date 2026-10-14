@@ -3,6 +3,7 @@ import { MAX_CARS } from "../scenes/fleet.ts";
 import type { DeformableCar } from "../vehicle/car.ts";
 import { carClass, carRpm, damageStage, VEHICLE_CLASS_IDS } from "../vehicle/vehicle-classes.ts";
 import { approach } from "./audio-mix.ts";
+import { easeLoad, engineLawGain } from "./engine-law.ts";
 import { accelLoad, channelGains, damageTone, DIE_DOWN_S, MOTOR_OUTPUT_GAIN, motorLoad, motorRev, motorRpm, TONE_COUNT, toneMessages, toneOptions, type ToneMessage, type ToneOptions } from "./motor-tone.ts";
 import { VoicePool } from "./motor-voices.ts";
 
@@ -25,8 +26,8 @@ const ROLLOFF_FACTOR = 2;
 const SWAP_FADE_S = 0.12;
 /** Time constant (s) of every voice parameter ramp. */
 const PARAM_TAU_S = 0.05;
-/** A misfire dips the voice gain to this share of `MOTOR_OUTPUT_GAIN`, for `MISFIRE_DIP_S`, then lets it back with `MISFIRE_RECOVER_TAU_S`. */
-const MISFIRE_DIP = 0.1 * MOTOR_OUTPUT_GAIN;
+/** A misfire dips the voice gain to this share of its current level, for `MISFIRE_DIP_S`, then lets it back with `MISFIRE_RECOVER_TAU_S`. */
+const MISFIRE_DIP_SHARE = 0.1;
 const MISFIRE_DIP_S = 0.04;
 const MISFIRE_RECOVER_TAU_S = 0.02;
 /** The fallback sawtooth's gain: a unit saw has an RMS of 0.58, the generator's three channels sum to about 1.1, so the fallback is as loud as the real engine. */
@@ -87,6 +88,11 @@ export class MotorSound {
   private readonly rpmCut: Uint8Array;
   /** Per slot: 1 until its voice has driven a car since its last fade-out (the speed history then restarts, and no misfire dip hides the re-tune). */
   private readonly fresh: Uint8Array;
+  /** Per slot: the load the engine law's loudness follows (the pedal's load eased quick-attack, slow-release, `easeLoad`), and seconds a misfire dip still holds the gain down. */
+  private readonly lawLoad: Float64Array;
+  private readonly dipS: Float64Array;
+  /** True for the generator worklet (its output follows `naturalDb`), false for the flat oscillator fallback. */
+  private worklet = true;
   private voices: Voice[] = [];
   private messages: ToneMessage[] = [];
   /** Oscillator fallback: firing Hz per rpm of each class (cylinders / 120); 0 for the worklet. */
@@ -110,6 +116,8 @@ export class MotorSound {
     this.gainOn = new Uint8Array(slots);
     this.rpmCut = new Uint8Array(slots);
     this.fresh = new Uint8Array(slots).fill(1);
+    this.lawLoad = new Float64Array(slots);
+    this.dipS = new Float64Array(slots);
   }
 
   /** Loads the worklet and builds the voices. `update` does nothing until this resolves. */
@@ -126,6 +134,7 @@ export class MotorSound {
     if (this.disposed) return;
     const options = VEHICLE_CLASS_IDS.map((cls) => toneOptions(cls, context.sampleRate));
     this.messages = toneMessages(context.sampleRate);
+    this.worklet = worklet;
     for (let c = 0; c < options.length; c++) this.hzPerRpm[c] = worklet ? 1 : options[c]!.cylinders / 120;
     for (let s = 0; s < this.slots; s++) this.voices.push(this.buildVoice(context, listener, worklet ? options[0]! : null));
     this.context = context;
@@ -294,36 +303,48 @@ export class MotorSound {
       this.prevAlong[slot] = car.velocity.x * car.fwdFlat.x + car.velocity.z * car.fwdFlat.z;
       this.accel[slot] = 0;
     }
-    if (classIndex !== this.classIndex[slot] || damage.toneIndex !== this.toneIndex[slot]) {
-      this.classIndex[slot] = classIndex;
-      this.toneIndex[slot] = damage.toneIndex;
-      // A live voice re-tunes under a misfire dip, a fresh one (silent after a fade) needs none: the swap to another kept generator clicks, the dip hides it.
-      if (!fresh) voice.gain.gain.setValueAtTime(MISFIRE_DIP, now);
-      voice.port?.postMessage(this.messages[classIndex * TONE_COUNT + damage.toneIndex]);
-      voice.filter.frequency.setTargetAtTime(damage.cutoffHz, now, PARAM_TAU_S);
-      channelGains(this.gains, cls);
-      voice.intake.gain.setValueAtTime(this.gains[0]!, now);
-      voice.block.gain.setValueAtTime(this.gains[1]!, now);
-      voice.outlet.gain.setValueAtTime(this.gains[2]!, now);
-      if (!fresh) voice.gain.gain.setTargetAtTime(MOTOR_OUTPUT_GAIN, now + MISFIRE_DIP_S, MISFIRE_RECOVER_TAU_S);
-    }
-    if (!this.gainOn[slot]) {
-      voice.gain.gain.setTargetAtTime(MOTOR_OUTPUT_GAIN, now, PARAM_TAU_S);
-      this.gainOn[slot] = 1;
-    } else if (damage.misfirePerS > 0 && Math.random() < damage.misfirePerS * tick) {
-      voice.gain.gain.setValueAtTime(MISFIRE_DIP, now);
-      voice.gain.gain.setTargetAtTime(MOTOR_OUTPUT_GAIN, now + MISFIRE_DIP_S, MISFIRE_RECOVER_TAU_S);
-    }
+
     const along = car.velocity.x * car.fwdFlat.x + car.velocity.z * car.fwdFlat.z;
     const accel = approach(this.accel[slot]!, accelLoad(along, this.prevAlong[slot]!, tick), tick, ACCEL_TAU_S);
     this.accel[slot] = accel;
     this.prevAlong[slot] = along;
     const load = motorLoad(car.drive.throttle, car.drive.boost, accel);
     const rev = motorRev(carRpm(car), load);
+    // The engine law's loudness follows the eased load (quick attack, slower release): `level` is the voice gain it asks for.
+    this.lawLoad[slot] = fresh ? load : easeLoad(this.lawLoad[slot]!, load, tick);
+    const level = MOTOR_OUTPUT_GAIN * engineLawGain(cls, rev, this.lawLoad[slot]!, this.worklet);
+    if (this.dipS[slot]! > 0) this.dipS[slot]! -= tick;
+    if (classIndex !== this.classIndex[slot] || damage.toneIndex !== this.toneIndex[slot]) {
+      this.classIndex[slot] = classIndex;
+      this.toneIndex[slot] = damage.toneIndex;
+      // A live voice re-tunes under a misfire dip, a fresh one (silent after a fade) needs none: the swap to another kept generator clicks, the dip hides it.
+      if (!fresh) this.dip(voice, level, slot, now);
+      voice.port?.postMessage(this.messages[classIndex * TONE_COUNT + damage.toneIndex]);
+      voice.filter.frequency.setTargetAtTime(damage.cutoffHz, now, PARAM_TAU_S);
+      channelGains(this.gains, cls);
+      voice.intake.gain.setValueAtTime(this.gains[0]!, now);
+      voice.block.gain.setValueAtTime(this.gains[1]!, now);
+      voice.outlet.gain.setValueAtTime(this.gains[2]!, now);
+    }
+    if (!this.gainOn[slot]) {
+      voice.gain.gain.setTargetAtTime(level, now, PARAM_TAU_S);
+      this.gainOn[slot] = 1;
+    } else if (damage.misfirePerS > 0 && Math.random() < damage.misfirePerS * tick) {
+      this.dip(voice, level, slot, now);
+    } else if (this.dipS[slot]! <= 0) {
+      voice.gain.gain.setTargetAtTime(level, now, PARAM_TAU_S);
+    }
     let rpm = motorRpm(cls, rev, rate);
     if (damage.rpmJitter > 0) rpm *= 1 + damage.rpmJitter * (2 * Math.random() - 1);
     voice.rpm.setTargetAtTime(rpm * this.hzPerRpm[classIndex]!, now, PARAM_TAU_S);
     if (isPriority) this.levelTarget = load * rev;
+  }
+
+  /** Dips the voice gain to `MISFIRE_DIP_SHARE` of `level` for `MISFIRE_DIP_S`, then lets it back; the per-tick level waits out the dip (`dipS`). */
+  private dip(voice: Voice, level: number, slot: number, now: number): void {
+    voice.gain.gain.setValueAtTime(MISFIRE_DIP_SHARE * level, now);
+    voice.gain.gain.setTargetAtTime(level, now + MISFIRE_DIP_S, MISFIRE_RECOVER_TAU_S);
+    this.dipS[slot] = MISFIRE_DIP_S;
   }
 
   /** A scene reset: every slot fades out and frees. */
