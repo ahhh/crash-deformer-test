@@ -39,6 +39,8 @@ Treat model-written prose as leads, not facts; cite the listed sources.
 | `perplexity/2026-10-13-slipstream-zone-around-corners.md` | Slipstream detection around corners: rear cone 1.5–3 car lengths, 10–20° half-angle; breadcrumb trail with widening radius; ~45° alignment; NASCAR/F1 wake strength by car length (DraftCone lane) |
 | `perplexity/2026-10-13-ai-difficulty-believable-mistakes.md` | Racing AI difficulty tiers that err believably: braking-point, line, reaction and look-ahead errors, mistake rates, rubber-banding, per-tier values (AI difficulty lane) |
 | `perplexity/2026-10-13-ai-error-models-formulas.md` | Formulas for AI driver error: smoothed line-offset noise, corner-speed overcook factor, reaction delay buffers, steering gain, per-corner mistake odds, seeded determinism (AI difficulty lane) |
+| `perplexity/2026-10-14-bmw-m5-active-sound-loudness.md` | BMW M5 Active Sound Design: loudness as a surface of load (dominant), rpm and mode; game gain table (idle −25…−18 dB, full load 0 dB), lift-off release τ 0.15–0.6 s (engine loudness law) |
+| `perplexity/2026-10-14-engine-spl-vs-rpm-load.md` | Real engine SPL vs rpm and load: WOT 8–20 dB over part throttle at the same rpm, ~6 dB per rpm doubling, 25–50 dB idle-to-redline range; how racing games layer on/off-load (engine loudness law) |
 
 ## Papers (`papers/`)
 
