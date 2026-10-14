@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { approach, CEILING, ceilingCurve, crashDuck, engineBusGain, engineDuck, MASTER_LIMITER, musicGain, slowmoCutoff } from "./audio-mix.ts";
+import { approach, CEILING, ceilingCurve, crashDuck, engineBusGain, engineDuck, IMPACT, MASTER_LIMITER, musicGain, slowmoCutoff } from "./audio-mix.ts";
 
 const EPS = 1e-9;
 
@@ -111,5 +111,25 @@ describe("given a first-order lag", () => {
   });
   it("when it is at the target, then it stays there", () => {
     assert.equal(approach(1, 1, 0.5, 0.3), 1);
+  });
+});
+
+describe("given the crash hit (owner: 'a cereal bag'; wanted lower, roomier, a little quieter than 900 Hz / 0.6 / dry / 0.28 s)", () => {
+  it("when the noise is tuned, then it is dark (centre at most 400 Hz) and not an instant pop", () => {
+    assert.ok(IMPACT.noiseHz <= 400);
+    assert.ok(IMPACT.noiseAttackS >= 0.008 && IMPACT.noiseAttackS <= 0.015);
+  });
+  it("when the thump is tuned, then it starts where ordinary speakers play it (60-70 Hz)", () => {
+    assert.ok(IMPACT.thumpStartHz >= 60 && IMPACT.thumpStartHz <= 70);
+  });
+  it("when the bus is set, then it is quieter than the old 0.6", () => {
+    assert.ok(IMPACT.busGain < 0.6);
+  });
+  it("when the hit decays, then it rings at least 0.4 s", () => {
+    assert.ok(IMPACT.noiseDecayS >= 0.4);
+  });
+  it("when the room is set, then it sends a wet reverb about a second long", () => {
+    assert.ok(IMPACT.roomWet > 0);
+    assert.ok(IMPACT.roomS >= 1);
   });
 });

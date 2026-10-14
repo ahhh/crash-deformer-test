@@ -34,6 +34,25 @@ export const CEILING = 10 ** (-1 / 20);
 /** The ceiling curve is linear up to this share of the ceiling, then bends smoothly (tanh) onto it: no hard clip edge. */
 const CEILING_KNEE = 0.8;
 
+/**
+ * The crash hit: a sine thump under a band of noise, through a short room. The noise sits low and dark (300 Hz, 0.5 s decay, soft
+ * attack) so it blends with the engines and music instead of popping above them; the thump starts at 65 Hz where ordinary
+ * speakers can play it. `busGain` is -3 dB from the old 0.6. The room is a decaying noise impulse (`roomS`, -60 dB at its end)
+ * lowpassed at `roomDampHz`, sent back at `roomWet` into the master beside the dry hit.
+ */
+export const IMPACT = {
+  busGain: 0.42,
+  thumpStartHz: 65,
+  thumpEndHz: 28,
+  noiseHz: 300,
+  noiseQ: 0.8,
+  noiseAttackS: 0.012,
+  noiseDecayS: 0.5,
+  roomWet: 0.45,
+  roomS: 1,
+  roomDampHz: 1800,
+} as const;
+
 /** The ceiling's WaveShaper curve over inputs -1..1 (`n` points): unity below the knee, never past `CEILING`. */
 export function ceilingCurve(n: number): Float32Array<ArrayBuffer> {
   const out = new Float32Array(new ArrayBuffer(n * 4));

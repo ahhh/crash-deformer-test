@@ -194,8 +194,10 @@ Gain staging (`audio-mix.ts`, `motor-tone.ts`): a voice is the generator's three
 `MOTOR_OUTPUT_GAIN`, never clipped (the sum swings to +-9, so the scale keeps every class, stage and rev under -6 dBFS and a redline near
 -12 dBFS; `motor-level.test.ts` renders the real worklet to prove it). The panner is `inverse`, refDistance 6 (the chase camera's
 distance, so the player's car is at unity), rolloff 2. The engine bus is the slider x1 (default 0.25) into the master chain: a 2:1 glue
-compressor, a peak limiter and a -1 dBFS ceiling (`MASTER_GLUE`, `MASTER_LIMITER`, `ceilingCurve`); the music bus (slider at most 0.6, default 0.15, x0.5 trim) shares the master. The race menus
-(setup, pause) carry the Sound, Music and Engines rows, since their modal covers the settings panel.
+compressor, a peak limiter and a -1 dBFS ceiling (`MASTER_GLUE`, `MASTER_LIMITER`, `ceilingCurve`); the music bus (slider at most 0.6, default 0.15, x0.5 trim) shares the master.
+The crash hit (`IMPACT` in `audio-mix.ts`) is a 65 Hz sine thump under a dark noise band (300 Hz, soft 12 ms attack, 0.5 s decay) on an impact bus at 0.42 (-3 dB from
+the old 0.6); the bus also feeds a ~1 s stereo noise-impulse convolver (lowpassed at 1.8 kHz, wet 0.45) into the master, so a hit sits in a room beside the engines and music.
+The race menus (setup, pause) carry the Sound, Music and Engines rows, since their modal covers the settings panel.
 
 **Scenes** (`scenes/scene-id.ts` `SCENE_IDS`, one at a time via `setScene`): fleet (default, with the barrier, ramp balls
 and jump ramps as props), press, pistons, doors, corkscrew, stack, derby, race, range, survival. A pick fades through the

@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import type { DeformableCar } from "../vehicle/car.ts";
-import { ceilingCurve, crashDuck, engineBusGain, engineDuck, GLUE_TRIM, MASTER_GLUE, MASTER_LIMITER, musicGain, slowmoCutoff } from "./audio-mix.ts";
+import { ceilingCurve, crashDuck, engineBusGain, engineDuck, GLUE_TRIM, IMPACT, MASTER_GLUE, MASTER_LIMITER, musicGain, slowmoCutoff } from "./audio-mix.ts";
 import { lowpass, MotorSound } from "./motor-sound.ts";
 import { MusicPlayer } from "./music.ts";
 import { musicBase } from "./music-manifest.ts";
@@ -14,8 +14,6 @@ const BUS_TAU_S = 0.08;
 const DUCK_TAU_S = 0.1;
 const CRASH_DUCK_TAU_S = 0.02;
 const THUMP_GAIN_PER_IMPULSE = 0.012;
-/** A crash's thump and noise burst sum to 1.15 at their loudest: the bus keeps that near -4 dBFS beside the engines (-11) and the music (-9). */
-const IMPACT_BUS_GAIN = 0.6;
 /** `?voices=N` (0-8) overrides the engine voice count: the bench knob; 0 is no engine audio. */
 const VOICES_PARAM = "voices";
 const MAX_VOICES = 8;
@@ -36,7 +34,7 @@ function voiceSlots(desktop: boolean): number {
  * The one audio façade: a single AudioContext, the three listener on the camera, and the busses
  *
  *   listener.gain -> engineBus -> slowmoFilter -> master -> glue -> trim -> limiter -> ceiling (-1 dBFS) -> destination
- *   impact one-shots -> impactBus ------------/
+ *   impact one-shots -> impactBus ------------/   (impactBus -> room convolver -> lowpass -> wet gain -> master)
  *   music -> musicBus ------------------------/
  *
  * Nothing is built until `unlock()` runs inside a user gesture. Audio is presentation: it reads the game, never writes it.
@@ -128,8 +126,13 @@ export class GameAudio {
     listener.gain.disconnect();
     listener.gain.connect(engineBus);
     const impactBus = context.createGain();
-    impactBus.gain.value = IMPACT_BUS_GAIN;
+    impactBus.gain.value = IMPACT.busGain;
     impactBus.connect(master);
+    const room = context.createConvolver();
+    room.buffer = roomImpulse(context);
+    const roomWet = context.createGain();
+    roomWet.gain.value = IMPACT.roomWet;
+    impactBus.connect(room).connect(lowpass(context, IMPACT.roomDampHz)).connect(roomWet).connect(master);
     const musicBus = context.createGain();
     musicBus.gain.value = musicGain(this.musicLevel, 1, 1);
     musicBus.connect(master);
@@ -208,8 +211,8 @@ export class GameAudio {
     const thump = context.createOscillator();
     const thumpG = context.createGain();
     thump.type = "sine";
-    thump.frequency.setValueAtTime(48, t);
-    thump.frequency.exponentialRampToValueAtTime(22, t + dur);
+    thump.frequency.setValueAtTime(IMPACT.thumpStartHz, t);
+    thump.frequency.exponentialRampToValueAtTime(IMPACT.thumpEndHz, t + dur);
     thumpG.gain.setValueAtTime(Math.min(0.7, 0.22 + impulse * THUMP_GAIN_PER_IMPULSE), t);
     thumpG.gain.exponentialRampToValueAtTime(0.001, t + dur);
     thump.connect(thumpG).connect(this.impactBus);
@@ -217,17 +220,18 @@ export class GameAudio {
     thump.stop(t + dur);
 
     const noise = context.createBufferSource();
-    const nbuf = context.createBuffer(1, context.sampleRate * 0.25, context.sampleRate);
+    const nbuf = context.createBuffer(1, context.sampleRate * (IMPACT.noiseDecayS + 0.05), context.sampleRate);
     const data = nbuf.getChannelData(0);
     for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / data.length);
     noise.buffer = nbuf;
     const ng = context.createGain();
     const bp = context.createBiquadFilter();
     bp.type = "bandpass";
-    bp.frequency.value = 900;
-    bp.Q.value = 0.7;
-    ng.gain.setValueAtTime(Math.min(0.45, 0.12 + impulse * 0.008), t);
-    ng.gain.exponentialRampToValueAtTime(0.001, t + 0.28);
+    bp.frequency.value = IMPACT.noiseHz;
+    bp.Q.value = IMPACT.noiseQ;
+    ng.gain.setValueAtTime(0.001, t);
+    ng.gain.exponentialRampToValueAtTime(Math.min(0.45, 0.12 + impulse * 0.008), t + IMPACT.noiseAttackS);
+    ng.gain.exponentialRampToValueAtTime(0.001, t + IMPACT.noiseDecayS);
     noise.connect(bp).connect(ng).connect(this.impactBus);
     noise.start(t);
   }
@@ -261,4 +265,15 @@ function dynamics(context: AudioContext, p: { threshold: number; knee: number; r
   node.attack.value = p.attack;
   node.release.value = p.release;
   return node;
+}
+
+/** A stereo room impulse: independent noise per ear under an exponential decay that is -60 dB (x0.001) at `IMPACT.roomS`. */
+function roomImpulse(context: AudioContext): AudioBuffer {
+  const n = Math.round(context.sampleRate * IMPACT.roomS);
+  const buffer = context.createBuffer(2, n, context.sampleRate);
+  for (let c = 0; c < 2; c++) {
+    const data = buffer.getChannelData(c);
+    for (let i = 0; i < n; i++) data[i] = (Math.random() * 2 - 1) * Math.exp((-6.9 * i) / n);
+  }
+  return buffer;
 }
