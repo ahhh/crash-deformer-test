@@ -3,8 +3,8 @@ import { approach } from "./audio-mix.ts";
 
 /**
  * How loud an engine is as the gauge's revs and the pedal's load change: BMW M5 Active Sound Design's shape (load is the dominant
- * control: quiet at idle and cruise, a steep rise past half load, a plateau at full) at the spans real cars measure (docs/ARCHITECTURE.md,
- * "Engine loudness"). The level is in dB under a redline at full load, which is the voice's `MOTOR_OUTPUT_GAIN` peak (-12 dBFS).
+ * control: quiet at idle and cruise, a steep rise past half load, a plateau at full), at spans compressed for play. The level is in dB
+ * under a redline at full load, which is the voice's `MOTOR_OUTPUT_GAIN` peak (-12 dBFS).
  */
 
 /** Full load over coast at the same rpm. Real cars run 10-16 dB; games compress it (8 dB keeps a lifted engine audible beside the music). */
