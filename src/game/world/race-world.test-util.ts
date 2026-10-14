@@ -92,6 +92,8 @@ export function makeWorld(survivalCourse?: unknown): World {
     scene,
     camera,
     sun: new THREE.DirectionalLight(),
+    sunOffset: new THREE.Vector3(),
+    setTimeOfDay: () => {},
     seat,
     live,
     setCarCount: (n) => {
@@ -123,6 +125,7 @@ export function makeWorld(survivalCourse?: unknown): World {
       w.watchCams++;
     },
     heardMeter: () => null,
+    throwPassenger: () => {},
   }, survivalCourse);
   const step = newWorld(liveBuf);
   step.ejection = new EjectionWatch();

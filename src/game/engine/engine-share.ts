@@ -81,6 +81,7 @@ export abstract class EngineShare extends EngineReel {
       aggr: o.aggression,
       diff: o.aiDifficulty,
       police: o.police,
+      tod: o.timeOfDay,
       noreset: o.noReset,
       spectate: o.spectate,
       seed: SEEDED_SCENES[sc] ? this.sceneSeed : null,
@@ -149,7 +150,7 @@ export abstract class EngineShare extends EngineReel {
       if (t.scene === "race") {
         this.raceCommand({
           type: "options",
-          options: { trackId: t.track, campaign: t.camp, mode: t.mode, laps: t.laps, aiCount: t.ai, aggression: t.aggr, aiDifficulty: t.diff, police: t.police, noReset: t.noreset, spectate: t.spectate },
+          options: { trackId: t.track, campaign: t.camp, mode: t.mode, laps: t.laps, aiCount: t.ai, aggression: t.aggr, aiDifficulty: t.diff, police: t.police, timeOfDay: t.tod, noReset: t.noreset, spectate: t.spectate },
         });
       }
       if (boot || (t.seed !== null && SEEDED_SCENES[t.scene] && t.seed !== this.sceneSeed)) this.randomizeAndReset();

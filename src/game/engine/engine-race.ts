@@ -14,18 +14,20 @@ import type { AiCar } from "../ai/derby-ai.ts";
 import { copyDrive, onSurface } from "../ai/race-ai.ts";
 import { AI_DIFFICULTIES } from "../ai/constants.ts";
 import { DRAFT, RaceSession } from "../match/session.ts";
-import { cleanName, RACE_MODES, type Entrant, type RaceCommand, type RacePhase, type RaceSnapshot } from "../match/types.ts";
+import { cleanName, RACE_MODES, TIMES_OF_DAY, type Entrant, type RaceCommand, type RacePhase, type RaceSnapshot } from "../match/types.ts";
 import type { Cand, Wreck } from "../match/auto-watch.ts";
 import { RaceHudLayer } from "./engine-race-hud.ts";
+import { LawnGuard } from "../scenes/lawn-guard.ts";
+import type { GroundsHost } from "../present/grounds-art.ts";
+import type { Track } from "../world/track.ts";
 
 /** Seconds between traffic-bubble passes. */
 const BUBBLE_EVERY = 0.25;
 /** Seconds the finish card shows before the results menu (and the results reel), and the BUSTED banner before the camera moves on. */
 export const RESULTS_DELAY = 2.5;
-const SUN_OFFSET = new THREE.Vector3(-10, 22, 9);
-/** The sun's shadow-camera basis (unit; three's lookAt with world up): right = up x (eye - target), up = (eye - target) x right. */
-const SUN_RIGHT = new THREE.Vector3(0, 1, 0).cross(SUN_OFFSET).normalize();
-const SUN_UP = SUN_OFFSET.clone().cross(SUN_RIGHT).normalize();
+/** The sun's shadow-camera basis (unit; three's lookAt with world up), from the time of day's offset: right = up x (eye - target), up = (eye - target) x right. */
+const SUN_RIGHT = new THREE.Vector3();
+const SUN_UP = new THREE.Vector3();
 
 /**
  * Race scene glue: owns the course (track, art, ground), the field's controller slots, the rules
@@ -44,17 +46,45 @@ export class RaceDirector extends RaceHudLayer {
   /** The open ledger clusters as `AutoWatch` reads them: the pool, and the ones in use this frame. */
   private readonly wreckPool: Wreck[] = [];
   private readonly autoWrecks: Wreck[] = [];
+  /** The course's guarded grounds (`TrackJson.guards`): its squad's sim, made once per course (`armGuard`); none on a course without. */
+  private guard: LawnGuard | null = null;
+  private guardOn: Track | null = null;
+  /** What the grounds' people draw with: sparks at a hit, the VIP's throw. */
+  private readonly grounds: GroundsHost = {
+    sparks: (at, normal, impulse) => this.host.hitFx(at, normal, impulse),
+    throwPassenger: (car, look) => this.host.throwPassenger(car, look),
+  };
 
   protected override start(trackId: string, grid: readonly number[]): void {
     this.auto = false;
     this.free = false;
     this.lobbySeatedFor = -1;
     super.start(trackId, grid);
+    this.armGuard();
     // A Watch race opens on Auto driver + Auto camera (any manual pick still overrides).
     if (this.spectating) {
       this.goAuto();
       this.host.watchCam();
     }
+  }
+
+  /** A run starts: the course's guards (made once per course) back inside on a fresh seed, standing down while its secret is out. */
+  private armGuard(): void {
+    const tr = this.track;
+    if (tr !== this.guardOn) {
+      this.guardOn = tr;
+      this.guard = tr?.json.guards ? new LawnGuard(tr.json.guards, MAX_CARS) : null;
+    }
+    this.guard?.reset(this.seed);
+    if (this.guard) this.guard.standDown = this.art?.secretOut ?? false;
+    this.art?.grounds?.reset();
+  }
+
+  /** The course's secret comes out (`RaceField.revealSecret`): its guards stand down, its VIP comes out for the player instead. */
+  override revealSecret(over: HTMLElement): boolean {
+    if (!super.revealSecret(over)) return false;
+    if (this.guard) this.guard.standDown = true;
+    return true;
   }
 
   /** The camera chases the followed car (player or spectated) instead of orbiting. */
@@ -140,7 +170,7 @@ export class RaceDirector extends RaceHudLayer {
     }
     this.saved = null;
     const sun = this.host.sun;
-    sun.position.copy(SUN_OFFSET);
+    sun.position.copy(this.host.sunOffset);
     sun.target.position.set(0, 0, 0);
     sun.target.updateMatrixWorld();
     this.host.seat.drivable = null;
@@ -170,13 +200,17 @@ export class RaceDirector extends RaceHudLayer {
         o.aggression = clamp(o.aggression, 0, 1);
         if (!AI_DIFFICULTIES.includes(o.aiDifficulty)) o.aiDifficulty = this.options.aiDifficulty;
         if (!RACE_MODES.includes(o.mode)) o.mode = this.options.mode;
+        if (!TIMES_OF_DAY.includes(o.timeOfDay)) o.timeOfDay = this.options.timeOfDay;
         if (!this.courses.some((c) => c.id === o.trackId)) o.trackId = this.options.trackId;
         // The campaign's pick keeps the caller's order; unknown and repeated ids drop. Empty stays: the menu has nothing ticked yet.
         if (cmd.options.campaign) o.campaign = cmd.options.campaign.filter((id, i, all) => this.courses.some((c) => c.id === id) && all.indexOf(id) === i);
         const moved = o.trackId !== this.options.trackId || o.aiCount !== this.options.aiCount || o.spectate !== this.options.spectate;
+        const relit = o.timeOfDay !== this.options.timeOfDay;
         this.options = o;
         this.syncRules();
         if (this.menu === "setup" && moved) this.park();
+        // The setup menu shows the pick at once, on the course behind it.
+        if (relit && this.track) this.host.setTimeOfDay(this.rules.timeOfDay);
         return;
       }
       case "program":
@@ -581,6 +615,7 @@ export class RaceDirector extends RaceHudLayer {
       return;
     }
     const racing = s.phase === "racing";
+    if (!this.mirrored) this.guard?.step(cars, dt);
     for (let i = 0; i < cars.length; i++) {
       const car = cars[i]!;
       if (this.dormant[i]) continue;
@@ -632,6 +667,10 @@ export class RaceDirector extends RaceHudLayer {
     if (!this.active) return;
     const s = this.session;
     if (this.art) this.art.setLights(s ? s.lights : 0);
+    if (this.art?.grounds) {
+      const player = s && this.entrants[this.self]?.kind === "player" ? this.self : -1;
+      this.art.grounds.frame(wallDt, this.mirrored ? null : this.guard, this.art.secretOut, this.host.live(), player, this.grounds);
+    }
     if (s && s.phase === "finished" && (this.menu == null || this.menu === "dead")) {
       this.overFor += wallDt;
       if (this.overFor >= RESULTS_DELAY) {
@@ -658,6 +697,9 @@ export class RaceDirector extends RaceHudLayer {
     const cam = sun.shadow.camera;
     const texX = (cam.right - cam.left) / sun.shadow.mapSize.x;
     const texY = (cam.top - cam.bottom) / sun.shadow.mapSize.y;
+    const off = this.host.sunOffset;
+    SUN_RIGHT.set(0, 1, 0).cross(off).normalize();
+    SUN_UP.copy(off).cross(SUN_RIGHT).normalize();
     // Snap the box centre to whole shadow-map texels in the light's right/up basis, so static casters' edges never crawl.
     const a = SUN_RIGHT.x * p.x + SUN_RIGHT.z * p.z;
     const b = SUN_UP.x * p.x + SUN_UP.z * p.z;
@@ -667,7 +709,7 @@ export class RaceDirector extends RaceHudLayer {
     const ty = SUN_RIGHT.y * da + SUN_UP.y * db;
     const tz = p.z + SUN_RIGHT.z * da + SUN_UP.z * db;
     sun.target.position.set(tx, ty, tz);
-    sun.position.set(tx + SUN_OFFSET.x, ty + SUN_OFFSET.y, tz + SUN_OFFSET.z);
+    sun.position.set(tx + off.x, ty + off.y, tz + off.z);
     sun.target.updateMatrixWorld();
   }
 

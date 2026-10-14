@@ -30,7 +30,8 @@ import type { Placed } from "../world/placements.ts";
 import { ejectionVelocity, type Ejection } from "../vehicle/ejection.ts";
 import { disable, loadRapier, type Rapier } from "../kernel/rapier.ts";
 import { DummyMesh } from "./ragdoll-mesh.ts";
-import { driverLook, pickedLook } from "./driver-look.ts";
+import { driverLook, pickedLook, type DriverLook } from "./driver-look.ts";
+import { passengerThrow } from "./ragdoll-passenger.ts";
 import type { PersonPick } from "../match/look-data.ts";
 import type { SprayBitmap } from "./spray.ts";
 import { Purses } from "./ragdoll-purse.ts";
@@ -608,6 +609,16 @@ export class RagdollSystem {
     return this.spawn(t, slot, life);
   }
 
+  /** A passenger (the course's VIP, in `look`) thrown with car `car`'s driver, just out: beside him, toward the passenger side, with his motion. */
+  throwPassenger(car: number, look: DriverLook): void {
+    const d = this.dolls[this.lastSlot];
+    const ride = this.cars[car];
+    if (!this.world || !d?.live || d.car !== car || !ride) return;
+    passengerThrow(d, ride, this.next);
+    Object.assign(this.next, { car, age: 0, cop: false, rides: true });
+    this.spawn(this.next, -1, LIFE, look);
+  }
+
   /** Slot `s`'s torso centre after the last step into `p`, and its velocity (world) into `v` unless null; false while no dummy is out in it. */
   torso(s: number, p: THREE.Vector3, v: THREE.Vector3 | null): boolean {
     const d = this.dolls[s];
@@ -627,8 +638,8 @@ export class RagdollSystem {
     this.place(_p.set(d.cur[0]!, d.cur[1]!, d.cur[2]!), _q.set(d.cur[3]!, d.cur[4]!, d.cur[5]!, d.cur[6]!), v, _w.set(0, 0, 0), Infinity, s);
   }
 
-  /** Throw `t`'s dummy into slot `at` (-1: a free slot, else the oldest one's), to lie about `life` sim s; returns the slot. */
-  private spawn(t: Throw, at = -1, life = LIFE): number {
+  /** Throw `t`'s dummy into slot `at` (-1: a free slot, else the oldest one's), to lie about `life` sim s, in `dressed` (none: his car's driver's look); returns the slot. */
+  private spawn(t: Throw, at = -1, life = LIFE, dressed: DriverLook | null = null): number {
     let slot = at >= 0 ? at : this.dolls.findIndex((d) => !d.live);
     if (slot < 0) slot = this.dolls.reduce((o, d, s) => (d.age > this.dolls[o]!.age ? s : o), 0);
     this.despawn(slot);
@@ -700,7 +711,7 @@ export class RagdollSystem {
       d.prev[o + 6] = _qb.w;
     }
     const own = t.cop ? null : this.lookOf(t.car);
-    const look = own ? pickedLook(driverLook(this.lookSeed, t.car), own.person) : driverLook(this.lookSeed, t.car);
+    const look = dressed ?? (own ? pickedLook(driverLook(this.lookSeed, t.car), own.person) : driverLook(this.lookSeed, t.car));
     this.mesh.dress(slot, t.cop, look);
     this.mesh.spray(slot, own ? own.personSpray : null);
     if (look.woman && !t.cop) this.purses?.launch(slot, t.car, t.p, t.v, this.lookSeed);

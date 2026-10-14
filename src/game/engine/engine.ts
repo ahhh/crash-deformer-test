@@ -263,6 +263,8 @@ export class CrashEngine extends EngineGarage {
       scene: this.scene,
       camera: this.camera,
       sun: this.sun,
+      sunOffset: this.stage.sunOffset,
+      setTimeOfDay: (time) => this.stage.setTime(time),
       seat: this.seat,
       live: () => this.live(),
       setCarCount: (n) => this.ensureCars(n),
@@ -275,6 +277,7 @@ export class CrashEngine extends EngineGarage {
       leave: () => this.setScene("fleet"),
       watchCam: () => void (this.view.spec = "auto"),
       hitFx: this.hitFx,
+      throwPassenger: (car, look) => this.ragdolls.throwPassenger(car, look),
       hit: (i, closing) => this.noteHit(i, closing),
       knockProp: (index, car, vx, vy, vz) => this.ragdolls.knockProp(index, car, vx, vy, vz),
       buildArt: (track, placed) => {

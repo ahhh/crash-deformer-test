@@ -1,4 +1,4 @@
-import { FLIGHT } from "../vehicle/car.ts";
+import { FLIGHT } from "../vehicle/car-flight.ts";
 import { CAR_STYLE_IDS } from "../vehicle/car-variants.ts";
 import { VEHICLE_CLASS_IDS } from "../vehicle/vehicle-classes.ts";
 import { INPUT_BYTES, MAX_HITS, MAX_KNOCKS, MEMORY, simFingerprint, type ClipEjection, type ClipHit, type ClipKnock, type HighlightClip, type Reel, type ReelCar } from "../match/highlights.ts";
@@ -118,10 +118,14 @@ import { makeSnapshot, MAX_NET_CARS, MSG, NET_VERSION, readEjection, readSnapsho
  * 73: a held reset leaves the parts and wheels already off a car where they lie (it threw them again from the new spot) and a car's net
  * skin inputs follow the state written to it (a second hold crushed the body flat), so a replayed clip's held reset moves its debris and skins differently;
  * 74: the start/finish seam of a looped course is smooth (four-count's start node was banked 8° over unbanked neighbours, the road's
- * edges 1.4 m up and down across the chequers; the builder now refuses a bend there), so a car crossing four-count's line replays on a level road.
+ * edges 1.4 m up and down across the chequers; the builder now refuses a bend there), so a car crossing four-count's line replays on a level road;
+ * 75: a keyframe's flight block carries whether the car's engine runs, and a car whose engine a guard's gunfire killed (the National Mall's
+ * White House lawn, `LawnGuard`) is keyed in that step, so a replayed car shot dead stops where it did; and a side street's straight run
+ * is stamped into the ground as one segment, so 40 road-edge cells of the National Mall's ground and 16 of Havana's take the other
+ * street's surface.
  * A saved clip also records `NET_VERSION` (its snapshots' layout).
  */
-const REPLAY_VERSION = 74;
+const REPLAY_VERSION = 75;
 /** Bounds a decoder enforces (a clip is ≤ 13 s at ≤ 300 steps/s, ≤ 15 keyframes). */
 const MAX_STEPS = 8192;
 const MAX_KEYS = 64;

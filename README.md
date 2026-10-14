@@ -21,7 +21,7 @@ small React HUD; it needs a WebGL2 browser and nothing else.
   eight pistons, a door ram, a corkscrew launch, a stack of dropped cars and the ejection range.
 - **Five classes** (sedan, muscle, truck, monster, police) and one Realism slider from arcade to realistic; damage changes
   how a car drives ([`docs/HANDLING.md`](docs/HANDLING.md)).
-- **Race mode:** eight courses, 2–16 racers, NPC traffic, designed shortcuts, respawn or no-reset, AI aggression, an optional
+- **Race mode:** nine courses, 2–16 racers, NPC traffic, designed shortcuts, respawn or no-reset, AI aggression, an optional
   police chase and a campaign ([`docs/RACE_DESIGN.md`](docs/RACE_DESIGN.md)).
 - **Survival:** Driver 2's mode on Havana's Plaza de la Revolución: a growing pack of cops, the stopwatch is the score
   ([`docs/SURVIVAL.md`](docs/SURVIVAL.md)).

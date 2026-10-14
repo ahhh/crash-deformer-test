@@ -21,6 +21,7 @@ import { SURVIVAL, humanSlot, settleRun } from "../match/survival.ts";
 import { loadBest, saveBest } from "./survival-store.ts";
 import { DORMANT, TrafficBrain } from "../ai/traffic.ts";
 import type { TrackArt } from "../present/track-art.ts";
+import type { DriverLook } from "../present/driver-look.ts";
 import { raceSight, sightLine, type Sight } from "../present/spectate-cam.ts";
 import { parseTrack } from "../world/track-schema.ts";
 import { Track, blankProjection } from "../world/track.ts";
@@ -28,7 +29,7 @@ import { OFF_MENU, TRACKS } from "../world/tracks/index.ts";
 import { HAVANA } from "../world/tracks/havana.ts";
 import { carClass, classStats, HANDLING } from "../vehicle/vehicle-classes.ts";
 import { FLIPPED_UP_Y } from "../vehicle/constants.ts";
-import { DEFAULT_RACE_OPTIONS, type CarPose, type Entrant, type RaceMenu, type RaceOptions, type RaceSnapshot, type SurvivalHud } from "../match/types.ts";
+import { DEFAULT_RACE_OPTIONS, type CarPose, type Entrant, type RaceMenu, type RaceOptions, type RaceSnapshot, type SurvivalHud, type TimeOfDay } from "../match/types.ts";
 import { CrashRecorder } from "./engine-record.ts";
 import { makeCarFrame, type CarFrame } from "../net/codec.ts";
 import { carLayout } from "../net/car-pose.ts";
@@ -39,6 +40,10 @@ interface RaceHost {
   readonly scene: THREE.Scene;
   readonly camera: THREE.PerspectiveCamera;
   readonly sun: THREE.DirectionalLight;
+  /** The offset (m) from the sun's shadow box centre to the sun for the time of day (`WorldStage.sunOffset`). */
+  readonly sunOffset: THREE.Vector3;
+  /** Light the race's time of day (its sky, sun and night), or none: the race is over (headless: nothing to light). */
+  setTimeOfDay(time: TimeOfDay | null): void;
   readonly seat: DriverSeat;
   /** Cars in play; index = car id. */
   live(): DeformableCar[];
@@ -74,6 +79,8 @@ interface RaceHost {
   clear(): void;
   /** A race starts with no car of ours: the spectator camera goes to Auto. */
   watchCam(): void;
+  /** A passenger in `look` (the course's VIP) is thrown out of car `car` with its driver, just thrown (headless: nobody to throw). */
+  throwPassenger(car: number, look: DriverLook): void;
   /** Car `i`'s boost meter as netplay heard it (a peer's own, from its input; on a client, the host's every car), null when nothing was heard. */
   heardMeter(i: number): number | null;
 }
@@ -480,8 +487,10 @@ export abstract class RaceField {
     const sky = new THREE.Color(env.sky);
     this.host.scene.background = sky;
     this.host.scene.fog = new THREE.FogExp2(sky.getHex(), env.fog);
-    this.host.camera.far = 900;
+    this.host.camera.far = env.far;
     this.host.camera.updateProjectionMatrix();
+    // After the course's sky and fog: the time of day recolours them.
+    this.host.setTimeOfDay(this.rules.timeOfDay);
     setGround(tr.ground());
     // Tyre marks cover the course instead of the sandbox disc.
     const b = tr.bounds;
@@ -490,7 +499,13 @@ export abstract class RaceField {
     return tr;
   }
 
+  /** The course's secret sky picture comes out (`TrackArt.reveal`, the Konami code): false when it has none, or it is out already. */
+  revealSecret(over: HTMLElement): boolean {
+    return this.art?.reveal(over) ?? false;
+  }
+
   protected unload(): void {
+    this.host.setTimeOfDay(null);
     if (this.art) {
       this.host.scene.remove(this.art.group);
       this.art.dispose();
