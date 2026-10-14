@@ -19,12 +19,13 @@ describe("given the music bus gain (the slider, capped at 0.6, under the engine 
   }
 });
 
-describe("given the engine bus gain (the slider, linear to 2.5: the 0.5 default is x1.25)", () => {
+describe("given the engine bus gain (the slider squared to 0.4: the 0.5 default is x0.1, 22 dB under the old x1.25 the owner found far too loud)", () => {
   const testCases = [
-    { name: "the default slider", volume: 0.5, expected: 1.25 },
-    { name: "a full slider", volume: 1, expected: 2.5 },
+    { name: "the default slider", volume: 0.5, expected: 0.1 },
+    { name: "the owner's too-loud 0.14 slider", volume: 0.14, expected: 0.14 * 0.14 * 0.4 },
+    { name: "a full slider", volume: 1, expected: 0.4 },
     { name: "a muted slider", volume: 0, expected: 0 },
-    { name: "a wild slider is capped", volume: 5, expected: 2.5 },
+    { name: "a wild slider is capped", volume: 5, expected: 0.4 },
     { name: "a negative slider is floored", volume: -1, expected: 0 },
   ];
   for (const c of testCases) {

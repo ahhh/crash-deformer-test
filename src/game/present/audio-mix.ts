@@ -11,15 +11,15 @@ const SLOWMO_FLOOR_HZ = 700;
 const SLOWMO_SPAN_HZ = 19300;
 
 /**
- * The engine bus gain at a full slider. The 0.5 default is x1.25 (+1.9 dB): a voice's redline then peaks near -11 dBFS and the
- * player's engine rides about 1 dB over the music ducked under full throttle (measured RMS, `MOTOR_OUTPUT_GAIN`). A full slider is
- * +8 dB over unity, which only the master limiter keeps in bounds.
+ * The engine bus gain at a full slider. The owner heard x1.25 (the old 0.5 default) and x0.35 (his slider at 0.14) both as far too
+ * loud beside the music, so the bus is now 22 dB under the old default: the 0.5 default is x0.1.
  */
-const ENGINE_FULL_GAIN = 2.5;
+const ENGINE_FULL_GAIN = 0.4;
 
-/** The engine bus gain: the slider (0..1), linear to `ENGINE_FULL_GAIN`. */
+/** The engine bus gain: the slider (0..1) squared to `ENGINE_FULL_GAIN` (a loudness-shaped taper: the low half stays usable). */
 export function engineBusGain(volume: number): number {
-  return Math.min(1, Math.max(0, volume)) * ENGINE_FULL_GAIN;
+  const v = Math.min(1, Math.max(0, volume));
+  return v * v * ENGINE_FULL_GAIN;
 }
 
 /**
