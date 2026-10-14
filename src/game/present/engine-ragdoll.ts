@@ -31,7 +31,7 @@ import { ejectionVelocity, type Ejection } from "../vehicle/ejection.ts";
 import { disable, loadRapier, type Rapier } from "../kernel/rapier.ts";
 import { DummyMesh } from "./ragdoll-mesh.ts";
 import { driverLook, pickedLook, type DriverLook } from "./driver-look.ts";
-import { passengerThrow } from "./ragdoll-passenger.ts";
+import { passengerThrow } from "./people.ts";
 import type { PersonPick } from "../match/look-data.ts";
 import type { SprayBitmap } from "./spray.ts";
 import { Purses } from "./ragdoll-purse.ts";

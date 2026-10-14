@@ -4,9 +4,7 @@ import type { LawnGuard } from "../scenes/lawn-guard.ts";
 import type { Ground } from "../world/ground.ts";
 import type { GuardSpec } from "../world/track-schema.ts";
 import type { DriverLook } from "./driver-look.ts";
-import { GuardSquad } from "./lawn-squad.ts";
-import { People } from "./people.ts";
-import { VipEscort } from "./vip-escort.ts";
+import { GuardSquad, People, VipEscort } from "./people.ts";
 
 /** What the grounds' people need from the race each frame: the sparks of a hit, and the dummies' world for the VIP's throw. */
 export type GroundsHost = {

@@ -6,8 +6,7 @@ import { Track } from "../world/track.ts";
 import { TRACKS } from "../world/tracks/index.ts";
 import { TRACK_ID } from "../world/constants.ts";
 import type { DriverLook } from "./driver-look.ts";
-import { People } from "./people.ts";
-import { VipEscort } from "./vip-escort.ts";
+import { People, VipEscort } from "./people.ts";
 
 /**
  * Owner, 2026-10-14: once the Konami code is in, "a human model with blonde hair and a suit should get out of the building and get

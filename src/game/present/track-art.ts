@@ -17,7 +17,7 @@ import { depthProxy, groundMaterial, groundMesh, levelOrder } from "../scenes/gr
 import { addDecks, addTunnels, addWalls, pillarPieces } from "./track-structures.ts";
 import { PropTumble } from "./prop-tumble.ts";
 import { backdropMesh, disposeBackdrop } from "./sky-backdrop.ts";
-import { nukeFlash } from "./nuke-flash.ts";
+import { nukeFlash } from "./people.ts";
 import { GroundsArt } from "./grounds-art.ts";
 
 /**

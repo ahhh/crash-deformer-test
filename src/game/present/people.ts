@@ -1,6 +1,12 @@
 import * as THREE from "three";
-import type { DriverLook } from "./driver-look.ts";
-import { JOINTS, PARTS, SHOULDER_Y } from "./ragdoll-body.ts";
+import { hypot2 } from "../kernel/physics-core.js";
+import { NO_TARGET, SHOT_RING, type LawnGuard } from "../scenes/lawn-guard.ts";
+import type { DeformableCar } from "../vehicle/car.ts";
+import type { Ground } from "../world/ground.ts";
+import { insidePolygon } from "../world/terrain.ts";
+import type { GuardSpec } from "../world/track-schema.ts";
+import { HAIRS, type DriverLook } from "./driver-look.ts";
+import { JOINTS, PARTS, SHOULDER_Y, type Doll } from "./ragdoll-body.ts";
 import { DummyMesh } from "./ragdoll-mesh.ts";
 
 /** The limbs' joints standing (m, feet at y = 0), off `JOINTS`: shoulders, elbows, hips, knees, each side. */
@@ -17,10 +23,9 @@ const SHIN = [7, 9] as const;
 const GUN_SIDE = 0;
 /** A handgun (m): across, along the arm, and how far its muzzle stands past the hand. */
 const GUN = { w: 0.05, len: 0.22, depth: 0.1, muzzle: 0.14 };
-/** How long (s) a muzzle flash and a shot's tracer show: a frame or three at 60 Hz. */
+/** How long (s) a muzzle flash and a shot's tracer show (a frame or three at 60 Hz); the most tracers in the air at once. */
 const FLASH_S = 0.05;
 const TRACER_S = 0.07;
-/** Most tracers in the air at once. */
 const TRACERS = 24;
 /** A muzzle flash's radius (m) and its colour; a tracer's colour (sRGB). */
 const FLASH_R = 0.14;
@@ -35,12 +40,54 @@ const SIT = { thigh: -Math.PI / 2, knee: Math.PI / 2, arm: -0.35, elbow: -0.9 };
 /** Aiming: the gun arm straight out level, the other hand up under it (rad). */
 const AIM = { arm: -Math.PI / 2, elbow: 0, support: -1.2, supportElbow: -0.5 };
 
+/** The guards: their run out and back (m/s, guessed: a sprint in kit) and the metres a whole stride covers at it. */
+const GUARD_RUN = 4.5;
+const GUARD_STRIDE = 1.8;
+/** Their places off a door: the first rank this far out (m), the next ranks `RANK_GAP` further, `FILE_GAP` apart across a rank. */
+const LINE_OUT = 7;
+const RANK_GAP = 4;
+const FILE_GAP = 4.5;
+/** Seconds between one guard coming out of a door and the next; how far (m) inside the door he appears, under the portico. */
+const STAGGER_S = 0.18;
+const PORTICO_DEPTH = 3;
+/** A guard this close (m) to where he is going is there. */
+const ARRIVE = 0.3;
+/** A plain-clothes agent: a black suit, dark hair (the other half of the squad wears the uniformed division's navy, `cop`). */
+const AGENT: DriverLook = { woman: false, shirt: 0x16181d, pants: 0x16181d, hair: HAIRS[2]!, hat: null, mustache: false };
+/** A shot's aim (m over the car's origin), how far (m) a miss goes past it, and the sparks a hit throws (`RaceHost.hitFx`'s impulse). */
+const AIM_Y = 0.7;
+const MISS_WIDE = 2.5;
+const HIT_SPARKS = 4;
+
+/**
+ * The VIP (owner, 2026-10-14: "a human model with blonde hair and a suit", then "should look like trump (a little portly, a specific
+ * type of blond hair, maybe a blue suite)"): portly, in a navy-blue suit with a red tie, his golden-blond hair swept back.
+ */
+const VIP_LOOK: DriverLook = { woman: false, shirt: 0x1f3463, pants: 0x1f3463, hair: 0xe8bf6c, hat: null, mustache: false, portly: true };
+/** His walk to the car (m/s, a brisk walk) and the metres a whole stride covers. */
+const VIP_WALK = 2.2;
+const VIP_STRIDE = 1.5;
+/** He gets in once this close (m) to the passenger door's spot and the car is slower than `BOARD_SPEED` (m/s): it waits for him. */
+const BOARD_REACH = 1.2;
+const BOARD_SPEED = 2.5;
+/** How far (m) outside the passenger door he stands to get in; he goes back in when the car is `GIVE_UP` m off and off the grounds. */
+const DOOR_OUT = 1.1;
+const GIVE_UP = 45;
+/** In his seat: hips this far (m) in from the passenger window's middle, down from it, and back of it. */
+const SEAT = { in: 0.42, down: 0.92, back: 0.15 };
+/** How far (m) from the driver's torso a thrown passenger leaves: beside him (car +x) out of the windshield, behind him out of a door. */
+const BESIDE = 0.75;
+const BEHIND = 0.8;
+/** The secret's flash (ms; the owner: "a slow bright flash"): its swell, hold at full glare, and fade. */
+const NUKE_FLASH = { rise: 1800, hold: 500, fade: 4200 } as const;
+
 const X = new THREE.Vector3(1, 0, 0);
 const _qa = new THREE.Quaternion();
 const _qb = new THREE.Quaternion();
 const _q = new THREE.Quaternion();
 const _turn = new THREE.Quaternion();
 const _gun = new THREE.Quaternion();
+const _inv = new THREE.Quaternion();
 const _c = new THREE.Vector3();
 const _j = new THREE.Vector3();
 const _k = new THREE.Vector3();
@@ -48,20 +95,27 @@ const _r = new THREE.Vector3();
 const _p = new THREE.Vector3();
 const _hand = new THREE.Vector3();
 const _dir = new THREE.Vector3();
-const _m = new THREE.Matrix4();
 const _s = new THREE.Vector3();
+const _at = new THREE.Vector3();
+const _n = new THREE.Vector3();
+const _muzzle = new THREE.Vector3();
+const _pane = new THREE.Vector3();
+const _root = new THREE.Vector3();
+const _door = new THREE.Vector3();
+const _off = new THREE.Vector3();
+const _m = new THREE.Matrix4();
 const HIDDEN = new THREE.Matrix4().makeScale(0, 0, 0);
 
 /** A figure's limb angles (rad, about his own x axis; negative swings a limb forward), shoulders, elbows, hips and knees per side. */
 type Stance = { arm: [number, number]; elbow: [number, number]; thigh: [number, number]; knee: [number, number] };
 
 /** A blank stance: standing straight. */
-export function blankStance(): Stance {
+function blankStance(): Stance {
   return { arm: [0, 0], elbow: [0, 0], thigh: [0, 0], knee: [0, 0] };
 }
 
 /** A walk's stance at stride phase `phase` (rad: a whole stride per 2π), `aiming` with the gun arm out level. */
-export function walkStance(phase: number, aiming: boolean, out: Stance): Stance {
+function walkStance(phase: number, aiming: boolean, out: Stance): Stance {
   const s = Math.sin(phase);
   out.thigh[0] = -LEG_SWING * s;
   out.thigh[1] = LEG_SWING * s;
@@ -75,7 +129,7 @@ export function walkStance(phase: number, aiming: boolean, out: Stance): Stance 
 }
 
 /** Sitting in a seat, hands in the lap. */
-export function seatedStance(out: Stance): Stance {
+function seatedStance(out: Stance): Stance {
   for (let side = 0; side < 2; side++) {
     out.thigh[side] = SIT.thigh;
     out.knee[side] = SIT.knee;
@@ -86,9 +140,9 @@ export function seatedStance(out: Stance): Stance {
 }
 
 /**
- * The course's people drawn (the guards of `lawn-squad.ts`, the VIP of `vip-escort.ts`): the thrown dummy's body
- * (`DummyMesh`, `PARTS`) posed by hand instead of by Rapier, standing, walking, aiming or seated, each slot in its own look; a
- * handgun in each aiming hand, its muzzle flash and the shot's tracer. Cosmetic only.
+ * The course's people drawn (the guards of `GuardSquad`, the VIP of `VipEscort`): the thrown dummy's body (`DummyMesh`, `PARTS`)
+ * posed by hand instead of by Rapier, standing, walking, aiming or seated, each slot in its own look; a handgun in each aiming hand,
+ * its muzzle flash and the shot's tracer. Cosmetic only.
  */
 export class People {
   readonly group = new THREE.Group();
@@ -96,7 +150,7 @@ export class People {
   private readonly guns: THREE.InstancedMesh;
   private readonly flashes: THREE.InstancedMesh;
   private readonly tracers: THREE.LineSegments;
-  private readonly tracerAt: Float32Array;
+  private readonly tracerAt = new Float32Array(TRACERS * 6);
   private readonly tracerAge = new Float32Array(TRACERS).fill(Infinity);
   private readonly flashAge: Float32Array;
   private readonly muzzles: Float32Array;
@@ -114,9 +168,7 @@ export class People {
     }
     this.flashAge = new Float32Array(slots).fill(Infinity);
     this.muzzles = new Float32Array(slots * 3);
-    this.tracerAt = new Float32Array(TRACERS * 6);
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute("position", new THREE.BufferAttribute(this.tracerAt, 3));
+    const geo = new THREE.BufferGeometry().setAttribute("position", new THREE.BufferAttribute(this.tracerAt, 3));
     this.tracers = new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ color: TRACER_RGB, toneMapped: false, transparent: true, opacity: 0.85 }));
     this.tracers.frustumCulled = false;
     this.group.add(this.mesh, this.guns, this.flashes, this.tracers);
@@ -137,14 +189,11 @@ export class People {
     this.part(slot, 0, root, turn, _c.fromArray(PARTS[0]!.c), _qa.identity());
     this.part(slot, 1, root, turn, _c.fromArray(PARTS[1]!.c), _qa.identity());
     for (let side = 0; side < 2; side++) {
-      this.limb(slot, root, turn, side === 0 ? -1 : 1, SHOULDER, ELBOW, ARM_UPPER[side], ARM_LOWER[side], stance.arm[side]!, stance.elbow[side]!);
-      this.limb(slot, root, turn, side === 0 ? -1 : 1, HIP, KNEE, THIGH[side], SHIN[side], stance.thigh[side]!, stance.knee[side]!);
+      const sign = side * 2 - 1;
+      this.limb(slot, root, turn, sign, SHOULDER, ELBOW, ARM_UPPER[side], ARM_LOWER[side], stance.arm[side]!, stance.elbow[side]!);
+      this.limb(slot, root, turn, sign, HIP, KNEE, THIGH[side], SHIN[side], stance.thigh[side]!, stance.knee[side]!);
     }
-    if (!armed) {
-      this.guns.setMatrixAt(slot, HIDDEN);
-      this.guns.instanceMatrix.needsUpdate = true;
-      return;
-    }
+    if (!armed) return this.holster(slot);
     // The hand at the forearm's far end, the gun along it, its muzzle past the hand.
     this.handAt(root, turn, stance, _c);
     _gun.copy(turn).multiply(_qb.setFromAxisAngle(X, stance.arm[GUN_SIDE]! + stance.elbow[GUN_SIDE]!));
@@ -173,8 +222,7 @@ export class People {
 
   hide(slot: number): void {
     this.mesh.hide(slot);
-    this.guns.setMatrixAt(slot, HIDDEN);
-    this.guns.instanceMatrix.needsUpdate = true;
+    this.holster(slot);
   }
 
   /** Once per frame after the poses: the flashes and tracers age `dt` s and go out. */
@@ -206,6 +254,11 @@ export class People {
     (this.tracers.material as THREE.Material).dispose();
   }
 
+  private holster(slot: number): void {
+    this.guns.setMatrixAt(slot, HIDDEN);
+    this.guns.instanceMatrix.needsUpdate = true;
+  }
+
   /** Body part `k` whose centre stands at `at` in his frame, turned `local` in it. */
   private part(slot: number, k: number, root: THREE.Vector3, turn: THREE.Quaternion, at: THREE.Vector3, local: THREE.Quaternion): void {
     _p.copy(at).applyQuaternion(turn).add(root);
@@ -228,11 +281,266 @@ export class People {
 
   /** The gun hand's place (world): the gun arm's elbow, then the forearm's length on. */
   private handAt(root: THREE.Vector3, turn: THREE.Quaternion, stance: Stance, out: THREE.Vector3): THREE.Vector3 {
-    const side = GUN_SIDE === 0 ? -1 : 1;
-    _j.set(side * Math.abs(SHOULDER[2]!), SHOULDER_Y, 0);
+    _j.set((GUN_SIDE * 2 - 1) * Math.abs(SHOULDER[2]!), SHOULDER_Y, 0);
     _qa.setFromAxisAngle(X, stance.arm[GUN_SIDE]!);
     _k.set(0, ELBOW[3]! - SHOULDER_Y, 0).applyQuaternion(_qa).add(_j);
     _qb.setFromAxisAngle(X, stance.arm[GUN_SIDE]! + stance.elbow[GUN_SIDE]!);
     return out.set(0, -(ELBOW[3]! - PARTS[ARM_LOWER[GUN_SIDE]]!.c[1]) * 2, 0).applyQuaternion(_qb).add(_k).applyQuaternion(turn).add(root);
   }
+}
+
+/** One guard: where he stands and faces, his stride, whether he is out, and his place in the ranks and inside his door. */
+type Guard = { x: number; z: number; yaw: number; phase: number; out: boolean; spotX: number; spotZ: number; homeX: number; homeZ: number };
+
+/**
+ * The guards drawn (`LawnGuard` decides who fires and what hits): with the alarm up each runs out of his door, in turn, to his
+ * place in the ranks before it, turns to the target and aims; each shot the sim fired flashes at its guard's muzzle and its tracer
+ * runs to the car (a hit throws sparks off it) or past it. With the alarm down they run back in and are gone. Cosmetic only: the
+ * walk is the frame's, not the sim's.
+ */
+export class GuardSquad {
+  private readonly guards: Guard[] = [];
+  private readonly stance = blankStance();
+  private drawn = 0;
+  private readonly ground: Ground;
+  private readonly people: People;
+
+  constructor(spec: GuardSpec, ground: Ground, people: People) {
+    this.ground = ground;
+    this.people = people;
+    const doors = spec.doors.length;
+    const perRank = Math.ceil(Math.ceil(spec.count / doors) / 2);
+    for (let i = 0; i < spec.count; i++) {
+      const d = spec.doors[i % doors]!;
+      const j = Math.floor(i / doors);
+      const fx = Math.sin(d.yaw);
+      const fz = Math.cos(d.yaw);
+      const out = LINE_OUT + Math.floor(j / perRank) * RANK_GAP;
+      const across = ((j % perRank) - (perRank - 1) / 2) * FILE_GAP;
+      this.guards.push({
+        x: 0, z: 0, yaw: d.yaw, phase: 0, out: false,
+        spotX: d.x + fx * out + fz * across,
+        spotZ: d.z + fz * out - fx * across,
+        homeX: d.x - fx * PORTICO_DEPTH,
+        homeZ: d.z - fz * PORTICO_DEPTH,
+      });
+      people.dress(i, i % 2 === 0, AGENT);
+    }
+  }
+
+  /** A race starts: everyone inside, no shot drawn yet. */
+  reset(): void {
+    this.drawn = 0;
+    for (let i = 0; i < this.guards.length; i++) {
+      this.guards[i]!.out = false;
+      this.people.hide(i);
+    }
+  }
+
+  /** One frame of `dt` s: the guards move and aim by the sim's alarm, and its new shots are drawn (`sparks` at a hit). */
+  frame(dt: number, guard: LawnGuard, cars: readonly DeformableCar[], sparks: (at: THREE.Vector3, normal: THREE.Vector3, impulse: number) => void): void {
+    if (guard.shots < this.drawn) this.drawn = 0;
+    for (let i = 0; i < this.guards.length; i++) this.move(i, dt, guard, cars);
+    for (; this.drawn < guard.shots; this.drawn++) {
+      if (guard.shots - this.drawn > SHOT_RING) continue;
+      const k = this.drawn % SHOT_RING;
+      const g = guard.shotGuard[k]!;
+      const car = cars[guard.shotCar[k]!];
+      if (!car || !this.guards[g]?.out) continue;
+      this.people.muzzle(g, _muzzle);
+      _at.copy(car.group.position);
+      _at.y += AIM_Y;
+      _n.copy(_muzzle).sub(_at).normalize();
+      const hit = guard.shotHit[k];
+      // A miss flies past the car, off to one side by the shot's number.
+      if (!hit) _at.addScaledVector(_n, -MISS_WIDE).add(_muzzle.set(_n.z, 0, -_n.x).multiplyScalar(this.drawn % 2 ? MISS_WIDE : -MISS_WIDE));
+      this.people.fire(g, _at.x, _at.y, _at.z);
+      if (hit) sparks(_at, _n, HIT_SPARKS);
+    }
+  }
+
+  private move(i: number, dt: number, guard: LawnGuard, cars: readonly DeformableCar[]): void {
+    const g = this.guards[i]!;
+    const called = guard.alarm >= Math.floor(i / 2) * STAGGER_S;
+    if (called && !g.out) {
+      g.out = true;
+      g.x = g.homeX;
+      g.z = g.homeZ;
+    }
+    if (!g.out) return;
+    const dx = (called ? g.spotX : g.homeX) - g.x;
+    const dz = (called ? g.spotZ : g.homeZ) - g.z;
+    const left = hypot2(dx, dz);
+    if (!called && left < ARRIVE) {
+      g.out = false;
+      return this.people.hide(i);
+    }
+    const target = guard.target !== NO_TARGET ? cars[guard.target] : undefined;
+    const running = left >= ARRIVE;
+    if (running) {
+      const step = Math.min(left, GUARD_RUN * dt);
+      g.x += (dx / left) * step;
+      g.z += (dz / left) * step;
+      g.phase += (step / GUARD_STRIDE) * 2 * Math.PI;
+      g.yaw = Math.atan2(dx, dz);
+    } else if (target) {
+      g.yaw = Math.atan2(target.group.position.x - g.x, target.group.position.z - g.z);
+    }
+    walkStance(running ? g.phase : 0, called && !running && target !== undefined, this.stance);
+    this.people.stand(i, g.x, this.ground.heightAt(g.x, g.z), g.z, g.yaw, this.stance, called);
+  }
+}
+
+type Phase = "in" | "walking" | "riding" | "thrown";
+
+/**
+ * The VIP, once the course's secret is out (the Konami code: the guards stay in). When the player drives onto the grounds he
+ * walks out of the nearest door to the car's passenger door; once the car waits for him there he gets in and rides in the
+ * passenger seat, until the driver is thrown out of the car (`DeformableCar.driverOut`): then he is thrown with him
+ * (`throwPassenger`, the dummies' world) and the ride is over. Cosmetic only: the sim never knows he is there.
+ */
+export class VipEscort {
+  private phase: Phase = "in";
+  private car = -1;
+  private x = 0;
+  private z = 0;
+  private yaw = 0;
+  private stride = 0;
+  private readonly stance = blankStance();
+  private readonly spec: GuardSpec;
+  private readonly ground: Ground;
+  private readonly people: People;
+  private readonly slot: number;
+
+  constructor(spec: GuardSpec, ground: Ground, people: People, slot: number) {
+    this.spec = spec;
+    this.ground = ground;
+    this.people = people;
+    this.slot = slot;
+    people.dress(slot, false, VIP_LOOK);
+  }
+
+  /** A race starts: he is back inside, whatever happened in the last one. */
+  reset(): void {
+    this.phase = "in";
+    this.car = -1;
+    this.people.hide(this.slot);
+  }
+
+  /** The car he rides in (-1: none): its driver's throw throws him too. */
+  get ridingIn(): number {
+    return this.phase === "riding" ? this.car : -1;
+  }
+
+  /**
+   * One frame of `dt` s. `out`: the secret is out; `player`: the car this browser drives (-1 none); `throwPassenger` throws him out
+   * of car `car` with its driver.
+   */
+  frame(dt: number, out: boolean, player: number, cars: readonly DeformableCar[], throwPassenger: (car: number, look: DriverLook) => void): void {
+    const car = player >= 0 ? cars[player] : undefined;
+    if (this.phase === "in") {
+      if (!out || !car || !car.deform.drivetrainAlive || !insidePolygon(this.spec.lawn, car.group.position.x, car.group.position.z)) return;
+      this.comeOut(player, car);
+    }
+    if (this.phase === "walking") this.walk(dt, cars);
+    if (this.phase !== "riding") return;
+    const ride = cars[this.car];
+    if (!ride) return this.reset();
+    if (ride.driverOut === null) return this.sit(ride);
+    throwPassenger(this.car, VIP_LOOK);
+    this.phase = "thrown";
+    this.people.hide(this.slot);
+  }
+
+  /** Out of the door nearest the car, toward it. */
+  private comeOut(player: number, car: DeformableCar): void {
+    let best = Infinity;
+    for (const d of this.spec.doors) {
+      const far = hypot2(d.x - car.group.position.x, d.z - car.group.position.z);
+      if (far >= best) continue;
+      best = far;
+      this.x = d.x;
+      this.z = d.z;
+      this.yaw = d.yaw;
+    }
+    this.car = player;
+    this.phase = "walking";
+  }
+
+  /** A stride toward the car's passenger door; in when it waits for him there, back inside when it has left him. */
+  private walk(dt: number, cars: readonly DeformableCar[]): void {
+    const car = cars[this.car];
+    if (!car) return this.reset();
+    _door.set(DOOR_OUT, 0, 0).applyQuaternion(car.group.quaternion);
+    car.glassWorld("doorR", _pane).add(_door);
+    const dx = _pane.x - this.x;
+    const dz = _pane.z - this.z;
+    const left = hypot2(dx, dz);
+    const gone = !insidePolygon(this.spec.lawn, car.group.position.x, car.group.position.z) && left > GIVE_UP;
+    if (gone || !car.deform.drivetrainAlive) return this.reset();
+    if (left < BOARD_REACH && car.speed < BOARD_SPEED) {
+      this.phase = "riding";
+      return;
+    }
+    const step = Math.min(left, VIP_WALK * dt);
+    if (left > 1e-3) {
+      this.x += (dx / left) * step;
+      this.z += (dz / left) * step;
+      this.yaw = Math.atan2(dx, dz);
+    }
+    this.stride += (step / VIP_STRIDE) * 2 * Math.PI;
+    walkStance(this.stride, false, this.stance);
+    this.people.stand(this.slot, this.x, this.ground.heightAt(this.x, this.z), this.z, this.yaw, this.stance, false);
+  }
+
+  /** In the passenger seat: hips in from the right-hand window, facing the car's way (`HIP[3]`: the hips' height standing). */
+  private sit(car: DeformableCar): void {
+    const g = car.group;
+    car.glassWorld("doorR", _pane).sub(g.position).applyQuaternion(_inv.copy(g.quaternion).invert());
+    _root.set(_pane.x - SEAT.in, _pane.y - SEAT.down - HIP[3]!, _pane.z - SEAT.back).applyQuaternion(g.quaternion).add(g.position);
+    this.people.pose(this.slot, _root, g.quaternion, seatedStance(this.stance), false);
+  }
+}
+
+/** A throw's start: torso place, turn, velocity and spin (world). */
+type ThrowStart = { p: THREE.Vector3; q: THREE.Quaternion; v: THREE.Vector3; w: THREE.Vector3 };
+
+/** A passenger thrown with `driver` (just out of `car`) into `out`: his torso's turn and motion, off his place by `BESIDE` or `BEHIND`. */
+export function passengerThrow(driver: Doll, car: DeformableCar, out: ThrowStart): void {
+  const c = driver.cur;
+  const torso = driver.bodies[0]!;
+  const v = torso.linvel();
+  const w = torso.angvel();
+  out.v.set(v.x, v.y, v.z);
+  out.w.set(w.x, w.y, w.z);
+  out.q.set(c[3]!, c[4]!, c[5]!, c[6]!);
+  if (car.driverOut === "windshield" || car.driverOut === null) _off.set(BESIDE, 0, 0);
+  else _off.set(car.driverOut === "doorL" ? BEHIND : -BEHIND, 0, 0);
+  out.p.set(c[0]!, c[1]!, c[2]!).add(_off.applyQuaternion(car.group.quaternion));
+}
+
+/**
+ * The secret's flash (`TrackArt.reveal`): a white-gold glare over the whole view that swells slowly, holds, and fades out over a few
+ * seconds, `atPeak` running at its height (where the mushroom cloud appears). A DOM layer over the canvas, so it lights the HUD too
+ * and needs no pass of the renderer's.
+ */
+export function nukeFlash(over: HTMLElement, atPeak: () => void): void {
+  const glare = document.createElement("div");
+  glare.style.cssText =
+    "position:absolute;inset:0;pointer-events:none;z-index:50;opacity:0;" +
+    "background:radial-gradient(ellipse at 50% 40%, #fffef6 0%, #fff4cc 45%, #ffd27a 100%);";
+  over.appendChild(glare);
+  const { rise, hold, fade } = NUKE_FLASH;
+  const total = rise + hold + fade;
+  const run = glare.animate(
+    [
+      { opacity: 0, easing: "ease-in" },
+      { opacity: 1, offset: rise / total },
+      { opacity: 1, offset: (rise + hold) / total, easing: "ease-out" },
+      { opacity: 0 },
+    ],
+    { duration: total, fill: "forwards" },
+  );
+  setTimeout(atPeak, rise);
+  run.onfinish = () => glare.remove();
 }
