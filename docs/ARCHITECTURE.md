@@ -202,8 +202,8 @@ the old 0.6); the bus also feeds a ~1 s stereo noise-impulse convolver (lowpasse
 The race menus (setup, pause) carry the Sound, Music and Engines rows, since their modal covers the settings panel.
 Engine loudness (`engine-law.ts`): a voice's level follows how a real car's audible level moves with load and revs (BMW M5 Active Sound
 Design: load is the dominant control). `engineLawDb(rpmFrac, load)` is the target in dB under a redline at full load (which keeps the
-voice's -12 dBFS peak at `MOTOR_OUTPUT_GAIN`): 6 dB per doubling of rpm, plus the M5's load curve (flat under 0.15, 8 of 22 dB at half
-load, the rest at 1) scaled to a 12 dB coast-to-wide-open span, so idle coast sits 30 dB under redline wide open. The worklet's own
+voice's -12 dBFS peak at `MOTOR_OUTPUT_GAIN`): 3.3 dB per doubling of rpm, plus the M5's load curve (flat under 0.15, 8 of 22 dB at half
+load, the rest at 1) scaled to an 8 dB coast-to-wide-open span, so idle coast sits 18 dB under redline wide open (real cars span ~30 dB; at the default slider that left idle inaudible). The worklet's own
 level wanders +-4 dB with rpm and ignores its throttle parameter, so `NATURAL_DB` holds each class's measured RMS on a 9-point rev grid
 (`motor-level.test-util.ts` renders it) and `engineLawGain` is law minus natural: the combined output follows the law, and a redline at
 full load gets gain 1. `MotorSound.driveVoice` aims each voice's fade gain at `MOTOR_OUTPUT_GAIN x engineLawGain` every tick, with the load
