@@ -26,12 +26,15 @@ class EngineSoundGenerator extends AudioWorkletProcessor {
       this.channelEngineBlockVibrationsArray = new AllocatedArray();
       this.channelOutletArray = new AllocatedArray();
 
-      // processorOptions contains the values passed to updateParameters.
-      // The lengths of the waveguides are specified in samples.
+      // processorOptions is the voice's first tuning. The lengths of the waveguides are specified in samples.
       // The generator is built in process(): embind registers the class only after the async wasm init.
       this.processorOptions = options.processorOptions;
       this.pendingMessage = null;
-      this.mufflerElementsLengthPtr = 0;
+      // Upstream's C++ never frees a waveguide (DelayLine and Muffler have empty destructors), so every construct or
+      // updateParameters call strands 10-25 KB of the fixed 16 MB heap that every voice shares (~730 re-tunes abort it).
+      // A tuning is built once per voice and kept (message JSON -> generator); a re-tune swaps one in.
+      // The tunings are a closed set (class x damage tone = 15), so about 1.5 MB for six voices.
+      this.generators = new Map ();
       this.soundGenerator = null;
 
       this.port.onmessage = (event) => {
@@ -44,88 +47,51 @@ class EngineSoundGenerator extends AudioWorkletProcessor {
    }
 
    construct () {
-      let processorOptions = this.processorOptions;
+      let o = this.processorOptions;
 
-      this.mufflerElementsLengthPtr = SoundGeneratorWasm._malloc(processorOptions.mufflerElementsLength.length*4);
-      SoundGeneratorWasm.HEAPU32.set(processorOptions.mufflerElementsLength, this.mufflerElementsLengthPtr/4);
-
-      this.soundGenerator = new SoundGeneratorWasm.EngineSoundGenerator (sampleRate,
-                        processorOptions.cylinders,
-
-                        processorOptions.intakeWaveguideLength, processorOptions.exhaustWaveguideLength,
-                        processorOptions.extractorWaveguideLength,
-
-                        processorOptions.intakeOpenReflectionFactor,
-                        processorOptions.intakeClosedReflectionFactor,
-
-                        processorOptions.exhaustOpenReflectionFactor,
-                        processorOptions.exhaustClosedReflectionFactor,
-                        processorOptions.ignitionTime,
-
-                        processorOptions.straightPipeWaveguideLength,
-                        processorOptions.straightPipeReflectionFactor,
-
-                        this.mufflerElementsLengthPtr, processorOptions.mufflerElementsLength.length, processorOptions.action,
-
-                        processorOptions.outletWaveguideLength, processorOptions.outletReflectionFactor);
-
-      if (this.pendingMessage !== null) {
-         this.applyMessage (this.pendingMessage);
-         this.pendingMessage = null;
-      }
+      // Same keys, same order as a tone message (motor-tone.ts): the options' tuning is the cached one when the same message arrives.
+      // A pending message is the tuning the voice wants now; building the options' one first would only strand a generator.
+      this.applyMessage (this.pendingMessage || {
+         "cylinder_count": o.cylinders,
+         "intake_waveguide_length": o.intakeWaveguideLength, "exhaust_waveguide_length": o.exhaustWaveguideLength,
+         "extractor_waveguide_length": o.extractorWaveguideLength,
+         "intake_open_reflection_factor": o.intakeOpenReflectionFactor, "intake_closed_reflection_factor": o.intakeClosedReflectionFactor,
+         "exhaust_open_reflection_factor": o.exhaustOpenReflectionFactor, "exhaust_closed_reflection_factor": o.exhaustClosedReflectionFactor,
+         "ignition_time": o.ignitionTime,
+         "straight_pipe_waveguide_length": o.straightPipeWaveguideLength, "straight_pipe_reflection_factor": o.straightPipeReflectionFactor,
+         "muffler_elements_length": o.mufflerElementsLength, "action": o.action,
+         "outlet_waveguide_length": o.outletWaveguideLength, "outlet_reflection_factor": o.outletReflectionFactor
+      });
+      this.pendingMessage = null;
    }
 
    applyMessage (parameters) {
-      this.updateParameters (parameters["cylinder_count"],
-                  parameters["intake_waveguide_length"], parameters["exhaust_waveguide_length"],
-                  parameters["extractor_waveguide_length"],
+      let key = JSON.stringify (parameters);
+      let generator = this.generators.get (key);
+      if (generator === undefined) {
+         let mufflerElementsLength = parameters["muffler_elements_length"] || [10, 15, 20, 25];
+         let ptr = SoundGeneratorWasm._malloc (mufflerElementsLength.length*4);
+         SoundGeneratorWasm.HEAPU32.set (mufflerElementsLength, ptr/4);
 
-                  parameters["intake_open_reflection_factor"], parameters["intake_closed_reflection_factor"],
+         generator = new SoundGeneratorWasm.EngineSoundGenerator (sampleRate,
+                     parameters["cylinder_count"],
 
-                  parameters["exhaust_open_reflection_factor"], parameters["exhaust_closed_reflection_factor"], parameters["ignition_time"],
+                     parameters["intake_waveguide_length"], parameters["exhaust_waveguide_length"],
+                     parameters["extractor_waveguide_length"],
 
-                  parameters["straight_pipe_waveguide_length"], parameters["straight_pipe_reflection_factor"],
+                     parameters["intake_open_reflection_factor"], parameters["intake_closed_reflection_factor"],
 
-                  parameters["muffler_elements_length"], parameters["action"],
+                     parameters["exhaust_open_reflection_factor"], parameters["exhaust_closed_reflection_factor"], parameters["ignition_time"],
 
-                  parameters["outlet_waveguide_length"], parameters["outlet_reflection_factor"]);
-   }
+                     parameters["straight_pipe_waveguide_length"], parameters["straight_pipe_reflection_factor"],
 
-   updateParameters (cylinderCount,
+                     ptr, mufflerElementsLength.length, parameters["action"],
 
-                     intakeWaveguideLength, exhaustWaveguideLength,
-                     extractorWaveguideLength,
-
-                     intakeOpenReflectionFactor, intakeClosedReflectionFactor,
-
-                     exhaustOpenReflectionFactor, exhaustClosedReflectionFactor, ignitionTime,
-
-                     straightPipeWaveguideLength, straightPipeReflectionFactor,
-
-                     mufflerElementsLength, action,
-
-                     outletWaveguideLength, outletReflectionFactor) {
-      if (!mufflerElementsLength) {
-         mufflerElementsLength = [10, 15, 20, 25];
+                     parameters["outlet_waveguide_length"], parameters["outlet_reflection_factor"]);
+         SoundGeneratorWasm._free (ptr); // the C++ copies the lengths, it keeps no pointer
+         this.generators.set (key, generator);
       }
-      SoundGeneratorWasm._free(this.mufflerElementsLengthPtr);
-      this.mufflerElementsLengthPtr = SoundGeneratorWasm._malloc(mufflerElementsLength.length*4);
-      SoundGeneratorWasm.HEAPU32.set(mufflerElementsLength, this.mufflerElementsLengthPtr/4);
-
-      this.soundGenerator.updateParameters (cylinderCount,
-
-                      intakeWaveguideLength, exhaustWaveguideLength,
-                      extractorWaveguideLength,
-
-                      intakeOpenReflectionFactor, intakeClosedReflectionFactor,
-
-                      exhaustOpenReflectionFactor, exhaustClosedReflectionFactor, ignitionTime,
-
-                      straightPipeWaveguideLength, straightPipeReflectionFactor,
-
-                      this.mufflerElementsLengthPtr, mufflerElementsLength.length, action,
-
-                      outletWaveguideLength, outletReflectionFactor);
+      this.soundGenerator = generator;
    }
 
    static get parameterDescriptors () {

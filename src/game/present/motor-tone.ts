@@ -162,7 +162,7 @@ export interface ToneOptions {
   outletReflectionFactor: number;
 }
 
-/** The generator's port message (snake_case): the same parameters, rebuilding all waveguide state. */
+/** The generator's port message (snake_case): the same parameters. The worklet keeps one generator per message (keyed by its JSON, so keep the key order), and a re-tune swaps it in. */
 export interface ToneMessage {
   cylinder_count: number;
   intake_waveguide_length: number;

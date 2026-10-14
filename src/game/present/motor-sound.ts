@@ -14,8 +14,10 @@ const DISTANCE_MODEL = "inverse";
 const FILTER_TYPE = "lowpass";
 /** The engine voices' parameters update at this rate (positions every frame): a 1/30 s tick keeps `setTargetAtTime` events few. */
 const AUDIO_TICK_S = 1 / 30;
-/** A car farther than this (m) from the camera is never voiced, unless it is the priority car. */
+/** A car farther than this (m) from the camera is never given a voice, unless it is the priority car. */
 const VOICE_MAX_DISTANCE = 70;
+/** A car that already holds a voice keeps it out to this (m): a car dithering around 70 m would otherwise swap its slot every few frames. */
+const VOICE_KEEP_DISTANCE = 77;
 /** Panner: full level inside 6 m (the chase camera sits about that far behind the player's car), `inverse` rolloff 2 beyond (a car 12 m out is -9.5 dB, 20 m -15 dB), silent past `VOICE_MAX_DISTANCE`. HRTF costs too much on phones. */
 const REF_DISTANCE = 6;
 const ROLLOFF_FACTOR = 2;
@@ -83,6 +85,8 @@ export class MotorSound {
   /** Per slot: 1 while the fade gain is aimed at full, and 1 once a silenced voice's rpm was cut to 0. */
   private readonly gainOn: Uint8Array;
   private readonly rpmCut: Uint8Array;
+  /** Per slot: 1 until its voice has driven a car since its last fade-out (the speed history then restarts, and no misfire dip hides the re-tune). */
+  private readonly fresh: Uint8Array;
   private voices: Voice[] = [];
   private messages: ToneMessage[] = [];
   /** Oscillator fallback: firing Hz per rpm of each class (cylinders / 120); 0 for the worklet. */
@@ -105,6 +109,7 @@ export class MotorSound {
     this.silentS = new Float64Array(slots);
     this.gainOn = new Uint8Array(slots);
     this.rpmCut = new Uint8Array(slots);
+    this.fresh = new Uint8Array(slots).fill(1);
   }
 
   /** Loads the worklet and builds the voices. `update` does nothing until this resolves. */
@@ -136,9 +141,10 @@ export class MotorSound {
     gain.gain.value = 0;
     const filter = lowpass(context, damageTone("healthy").cutoffHz);
     let port: MessagePort | null = null;
+    let node: AudioWorkletNode | null = null;
     let rpm: AudioParam;
     if (options) {
-      const node = new AudioWorkletNode(context, PROCESSOR_NAME, { numberOfInputs: 0, numberOfOutputs: 3, outputChannelCount: [1, 1, 1], processorOptions: options });
+      node = new AudioWorkletNode(context, PROCESSOR_NAME, { numberOfInputs: 0, numberOfOutputs: 3, outputChannelCount: [1, 1, 1], processorOptions: options });
       const param = node.parameters.get("rpm");
       if (!param) throw new Error(`${PROCESSOR_NAME} has no rpm parameter`);
       rpm = param;
@@ -170,7 +176,17 @@ export class MotorSound {
     positional.setMaxDistance(VOICE_MAX_DISTANCE);
     positional.panner.panningModel = PANNING_MODEL;
     positional.setNodeSource(filter);
-    return { port, rpm, intake, block, outlet, gain, filter, positional };
+    const voice: Voice = { port, rpm, intake, block, outlet, gain, filter, positional };
+    const dead = node;
+    if (dead) {
+      // A processor that threw (an abort, a full heap) fires this on every render quantum: cut it off and stop posting to it.
+      dead.onprocessorerror = () => {
+        dead.disconnect();
+        voice.port = null;
+        console.warn("motor sound: a voice's processor failed; the voice is dropped");
+      };
+    }
+    return voice;
   }
 
   /**
@@ -193,7 +209,8 @@ export class MotorSound {
       if (isPriority) priorityIndex = i;
       const p = car.group.position;
       const d = (p.x - lx) * (p.x - lx) + (p.y - ly) * (p.y - ly) + (p.z - lz) * (p.z - lz);
-      const hearable = car.group.visible && !car.vaporized && (isPriority || (car.deform.drivetrainAlive && d <= VOICE_MAX_DISTANCE * VOICE_MAX_DISTANCE));
+      const range = this.pool.slotOf(i) >= 0 ? VOICE_KEEP_DISTANCE : VOICE_MAX_DISTANCE;
+      const hearable = car.group.visible && !car.vaporized && (isPriority || (car.deform.drivetrainAlive && d <= range * range));
       this.distSq[i] = hearable ? d : Infinity;
     }
     this.pool.assign(this.distSq, n, priorityIndex, dt);
@@ -237,18 +254,17 @@ export class MotorSound {
     this.fadeLeftS[slot] = SWAP_FADE_S;
   }
 
-  /** The fade-out is over: the voice is silent and free; it takes whichever car the pool holds in the slot next. */
+  /** The fade-out is over: the voice is silent and free; it takes whichever car the pool holds in the slot next. It keeps its tuning, so a car of the same class and damage tone posts nothing. */
   private retire(slot: number, now: number): void {
     this.voiced[slot] = -1;
-    this.classIndex[slot] = -1;
-    this.toneIndex[slot] = -1;
+    this.fresh[slot] = 1;
     this.voices[slot]!.rpm.setValueAtTime(0, now);
     this.rpmCut[slot] = 1;
   }
 
   /**
-   * Retunes one voice to its car at a tick: class and damage tuning and the class's channel levels (a re-tune rebuilds the
-   * generator, so it happens under a fade or a misfire dip), rpm from the gauge's revs lifted by the load, misfires. A dead,
+   * Retunes one voice to its car at a tick: class and damage tuning and the class's channel levels (a re-tune swaps in the
+   * voice's kept generator for that tuning, so it happens under a fade or a misfire dip), rpm from the gauge's revs lifted by the load, misfires. A dead,
    * stalled or parked engine winds down to silence.
    */
   private driveVoice(slot: number, car: DeformableCar, isPriority: boolean, tick: number, rate: number, parked: boolean, now: number): void {
@@ -272,15 +288,16 @@ export class MotorSound {
     const cls = carClass(car);
     const classIndex = VEHICLE_CLASS_IDS.indexOf(cls);
     const damage = damageTone(damageStage(car));
-    const fresh = this.classIndex[slot] < 0;
+    const fresh = this.fresh[slot] === 1;
     if (fresh) {
+      this.fresh[slot] = 0;
       this.prevAlong[slot] = car.velocity.x * car.fwdFlat.x + car.velocity.z * car.fwdFlat.z;
       this.accel[slot] = 0;
     }
     if (classIndex !== this.classIndex[slot] || damage.toneIndex !== this.toneIndex[slot]) {
       this.classIndex[slot] = classIndex;
       this.toneIndex[slot] = damage.toneIndex;
-      // A live voice re-tunes under a misfire dip, a fresh one (silent after a fade) needs none: the generator's rebuild clicks, the dip hides it.
+      // A live voice re-tunes under a misfire dip, a fresh one (silent after a fade) needs none: the swap to another kept generator clicks, the dip hides it.
       if (!fresh) voice.gain.gain.setValueAtTime(MISFIRE_DIP, now);
       voice.port?.postMessage(this.messages[classIndex * TONE_COUNT + damage.toneIndex]);
       voice.filter.frequency.setTargetAtTime(damage.cutoffHz, now, PARAM_TAU_S);

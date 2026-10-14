@@ -185,9 +185,11 @@ debris, smoke). It never gates the sim, audio or marks.
 **Audio** (`present/game-audio.ts`, one `AudioContext`). `GameAudio.frame` is the only per-frame seam; it runs after the lamps, when
 the camera (which carries the three `AudioListener`) has its matrix for the frame, and only with audio on. Engine voices are a
 fixed pool built at unlock (6 on a desktop, 3 on a phone, `?voices=N` overrides): `VoicePool` seats the priority car (the reel's
-focus car, else the followed one) and then the nearest cars within 70 m, and a held car is displaced only by one at least 30%
-closer once its slot has held it 0.75 s, so slots never swap as ranks cross. A slot that changes car fades out, re-tunes
-the generator, and fades in; it never cuts. The music bus is the slider (at most 0.6) ducked under the player's engine and a
+focus car, else the followed one) and then the nearest cars within 70 m (a car that holds a voice keeps it out to 77 m), and a held car is displaced only by one at least 30%
+closer once its slot has held it 0.75 s, so slots never swap as ranks cross. A slot that changes car fades out, swaps in its
+generator for the new tuning, and fades in; it never cuts. Upstream's C++ never frees a waveguide, so each voice builds one
+generator per tuning (class x damage tone, 15 at most) once and keeps it (`kernels/motor/motor-processor.js`; `motor-heap.test.ts`
+holds the shared 16 MB wasm heap flat over 20 000 re-tunes); never call `updateParameters` on a live generator. The music bus is the slider (at most 0.6) ducked under the player's engine and a
 crash. The soundtrack (`present/music.ts`) is one streaming `<audio>` element fed by the music folder's `manifest.json`
 (`present/music-manifest.ts`, zod-validated; docs/DEPLOY.md, "Music"); no manifest means silence. Audio reads cars and never writes them.
 Gain staging (`audio-mix.ts`, `motor-tone.ts`): a voice is the generator's three channels summed and scaled by

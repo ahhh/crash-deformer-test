@@ -73,7 +73,7 @@ export class VoicePool {
   }
 
   /** The slot holding `car` (-1 finds a free one), or -1. */
-  private slotOf(car: number): number {
+  slotOf(car: number): number {
     for (let s = 0; s < this.slots; s++) if (this.car[s] === car) return s;
     return -1;
   }

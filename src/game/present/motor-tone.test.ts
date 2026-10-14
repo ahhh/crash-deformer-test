@@ -11,7 +11,7 @@ const SEDAN: VehicleClassId = "sedan";
 /** The keys the vendored processor reads off a port message (`kernels/motor/motor-processor.js`, `applyMessage`). */
 function processorMessageKeys(): string[] {
   const source = readFileSync(new URL("../../../kernels/motor/motor-processor.js", import.meta.url), "utf8");
-  const applied = source.slice(source.indexOf("applyMessage (parameters)"), source.indexOf("updateParameters (cylinderCount"));
+  const applied = source.slice(source.indexOf("applyMessage (parameters)"), source.indexOf("static get parameterDescriptors"));
   return [...applied.matchAll(/parameters\["([a-z_]+)"\]/g)].map((m) => m[1]!).sort();
 }
 
