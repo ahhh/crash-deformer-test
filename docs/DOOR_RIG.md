@@ -15,7 +15,7 @@ front at the top:
 - **E** (key 7): the same panel; the ram runs front→rear into its free end and pulls it out: a
   light pull opens it, a hard one tears it off. The panel is the door's mirror image (hinged at its
   tail), so the directions swap. Open doors also swing with the car's own acceleration; see
-  `docs/PANEL_FLAP.md`.
+  [`PANEL_FLAP.md`](PANEL_FLAP.md).
 
 Code: `car.ts` (hinge state and rules), `door-rig.ts` (`DoorRig`, DOM-free),
 `engine-doors.ts` (ram visuals), the `doors` scene in `engine.ts`, and `DoorPanel` in
@@ -80,7 +80,7 @@ So a light push folds the mirror and a real hit breaks it off.
 
 The car is parked at the origin facing +Z. The ram is a box: a face width × height × 0.5 m. It is
 kinematic except for the momentum it trades with the door and the mirror. It is a striker box in
-the shared contact (`external-contact.ts`, docs/CONTACT_PARITY.md): the door and mirror colliders
+the shared contact (`external-contact.ts`, [`CONTACT_PARITY.md`](CONTACT_PARITY.md)): the door and mirror colliders
 below are `partContact`, the same code a car running down the side meets, and `bodyContact` dents
 the skin if a lane reaches it (the stock lanes stay clear of it, so body Δ stays 0 mm). Contact
 runs in 0.5 ms substeps.

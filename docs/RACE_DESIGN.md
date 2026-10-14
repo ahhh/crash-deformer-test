@@ -203,7 +203,7 @@ host and clients). The HUD reads `RaceHud` and sends `RaceCommand`s.
 Setup rows **Name** (≤ 16 characters, empty = "You") and **Car** (one button per `DRIVER_CARS` entry). The HUD keeps both in
 `localStorage` (`crush.driver.name`, `crush.driver.car`) and `CrashLab` sends them to `CrashEngine.setDriver`: the name
 becomes `RaceDirector.playerName`, the car rebuilds slot 0 and re-parks the grid. Netplay: a client's hello carries its name,
-so every peer sees every chosen name (`docs/MULTIPLAYER.md`); a peer's car type does not travel.
+so every peer sees every chosen name ([`MULTIPLAYER.md`](MULTIPLAYER.md)); a peer's car type does not travel.
 
 ## AI (`RaceBrain`)
 
@@ -362,7 +362,7 @@ past `SLAM_TEAR_J`. Knock props do not meet doors. Car-to-car contact is the san
 | `razor-shelf` | Razor Shelf | ≈ 2930 m | the cliff road: a shelf at 2–14 m, banked to 8°, gravel / asphalt / dirt | inside cut off the shelf past the mesa, dirt (1 → 4): a deliberate high-risk line (≈ 38 s against the road's 65 s, its 12 m mouth admits one car at a time, so who makes it is close to a lottery; owner 10-07). Its first 48 m, into the mouth, are cobble (grip 0.85 against dirt's 0.72), a row of tall cones runs along the shelf's inside edge for the 110 m before the mouth and two rows line the cobble, and a CRUSH billboard stands just past the rejoin |
 | `breaker-yard` | Breaker Yard | ≈ 2270 m | the plant loop on concrete with a storm-drain culvert (tunnel) as the long way, 17 placed props | upper deck and yard cut, both concrete (1 → 3), both die on the drain gate |
 
-Havana (`havana`, Survival only) is off the menu: `docs/SURVIVAL.md`.
+Havana (`havana`, Survival only) is off the menu: [`SURVIVAL.md`](SURVIVAL.md).
 
 ## Track JSON
 
@@ -383,8 +383,8 @@ self-crossing with neither level a deck, less than 4.5 m between levels, and a c
 | `along[]` | `{ prefab, every, side = "both", offset = 1.5, fromNode?, toNode?, route?, scale = 1 }` | repeated beside the wall line (or along side street `route`); copies on any road are skipped, and so is any non-knock copy whose drawn footprint a bend turns onto its own road or runoff. `course-intrusion.test.ts` holds every course to ≤ 0.1 m |
 | `scatter[]` | `{ prefab, count, near = 6, far = 60, seed = 1, scaleMin = 0.8, scaleMax = 1.25 }` | seeded scenery off every corridor |
 | `traffic` | `{ count = 0, speed = 9, lanes = [], routes = [] }?` | `lanes: [{ offset, dir: 1 \| -1 }]` on the race loop; `routes: [{ id, path, loop = false, width = 9, surface = "asphalt", count, lanes }]` side streets (open the race walls where they cross) |
-| `environment` | `{ sky = "#12141a", fog = 0.0035, terrain = "grass", hills: [{x, z, radius, height}], plateaus?, paint?, light? }` | look and base terrain (`plateaus` / `paint`: `docs/SURVIVAL.md`) |
-| `survival` | `{ start: {x, z, yaw}, formation: [...] }?` | Survival anchors (`docs/SURVIVAL.md`) |
+| `environment` | `{ sky = "#12141a", fog = 0.0035, terrain = "grass", hills: [{x, z, radius, height}], plateaus?, paint?, light? }` | look and base terrain (`plateaus` / `paint`: [`SURVIVAL.md`](SURVIVAL.md)) |
+| `survival` | `{ start: {x, z, yaw}, formation: [...] }?` | Survival anchors ([`SURVIVAL.md`](SURVIVAL.md)) |
 
 Prefabs: knock `cone, tyre-stack, hay-bale, crate`; solid `barrier-block, rock, tree, building, grandstand, billboard, lamp`;
 scenery `gantry`, plus the courses' own (Havana's stucco, palm, monument, wall, dumpster). A prefab's front is its local +X;
@@ -396,7 +396,7 @@ Race hunks in `CrashEngine`: `toggleRace` / `setRace` (exclusive with the other 
 and lamp poles; restores the sandbox car count on exit), `raceCommand`, `RaceDirector.drive` at the start of `fixedStep`,
 `collide` per car per slice, `step` after the slices, `frame` before the camera, the chase camera while a race runs, `race`
 in the HUD state, the 2.5 m height gate on car pairs. While a race menu is open the engine still polls the pad but ignores
-pad buttons and keys (the HUD owns them). Racing keys: `docs/CONTROLS.md`.
+pad buttons and keys (the HUD owns them). Racing keys: [`CONTROLS.md`](CONTROLS.md).
 
 ## HUD and controller menus
 

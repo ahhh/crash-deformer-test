@@ -3,7 +3,7 @@
 How cars drive, what each class is like, the arcade ↔ realistic slider, and how damage changes driving.
 Code: `src/game/vehicle/vehicle-classes.ts` (data, slider, damage grading), `src/game/vehicle/car-drive.ts` (`applyDrive`,
 `DriverSeat`), `src/game/vehicle/drive-input.ts` (keyboard / pad feel). Tests: `vehicle-classes.test.ts`,
-`drive-input.test.ts`, `gamepad.test.ts`. Every control: `docs/CONTROLS.md`.
+`drive-input.test.ts`, `gamepad.test.ts`. Every control: [`CONTROLS.md`](CONTROLS.md).
 
 Reverse steers like a real car: holding A while backing swings the tail left.
 
@@ -35,7 +35,7 @@ Each class has 4 or 5 gear buckets (`ClassStats.gears`): a gear's top end as a s
 thrust (m/s²) that falls with each shift. No clutch or revs; the pull steps down at every shift. Each gear has an arcade
 and a realistic thrust, lerped by `HANDLING.realism`. Boost multiplies the thrust ×1.55–1.6 and lifts the top ×1.2–1.22,
 pulling on in top gear past the class top. In a race, drafting lifts the top a further ×1.02 while it lasts (`DRAFT.top`;
-`docs/RACE_DESIGN.md` "Drafting"). The fastest a driven car goes is a boosted muscle car in a draft, and `barrier.test.ts`
+[`RACE_DESIGN.md`](RACE_DESIGN.md) "Drafting"). The fastest a driven car goes is a boosted muscle car in a draft, and `barrier.test.ts`
 crashes every hit up to it.
 
 | Class | Gear top ends (× top) | Thrust per gear, arcade (m/s²) | Thrust per gear, realistic (m/s²) |
@@ -71,7 +71,7 @@ the arcade end is about × 0.4 and × 0.5 of those, the real order kept (muscle 
 - **Slides**: Space at speed with lock kicks the tail out; boost at full lock does it on tail-happy classes. Keep the gas on
   with lock either way and the drift assist holds the body angle while the car carries its speed round; release the wheel or
   lift off and it catches itself. Full opposite lock catches it twice as fast.
-- **Draft** (race mode only): in the wake of another racer (a 36° cone up to 3 car lengths behind its rear bumper, `docs/RACE_DESIGN.md` "Drafting") the top speed is ×1.02, the thrust unchanged.
+- **Draft** (race mode only): in the wake of another racer (a 36° cone up to 3 car lengths behind its rear bumper, [`RACE_DESIGN.md`](RACE_DESIGN.md) "Drafting") the top speed is ×1.02, the thrust unchanged.
 - **Recovery**: a driven car stuck on its roof or side rights itself after 1.2 s at the arcade end, slower toward mid
   slider; past 0.6 only R rights it.
 - **Surface grip** comes from the active `Ground` (`frictionAt`) under each axle: low front grip loses steering, low rear

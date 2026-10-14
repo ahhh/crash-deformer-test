@@ -74,7 +74,7 @@ block, head-on within `ATTACK` = 35 m), `pursuitSteer`, `Backoff` (back off when
 than 20 m behind).
 
 - **Pack guard.** Every hunter's drive ends with `guardMates` (`ai/pack-guard.ts`, as `PoliceBrain.think` does): it steers
-  away from, and brakes for, the pack-mate it would reach soonest within 3 s (`docs/RACE_DESIGN.md`, "Pack guard").
+  away from, and brakes for, the pack-mate it would reach soonest within 3 s ([`RACE_DESIGN.md`](RACE_DESIGN.md), "Pack guard").
 - **Queueing.** A target faster than `PIT_MAX` = 20 m/s is queued behind (a lane `TAIL_LANE` = 2.6 m either side, a row every
   `ROW` = 8 m), and a unit closing faster than it can brake goes straight on.
 - **Beyond `ATTACK`** it aims at where the player will be, bent round solid props on a 16 m grid.
@@ -92,7 +92,7 @@ than 20 m behind).
 
 ## Co-op
 
-A private room's host may run Survival (`docs/MULTIPLAYER.md`, Co-op). Everything is the host's: it seats the humans, simulates the
+A private room's host may run Survival ([`MULTIPLAYER.md`](MULTIPLAYER.md), Co-op). Everything is the host's: it seats the humans, simulates the
 cops, decides the busts. Rules, all in the existing per-car machinery:
 
 - **Spawn:** every human the room has seated at the run's start, abreast on the start anchor (`humanSlot`: 4 m apart, four to a

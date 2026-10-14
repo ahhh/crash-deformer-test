@@ -145,7 +145,7 @@ scenarios at the engine's slices), `scenes/contact-parity.test-util.ts` (striker
   A/B runs. Both paths compile and are exercised; the loser is deleted when the A/B decides.
 - **W3. Pooled outcome bars.** Game outcomes and pacing over seeded runs may be pooled ("≥ N of M heats have a winner within
   T"). Physics rules (spin ceilings, zips, sinking, penetration, ramp contact) hold on every run.
-- **W4. Visual cheats.** Effects, camera and lighting may ignore physics (`docs/DESIGN_PILLARS.md` 1). The cheat lives in
+- **W4. Visual cheats.** Effects, camera and lighting may ignore physics ([`DESIGN_PILLARS.md`](DESIGN_PILLARS.md) 1). The cheat lives in
   `present`, never in a sim context.
 - **W5. Table rows look alike.** Repeated rows in data tables are not duplication.
 
@@ -191,7 +191,7 @@ generator for the new tuning, and fades in; it never cuts. Upstream's C++ never 
 generator per tuning (class x damage tone, 15 at most) once and keeps it (`kernels/motor/motor-processor.js`; `motor-heap.test.ts`
 holds the shared 16 MB wasm heap flat over 20 000 re-tunes); never call `updateParameters` on a live generator. The music bus is the slider (at most 0.6) ducked under the player's engine and a
 crash. The soundtrack (`present/music.ts`) is one streaming `<audio>` element fed by the music folder's `manifest.json`
-(`present/music-manifest.ts`, zod-validated; docs/DEPLOY.md, "Music"); no manifest means silence. Audio reads cars and never writes them.
+(`present/music-manifest.ts`, zod-validated; [`DEPLOY.md`](DEPLOY.md), "Music"); no manifest means silence. Audio reads cars and never writes them.
 Gain staging (`audio-mix.ts`, `motor-tone.ts`): a voice is the generator's three channels summed and scaled by
 `MOTOR_OUTPUT_GAIN`, never clipped (the sum swings to +-9, so the scale keeps every class, stage and rev under -6 dBFS and a redline near
 -12 dBFS; `motor-level.test.ts` renders the real worklet to prove it). The panner is `inverse`, refDistance 6 (the chase camera's
@@ -211,7 +211,7 @@ eased by `easeLoad` (0.1 s attack, 0.3 s release time constants); a misfire dip 
 
 **Scenes** (`scenes/scene-id.ts` `SCENE_IDS`, one at a time via `setScene`): fleet (default, with the barrier, ramp balls
 and jump ramps as props), press, pistons, doors, corkscrew, stack, derby, race, range, survival. A pick fades through the
-cel look and black (`SceneFade`); `__crush.fadeScenes = false` skips it for probes. Keys: `docs/CONTROLS.md`.
+cel look and black (`SceneFade`); `__crush.fadeScenes = false` skips it for probes. Keys: [`CONTROLS.md`](CONTROLS.md).
 
 **HUD.** `CrashEngine.emitHud` → `HudStore.publish(snapshot)` → `useSyncExternalStore` in `crash-lab.tsx` → `components/hud*.tsx`.
 The HUD calls engine setters and `raceCommand(cmd)`; it never touches sim state.

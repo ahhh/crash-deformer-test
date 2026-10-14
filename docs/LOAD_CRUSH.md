@@ -35,9 +35,9 @@ One rule for every face; stacks are not special-cased (a stack is `restsOn` plus
 | face | `y0` (W) | `k` (W/m) | `q` (W/m²) | packed (m) | source |
 |---|---|---|---|---|---|
 | roof | 0.5 | 15 | 45 | 0.45 | FMVSS 216 (roof strength): 3 W within 127 mm of platen crush. 0.5 + 15·0.127 + 45·0.127² = **3.13 W**. One car's weight settles at **31 mm**, two at 81 mm, three at 122 mm, four at 158 mm (static). 0.45 m: the cabin's height under the roof cage. |
-| nose | 15 | 97 | 0 | 0.55 | `CRUSH_CALIBRATION.md`: 56 km/h into a wall, 0.37 m stroke, 104 kJ at 860 kg: mean 33 W over the stroke; 15 + 97·0.185 = 33 W. Packed at the rig's front `maxCrush`. |
+| nose | 15 | 97 | 0 | 0.55 | [`CRUSH_CALIBRATION.md`](CRUSH_CALIBRATION.md): 56 km/h into a wall, 0.37 m stroke, 104 kJ at 860 kg: mean 33 W over the stroke; 15 + 97·0.185 = 33 W. Packed at the rig's front `maxCrush`. |
 | tail | 15 | 150 | 0 | 0.38 | same yield; the rig's shorter, stiffer rear stroke (`maxCrush` 0.38 m). |
-| flank | 8 | 160 | 0 | 0.30 | the door band, 0.12-0.28 m at 50 km/h (`docs/CRUSH_CALIBRATION.md`). |
+| flank | 8 | 160 | 0 | 0.30 | the door band, 0.12-0.28 m at 50 km/h ([`CRUSH_CALIBRATION.md`](CRUSH_CALIBRATION.md)). |
 
 FMVSS 216 is a quasi-static *minimum* (a car need only carry 3 W), so one car's weight (1 W) gives modest crush (31 mm)
 and the same law under impact gives the numbers below: the work a drop does is `W·(h + d) = ∫F dd`.
