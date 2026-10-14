@@ -193,8 +193,8 @@ crash. The soundtrack (`present/music.ts`) is one streaming `<audio>` element fe
 Gain staging (`audio-mix.ts`, `motor-tone.ts`): a voice is the generator's three channels summed and scaled by
 `MOTOR_OUTPUT_GAIN`, never clipped (the sum swings to +-9, so the scale keeps every class, stage and rev under -6 dBFS and a redline near
 -12 dBFS; `motor-level.test.ts` renders the real worklet to prove it). The panner is `inverse`, refDistance 6 (the chase camera's
-distance, so the player's car is at unity), rolloff 2. The engine bus is the slider squared x0.4 (the 0.5 default is x0.1) into a master
-limiter (`MASTER_LIMITER`, a high-ratio compressor with look-ahead); the music bus (at most 0.6) shares the master. The race menus
+distance, so the player's car is at unity), rolloff 2. The engine bus is the slider x1 (default 0.25) into the master chain: a 2:1 glue
+compressor, a peak limiter and a -1 dBFS ceiling (`MASTER_GLUE`, `MASTER_LIMITER`, `ceilingCurve`); the music bus (slider at most 0.6, default 0.15, x0.5 trim) shares the master. The race menus
 (setup, pause) carry the Sound, Music and Engines rows, since their modal covers the settings panel.
 
 **Scenes** (`scenes/scene-id.ts` `SCENE_IDS`, one at a time via `setScene`): fleet (default, with the barrier, ramp balls

@@ -11,28 +11,48 @@ const SLOWMO_FLOOR_HZ = 700;
 const SLOWMO_SPAN_HZ = 19300;
 
 /**
- * The engine bus gain at a full slider. The owner heard x1.25 (the old 0.5 default) and x0.35 (his slider at 0.14) both as far too
- * loud beside the music, so the bus is now 22 dB under the old default: the 0.5 default is x0.1.
+ * The engine bus gain at a full slider: unity. A redline voice peaks near -12 dBFS at unity (`MOTOR_OUTPUT_GAIN`), so a full slider
+ * is the loudest a lone engine gets before the master chain; the 0.25 default is x0.25 (-12 dB).
  */
-const ENGINE_FULL_GAIN = 0.4;
+const ENGINE_FULL_GAIN = 1;
 
-/** The engine bus gain: the slider (0..1) squared to `ENGINE_FULL_GAIN` (a loudness-shaped taper: the low half stays usable). */
+/** The engine bus gain: the slider (0..1), linear to `ENGINE_FULL_GAIN`. */
 export function engineBusGain(volume: number): number {
-  const v = Math.min(1, Math.max(0, volume));
-  return v * v * ENGINE_FULL_GAIN;
+  return Math.min(1, Math.max(0, volume)) * ENGINE_FULL_GAIN;
 }
 
 /**
- * The master limiter (a DynamicsCompressor, which keeps a look-ahead): a high ratio at a threshold near the peaks, so it only
- * catches the sum of several close engines at a high slider. Browsers add make-up gain to a compressor: measured, a lone redline
- * at the default comes out +1.8 dB, and six voices at a full slider top out near -1.4 dBFS (the old -10 dB / 4:1 setting
- * ran every mix 2.7 dB hot and was squeezing it constantly).
+ * Master chain: a gentle glue compressor (2:1, wide soft knee, slow enough to keep transients), a peak limiter, then a ceiling that
+ * no sample passes. A browser compressor adds its own make-up gain (about +3.6 dB for `MASTER_GLUE`), which `GLUE_TRIM` takes back
+ * so the glue changes dynamics, not loudness.
  */
-export const MASTER_LIMITER = { threshold: -6, knee: 6, ratio: 12, attack: 0.003, release: 0.25 } as const;
+export const MASTER_GLUE = { threshold: -12, knee: 12, ratio: 2, attack: 0.02, release: 0.3 } as const;
+export const GLUE_TRIM = 0.66;
+export const MASTER_LIMITER = { threshold: -3, knee: 0, ratio: 20, attack: 0.002, release: 0.1 } as const;
+/** The output ceiling: -1 dBFS. */
+export const CEILING = 10 ** (-1 / 20);
+/** The ceiling curve is linear up to this share of the ceiling, then bends smoothly (tanh) onto it: no hard clip edge. */
+const CEILING_KNEE = 0.8;
 
-/** The music bus gain: the slider, capped, under the engine duck and the crash duck (each 0..1). */
+/** The ceiling's WaveShaper curve over inputs -1..1 (`n` points): unity below the knee, never past `CEILING`. */
+export function ceilingCurve(n: number): Float32Array<ArrayBuffer> {
+  const out = new Float32Array(new ArrayBuffer(n * 4));
+  const k = CEILING * CEILING_KNEE;
+  const span = CEILING - k;
+  for (let i = 0; i < n; i++) {
+    const x = (2 * i) / (n - 1) - 1;
+    const a = Math.abs(x);
+    out[i] = Math.sign(x) * (a <= k ? a : k + span * Math.tanh((a - k) / span));
+  }
+  return out;
+}
+
+/** NCS masters run hot (near 0 dBFS RMS on the loud sections), so the music bus sits 6 dB under its slider. */
+const MUSIC_TRIM = 0.5;
+
+/** The music bus gain: the slider, capped, trimmed, under the engine duck and the crash duck (each 0..1). */
 export function musicGain(volume: number, engineDuck: number, crashDuck: number): number {
-  return Math.min(MUSIC_MAX_GAIN, volume) * engineDuck * crashDuck;
+  return Math.min(MUSIC_MAX_GAIN, volume) * MUSIC_TRIM * engineDuck * crashDuck;
 }
 
 /** The music's duck for the player's engine at `playerLevel` (load x revs, 0..1). */

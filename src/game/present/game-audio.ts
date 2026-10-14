@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import type { DeformableCar } from "../vehicle/car.ts";
-import { crashDuck, engineBusGain, engineDuck, MASTER_LIMITER, musicGain, slowmoCutoff } from "./audio-mix.ts";
+import { ceilingCurve, crashDuck, engineBusGain, engineDuck, GLUE_TRIM, MASTER_GLUE, MASTER_LIMITER, musicGain, slowmoCutoff } from "./audio-mix.ts";
 import { lowpass, MotorSound } from "./motor-sound.ts";
 import { MusicPlayer } from "./music.ts";
 import { musicBase } from "./music-manifest.ts";
@@ -35,7 +35,7 @@ function voiceSlots(desktop: boolean): number {
 /**
  * The one audio façade: a single AudioContext, the three listener on the camera, and the busses
  *
- *   listener.gain -> engineBus -> slowmoFilter -> master -> limiter -> destination
+ *   listener.gain -> engineBus -> slowmoFilter -> master -> glue -> trim -> limiter -> ceiling (-1 dBFS) -> destination
  *   impact one-shots -> impactBus ------------/
  *   music -> musicBus ------------------------/
  *
@@ -105,16 +105,20 @@ export class GameAudio {
     const listener = new THREE.AudioListener();
     this.camera.add(listener);
 
-    const limiter = context.createDynamicsCompressor();
-    limiter.threshold.value = MASTER_LIMITER.threshold;
-    limiter.knee.value = MASTER_LIMITER.knee;
-    limiter.ratio.value = MASTER_LIMITER.ratio;
-    limiter.attack.value = MASTER_LIMITER.attack;
-    limiter.release.value = MASTER_LIMITER.release;
-    limiter.connect(context.destination);
+    const ceiling = context.createWaveShaper();
+    ceiling.curve = ceilingCurve(4097);
+    ceiling.oversample = "4x";
+    ceiling.connect(context.destination);
+    const limiter = dynamics(context, MASTER_LIMITER);
+    limiter.connect(ceiling);
+    const trim = context.createGain();
+    trim.gain.value = GLUE_TRIM;
+    trim.connect(limiter);
+    const glue = dynamics(context, MASTER_GLUE);
+    glue.connect(trim);
     const master = context.createGain();
     master.gain.value = this.on ? 1 : 0;
-    master.connect(limiter);
+    master.connect(glue);
 
     const slowmoFilter = lowpass(context, slowmoCutoff(1));
     slowmoFilter.connect(master);
@@ -246,4 +250,15 @@ export class GameAudio {
     this.on = false;
     this.sinceImpactS = Infinity;
   }
+}
+
+/** A DynamicsCompressor set from one of the `audio-mix` presets. */
+function dynamics(context: AudioContext, p: { threshold: number; knee: number; ratio: number; attack: number; release: number }): DynamicsCompressorNode {
+  const node = context.createDynamicsCompressor();
+  node.threshold.value = p.threshold;
+  node.knee.value = p.knee;
+  node.ratio.value = p.ratio;
+  node.attack.value = p.attack;
+  node.release.value = p.release;
+  return node;
 }

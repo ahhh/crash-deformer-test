@@ -1,16 +1,16 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { approach, crashDuck, engineBusGain, engineDuck, MASTER_LIMITER, musicGain, slowmoCutoff } from "./audio-mix.ts";
+import { approach, CEILING, ceilingCurve, crashDuck, engineBusGain, engineDuck, MASTER_LIMITER, musicGain, slowmoCutoff } from "./audio-mix.ts";
 
 const EPS = 1e-9;
 
-describe("given the music bus gain (the slider, capped at 0.6, under the engine duck and the crash duck)", () => {
+describe("given the music bus gain (the slider, capped at 0.6, x0.5 trim, under the engine duck and the crash duck)", () => {
   const testCases = [
-    { name: "the default slider, no ducking", volume: 0.35, engineDuck: 1, crash: 1, expected: 0.35 },
-    { name: "a full slider is capped", volume: 1, engineDuck: 1, crash: 1, expected: 0.6 },
-    { name: "a wild slider is capped", volume: 5, engineDuck: 1, crash: 1, expected: 0.6 },
-    { name: "the cap under full engine duck (x0.65)", volume: 0.6, engineDuck: engineDuck(1), crash: 1, expected: 0.39 },
-    { name: "the cap under a crash duck (x0.4)", volume: 0.6, engineDuck: 1, crash: 0.4, expected: 0.24 },
+    { name: "the default slider (0.15), no ducking", volume: 0.15, engineDuck: 1, crash: 1, expected: 0.075 },
+    { name: "a full slider is capped", volume: 1, engineDuck: 1, crash: 1, expected: 0.3 },
+    { name: "a wild slider is capped", volume: 5, engineDuck: 1, crash: 1, expected: 0.3 },
+    { name: "the cap under full engine duck (x0.65)", volume: 0.6, engineDuck: engineDuck(1), crash: 1, expected: 0.195 },
+    { name: "the cap under a crash duck (x0.4)", volume: 0.6, engineDuck: 1, crash: 0.4, expected: 0.12 },
   ];
   for (const c of testCases) {
     it(`when the music is ${c.name}, then the bus gain is ${c.expected}`, () => {
@@ -19,13 +19,12 @@ describe("given the music bus gain (the slider, capped at 0.6, under the engine 
   }
 });
 
-describe("given the engine bus gain (the slider squared to 0.4: the 0.5 default is x0.1, 22 dB under the old x1.25 the owner found far too loud)", () => {
+describe("given the engine bus gain (the slider, linear to unity: the 0.25 default is x0.25)", () => {
   const testCases = [
-    { name: "the default slider", volume: 0.5, expected: 0.1 },
-    { name: "the owner's too-loud 0.14 slider", volume: 0.14, expected: 0.14 * 0.14 * 0.4 },
-    { name: "a full slider", volume: 1, expected: 0.4 },
+    { name: "the default slider", volume: 0.25, expected: 0.25 },
+    { name: "a full slider", volume: 1, expected: 1 },
     { name: "a muted slider", volume: 0, expected: 0 },
-    { name: "a wild slider is capped", volume: 5, expected: 0.4 },
+    { name: "a wild slider is capped", volume: 5, expected: 1 },
     { name: "a negative slider is floored", volume: -1, expected: 0 },
   ];
   for (const c of testCases) {
@@ -41,6 +40,22 @@ describe("given the master limiter", () => {
   });
   it("when its attack and release are read, then it grabs a peak within 5 ms and lets go within a quarter second", () => {
     assert.ok(MASTER_LIMITER.attack <= 0.005 && MASTER_LIMITER.release <= 0.25);
+  });
+});
+
+describe("given the -1 dBFS ceiling curve", () => {
+  const curve = ceilingCurve(4097);
+  it("when any input up to full scale is shaped, then no output passes -1 dBFS", () => {
+    let peak = 0;
+    for (let i = 0; i < curve.length; i++) peak = Math.max(peak, Math.abs(curve[i]!));
+    assert.ok(peak <= CEILING + 1e-6, `peak ${peak} over ${CEILING}`);
+  });
+  it("when a signal sits under the knee (half scale), then it passes untouched", () => {
+    const i = Math.round((0.5 + 1) / 2 * (curve.length - 1));
+    assert.ok(Math.abs(curve[i]! - 0.5) < 1e-6, `0.5 became ${curve[i]}`);
+  });
+  it("when the input rises, then the output never falls (no fold-back distortion)", () => {
+    for (let i = 1; i < curve.length; i++) assert.ok(curve[i]! >= curve[i - 1]!, `curve falls at ${i}`);
   });
 });
 
