@@ -9,7 +9,7 @@ import { snapshotAiCar } from "../match/derby.ts";
 import { fleetStyle } from "../scenes/fleet.ts";
 import { SURFACES } from "../world/catalog.ts";
 import { RaceBrain, copyDrive, onSurface } from "./race-ai.ts";
-import { AI_DIFFICULTIES, AI_EVERY_SLICE, type AiDifficulty } from "./constants.ts";
+import { AI_DIFFICULTIES, AI_EVERY_SLICE, SLIP_RECOVER, SLIP_WINDOW, type AiDifficulty } from "./constants.ts";
 import { fieldAggression, mood } from "./ai-aggression.ts";
 import { RaceSession } from "../match/session.ts";
 import { Track, blankProjection, projectPath } from "../world/track.ts";
@@ -397,5 +397,26 @@ describe("given an AI driver at 30 m/s on the oval's back straight, alone, its n
     const centred = pointedOut(0);
     const onLine = new RaceBrain(oval, 1).think(centred, [centred], { next: 1, lap: 0 }, DT);
     assert.ok(onLine.throttle > 0 && onLine.brake === 0, `on the road: brake ${onLine.brake} throttle ${onLine.throttle}`);
+  });
+});
+
+describe("given an easy driver whose slip starts on the oval's open road, then held in traffic past the slip's whole length", () => {
+  it("when the road clears, then its slip timer has run out and it plans unshaken top speed, not `shaken` x top", () => {
+    const brain = new RaceBrain(oval, 2);
+    brain.setDifficulty(0, "easy");
+    brain["slipP"][0] = 1;
+    const race = { next: 1, lap: 0 };
+    const slip = onRoad(oval, 0, 70, 0, 17);
+    brain.think(slip, [slip], race, DT);
+    assert.equal(brain["slip"][0], SLIP_WINDOW + SLIP_RECOVER, "a corner on an open road started the slip");
+    // On the back straight (no corner in the plan), an 8 m/s car 9 m ahead on its line: it follows, so the road is not open.
+    const me = onRoad(oval, 0, 340, 0, 17);
+    const slow = onRoad(oval, 1, 349, 0, 8);
+    for (let k = 0; k < Math.ceil((SLIP_WINDOW + SLIP_RECOVER + 1) / DT); k++) brain.think(me, [me, slow], race, DT);
+    assert.equal(brain["busy"][0], 1, "the slow car held it in traffic");
+    const out = brain.think(me, [me], race, DT);
+    assert.equal(brain["busy"][0], 0, "the road cleared");
+    assert.equal(brain["slip"][0], 0, "the slip aged out in traffic");
+    assert.ok(out.throttle === 1 && out.brake === 0, `unshaken: throttle ${out.throttle} brake ${out.brake}`);
   });
 });
