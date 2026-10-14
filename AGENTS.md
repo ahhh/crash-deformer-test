@@ -19,7 +19,8 @@ are in `docs/ARCHITECTURE.md` and enforced by `npm run check:boundaries`.
 - Never create a `.env` file; only `VITE_`-prefixed variables reach the browser. Server variables
   (`PORT`, `HOST`, `PGLITE_DATA_DIR`) are listed in `docs/DEPLOY.md`.
 - Playwright drives the repo's own browser scripts (`scripts/bench-browser.mjs`, `scripts/bake-env.mjs`,
-  `scripts/check-programs.mjs`). QA screenshots go under `screenshots/` (git-ignored).
+  `scripts/check-programs.mjs`, `scripts/readme-shots.mjs`, which remakes the README's pictures at the Ultra tier from a
+  served build). QA screenshots go under `screenshots/` (git-ignored).
 
 ## Checks
 
@@ -30,6 +31,7 @@ are in `docs/ARCHITECTURE.md` and enforced by `npm run check:boundaries`.
 | `npm run check:boundaries` | the structural rules, ratcheted against `scripts/boundary-caps.json` |
 | `npm run lint` | `oxlint` (`docs/TOOLCHAIN.md`) |
 | `npm run build:node` | the self-hosted server build into `.output/` |
+| `node scripts/check-links.mjs` | every relative link in `README.md` and `docs/*.md` resolves; run it after moving or renaming a doc |
 
 ## Layout
 
