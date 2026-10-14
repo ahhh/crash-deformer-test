@@ -25,7 +25,7 @@ variables do).
 
   The installable-app manifest (`<base>manifest.webmanifest`, `vite-plugin-pwa`; `display: fullscreen`,
   `id`/`start_url`/`scope` = the base) and its icons (`<base>icons/`) live under the base too, so
-  `deploy/nginx-crush.conf` is the single `location ^~ <base>` block and the site root is not touched.
+  `deploy/nginx-crush.conf` holds the app's `location ^~ <base>` block (plus the soundtrack's `<base>music/`, below) and the site root is not touched.
   The plugin registers no service worker (`vite.config.ts`, `pwa`): it would serve a stale build.
 
 Runtime variables for the node server: `PORT` (default 3000), `HOST`, `PGLITE_DATA_DIR`
@@ -61,9 +61,9 @@ The game reads the list from `<music base>manifest.json` the first time audio is
 
 Setting it up on the box (once; the box needs no rebuild or deploy for music):
 
-1. Transcode, if the source is larger than needed (128 kbps CBR, no loudness change or EQ: NCS allows timing edits only): `ffmpeg -i "<source>.mp3" -map 0:a -map_metadata -1 -ar 44100 -ac 2 -c:a libmp3lame -b:a 128k <kebab-name>.mp3`. The dev copies in `public/music/` are the untouched 320 kbps files.
-2. `install -d -m 755 -o crush -g crush "$ROOT/shared/music"`, then `scp public/music/*.mp3 public/music/manifest.json box:$ROOT/shared/music/` (`$ROOT` as in deploy/README.md). `shared/` survives releases.
-3. In the site's `server` block, next to the `include` of `deploy/nginx-crush.conf` (same `@BASE@`, `@ROOT@` and `@ACCESS_LOG@` substitutions), add the music location. It is a longer `^~` prefix than the app's, so it wins for `<base>music/`; nginx serves byte ranges and `audio/mpeg` on its own, which the streaming `<audio>` element needs: `location ^~ @BASE@music/ { access_log @ACCESS_LOG@; alias @ROOT@/shared/music/; add_header Cache-Control "public, max-age=604800"; }`. Then `nginx -t && systemctl reload nginx`. The client asks for the manifest with `cache: "no-cache"`, so an edited manifest is picked up on the next page load despite that max-age; the mp3s are cached for a week, so give a replaced song a new file name.
+1. Transcode, if the source is larger than needed (128 kbps CBR, no loudness change or EQ: NCS allows timing edits only): `ffmpeg -i <kebab-name>.mp3 -map 0:a -map_metadata -1 -ar 44100 -ac 2 -c:a libmp3lame -b:a 128k out/<kebab-name>.mp3`. The staged sources (`.soundAssetStaging/`, gitignored) already carry the kebab names the manifest lists.
+2. `install -d -m 755 -o crush -g crush "$ROOT/shared/music"`, then copy the mp3s and `public/music/manifest.json` there, owned by crush, mode 644 (`$ROOT` as in deploy/README.md). `shared/` survives releases.
+3. Re-render `deploy/nginx-crush.conf` (README step 4: it carries the `location ^~ @BASE@music/` that serves `@ROOT@/shared/music/`, a longer `^~` prefix than the app's), then `nginx -t && systemctl reload nginx`. nginx serves byte ranges and `audio/mpeg` itself, which the streaming `<audio>` element needs. The client asks for the manifest with `cache: "no-cache"`, so an edited manifest is picked up on the next page load despite the week's max-age; the mp3s are cached for a week, so give a replaced song a new file name.
 4. Adding or removing a song: put the mp3 in (or take it out of) `$ROOT/shared/music/` and edit its `manifest.json` there; also edit the committed reference `public/music/manifest.json` so the repository still names what is live. Nothing is rebuilt.
 
 `VITE_MUSIC_BASE` (build time, a Vite client variable like `BASE_URL`) points the game at a music folder elsewhere, e.g. `VITE_MUSIC_BASE=https://cdn.example/crush-music/ npm run build:node`; on Windows `node scripts/with-app-env.mjs VITE_MUSIC_BASE=https://cdn.example/crush-music/ npm run build:node`. A value without a trailing slash gets one. The audio element is cross-origin anonymous so its samples reach the Web Audio graph: a folder on another origin must send `Access-Control-Allow-Origin` for both the mp3s and `manifest.json`, or the music plays as silence. `crush-deploy.sh` builds with `APP_BASE` only (a clean environment for `crush`), so the box uses the default `<APP_BASE>music/` unless the script is taught to pass `VITE_MUSIC_BASE`. There is no `.env` file in the repository.
